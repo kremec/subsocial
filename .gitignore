@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+expo-env.d.ts
+
+# generated native folders
+/ios
+/android
+
+# native credentials and build artifacts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+/*.apk
+/*.app
+
+# Metro and debug logs
+.metro-health-check*
+*.log
+
+# local environment files
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+*.pem
+
+subsocial-508019-96ef238e095d.json

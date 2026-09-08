@@ -1,0 +1,2 @@
+# masked-view's Gradle script removes this package attribute in place.
+node_modules/@react-native-masked-view/masked-view/android/src/main/AndroidManifest.xml
