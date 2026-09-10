@@ -235,20 +235,19 @@
     const textNodes = [
       ...article.querySelectorAll('[data-testid="tweetText"]'),
     ];
-    const quoteText = textNodes
-      .slice(1)
-      .find((node) => node.closest('[role="link"]'));
+    const quoteText = textNodes.find((node) => node.closest('[role="link"]'));
     const quoteRoot = quoteText?.closest('[role="link"]');
+    const postText = textNodes.find((node) => !quoteRoot?.contains(node));
     const socialContext = article.querySelector(
       '[data-testid="socialContext"]',
     );
     const reposterPath = socialContext?.closest("a")?.getAttribute("href");
     const time = article.querySelector("time[datetime]");
     const data = postDataFor(
-      textNodes[0] || article,
+      postText || article,
       article,
       sourceId,
-      textNodes[0] ? textFor(textNodes[0]) : "",
+      postText ? textFor(postText) : "",
     );
     if (
       data.broadcast ||

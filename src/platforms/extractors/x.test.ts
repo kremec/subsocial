@@ -47,6 +47,7 @@ function extractText(
     },
     cloneNode: () => ({ textContent: "Preview", querySelectorAll: () => [] }),
     parentElement: null,
+    closest: () => null,
   };
   const image = {
     tagName: "IMG",
@@ -267,10 +268,11 @@ test("uses the original X photo when only a rendered thumbnail is available", ()
   );
 });
 
-test("extracts Expo's fold quote when its link and media live on an ancestor tweet record", () => {
+function checkQuotedPost(hasPostText: boolean) {
   const parentId = "2096614785140031560";
   const quoteId = "2096541661576966288";
-  const parentContent = "We’ll be ready for the fold.";
+  const parentContent = hasPostText ? "We’ll be ready for the fold." : "";
+  const photoUrl = "https://pbs.twimg.com/media/parent.jpg";
   const quoteContent =
     "🧪 Experimenting building a foldable UI with @expo, Astra, and Material 3 for Android.";
   const mediaUrl =
@@ -278,6 +280,9 @@ test("extracts Expo's fold quote when its link and media live on an ancestor twe
   const normalized = {
     id_str: parentId,
     full_text: parentContent,
+    extended_entities: {
+      media: [{ type: "photo", media_url_https: photoUrl }],
+    },
     permalink: `/expo/status/${parentId}`,
     quoted_status_permalink: {
       expanded: `https://twitter.com/amanhimself/status/${quoteId}`,
@@ -364,6 +369,7 @@ test("extracts Expo's fold quote when its link and media live on an ancestor twe
   };
   const article = {
     nodeType: 1,
+    __reactFiber$test: { memoizedProps: { tweet: normalized } },
     contains: () => true,
     querySelector: (selector: string) => {
       if (selector.includes("User-Name")) return name("Expo", "@expo");
@@ -375,7 +381,7 @@ test("extracts Expo's fold quote when its link and media live on an ancestor twe
       if (selector === 'a[href*="/status/"]')
         return [{ getAttribute: () => `/expo/status/${parentId}` }];
       if (selector === '[data-testid="tweetText"]')
-        return [parentText, quoteText];
+        return hasPostText ? [parentText, quoteText] : [quoteText];
       if (selector.includes("videoPlayer")) return [video];
       return [];
     },
@@ -409,7 +415,9 @@ test("extracts Expo's fold quote when its link and media live on an ancestor twe
     },
   });
   assert.equal(items[0].text, parentContent);
-  assert.deepEqual(items[0].media, []);
+  assert.deepEqual(items[0].media, [
+    { type: "image", url: photoUrl + "?name=orig" },
+  ]);
   assert.equal(
     items[0].quote?.url,
     `https://x.com/amanhimself/status/${quoteId}`,
@@ -419,7 +427,12 @@ test("extracts Expo's fold quote when its link and media live on an ancestor twe
   assert.equal(items[0].quote?.publishedAt, Date.parse("2026-09-06T10:10:58Z"));
   assert.equal(items[0].quote?.media[0].url, mediaUrl);
   assert.equal(items[0].quote?.media[0].playable, true);
-});
+}
+
+for (const hasPostText of [true, false]) {
+  test(`extracts quoted text and media with parent text ${hasPostText ? "present" : "absent"}`, () =>
+    checkQuotedPost(hasPostText));
+}
 
 test("extracts a regular video before X renders its player", () => {
   const url =
