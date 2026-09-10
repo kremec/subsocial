@@ -1,5 +1,5 @@
 import { type FC, useEffect } from "react";
-import { Linking, View } from "react-native";
+import { View } from "react-native";
 
 import Animated, {
   cancelAnimation,
@@ -12,7 +12,6 @@ import Animated, {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
-import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
 import { type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
@@ -176,26 +175,6 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
             </View>
           );
         })}
-        <Typography
-          variant="caption"
-          accessibilityRole="link"
-          accessibilityLabel="Child safety and subsocial support"
-          onPress={() => {
-            onClose();
-            void Linking.openURL(
-              "https://subsocial-privacy-policy.vercel.app/child-safety",
-            ).catch(() => showErrorToast("Could not open the support page."));
-          }}
-          style={{
-            color: theme.colors.textSecondary,
-            textAlign: "center",
-            fontSize: 9,
-            textDecorationLine: "underline",
-          }}
-        >
-          Report posts and users through the original platform or contact
-          subsocial support
-        </Typography>
       </View>
     </BottomSheet>
   );
