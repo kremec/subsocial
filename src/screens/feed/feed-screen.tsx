@@ -53,18 +53,38 @@ interface FeedRow {
   threadGapBefore?: boolean;
 }
 
-const rowsFor = (item: FeedItem): FeedRow[] =>
-  item.thread?.map((post, index, thread) => ({
-    id: `${item.id}:${post.sourceId}`,
-    item,
-    post,
-    threadStart: index === 0,
-    threadEnd: index === thread.length - 1,
-    threadGapBefore:
-      index > 0 &&
-      !!post.replyToSourceId &&
-      post.replyToSourceId !== thread[index - 1].sourceId,
-  })) ?? [{ id: item.id, item }];
+const rowsFor = (item: FeedItem): FeedRow[] => {
+  if (!item.thread) return [{ id: item.id, item }];
+
+  let chain: FeedPost[] = [];
+  const chains = [chain];
+  for (const [index, post] of item.thread.entries()) {
+    const parent =
+      post.replyToSourceId &&
+      item.thread
+        .slice(0, index)
+        .find((candidate) => candidate.sourceId === post.replyToSourceId);
+    if (parent && parent !== chain.at(-1)) {
+      chain = [parent];
+      chains.push(chain);
+    }
+    chain.push(post);
+  }
+
+  return chains.flatMap((chain, chainIndex) =>
+    chain.map((post, index) => ({
+      id: `${item.id}:${chainIndex}:${post.sourceId}`,
+      item,
+      post,
+      threadStart: index === 0,
+      threadEnd: index === chain.length - 1,
+      threadGapBefore:
+        index > 0 &&
+        !!post.replyToSourceId &&
+        post.replyToSourceId !== chain[index - 1].sourceId,
+    })),
+  );
+};
 
 const getItemType = (row: FeedRow) =>
   row.post ? "thread" : row.item.media.length ? "media" : "text";
