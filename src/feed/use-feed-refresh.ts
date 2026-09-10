@@ -22,6 +22,7 @@ interface RefreshRun {
   queue: PlatformId[];
   known: Partial<Record<PlatformId, string[]>>;
   results: CollectionResult[];
+  attention: PlatformId[];
 }
 
 const refreshDayKey = "last-refresh-day";
@@ -44,7 +45,8 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [run, setRun] = useState<RefreshRun>();
   const running = useRef<RefreshRun>(undefined);
   const active = connected.filter((id) => !hidden.includes(id));
-  const collection = run?.queue ?? [];
+  const attention = run?.attention ?? [];
+  const collection = (run?.queue ?? []).filter((id) => !attention.includes(id));
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
@@ -69,7 +71,13 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       }),
     );
     running.current = platforms.length
-      ? { startedAt: performance.now(), queue: platforms, known, results: [] }
+      ? {
+          startedAt: performance.now(),
+          queue: platforms,
+          known,
+          results: [],
+          attention: [],
+        }
       : undefined;
     setRun(running.current);
   };
@@ -117,9 +125,12 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       ...current,
       queue: current.queue.filter((id) => id !== result.platform),
       results: [...current.results, result],
+      attention: current.attention.filter((id) => id !== result.platform),
     };
     running.current = next;
     if (next.queue.length) {
+      if (next.queue.every((id) => next.attention.includes(id)))
+        setItems(listFeedItems());
       setRun(next);
       return;
     }
@@ -150,6 +161,27 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     setRun(undefined);
   };
 
+  const needsAttention = (
+    runId: number,
+    platform: PlatformId,
+    needed: boolean,
+  ) => {
+    const current = running.current;
+    if (
+      !current ||
+      current.startedAt !== runId ||
+      !current.queue.includes(platform)
+    )
+      return;
+    const attention = current.attention.filter((id) => id !== platform);
+    if (needed) attention.push(platform);
+    const next = { ...current, attention };
+    running.current = next;
+    setRun(next);
+    if (next.queue.every((id) => attention.includes(id)))
+      setItems(listFeedItems());
+  };
+
   const toggle = (platform: PlatformId) => {
     const next = hidden.includes(platform)
       ? hidden.filter((id) => id !== platform)
@@ -163,6 +195,9 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     connected,
     active,
     collection,
+    collectors: run?.queue ?? [],
+    attention,
+    needsAttention,
     foreground,
     runId: run?.startedAt,
     known: run?.known ?? {},

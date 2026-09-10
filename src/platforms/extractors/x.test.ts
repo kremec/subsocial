@@ -73,37 +73,45 @@ function extractText(
     },
   };
   let extracted = "";
-  runInNewContext(collectionScript + script, {
-    URL,
-    location: { origin: "https://x.com" },
-    document: {
-      documentElement: { scrollTop: 0, scrollHeight: 800 },
-      querySelectorAll: (selector: string) =>
-        selector === '[role="tab"]'
-          ? [null, { getAttribute: () => "true" }]
-          : [article],
-    },
-    window: {
-      innerHeight: 800,
-      ReactNativeWebView: {
-        postMessage: (json: string) => {
-          const message = JSON.parse(json) as {
-            excludedSourceIds: string[];
-            items: {
-              text: string;
-              replyToSourceId?: string;
-              media: { url: string }[];
-            }[];
-          };
-          onExcluded?.(message.excludedSourceIds);
-          if (!message.items.length) return;
-          extracted = message.items[0].text;
-          onMedia?.(message.items[0].media);
-          onPost?.(message.items[0]);
+  runInNewContext(
+    collectionScript +
+      "window.__subsocialStartCollection(() => { return " +
+      script +
+      "});",
+    {
+      URL,
+      setInterval: () => 1,
+      location: { origin: "https://x.com", href: "https://x.com/home" },
+      document: {
+        documentElement: { scrollTop: 0, scrollHeight: 800 },
+        querySelectorAll: (selector: string) =>
+          selector === '[role="tab"]'
+            ? [null, { getAttribute: () => "true" }]
+            : [article],
+      },
+      window: {
+        __subsocialFeedUrl: "https://x.com/home",
+        innerHeight: 800,
+        ReactNativeWebView: {
+          postMessage: (json: string) => {
+            const message = JSON.parse(json) as {
+              excludedSourceIds: string[];
+              items: {
+                text: string;
+                replyToSourceId?: string;
+                media: { url: string }[];
+              }[];
+            };
+            onExcluded?.(message.excludedSourceIds);
+            if (!message.items.length) return;
+            extracted = message.items[0].text;
+            onMedia?.(message.items[0].media);
+            onPost?.(message.items[0]);
+          },
         },
       },
     },
-  });
+  );
   return extracted;
 }
 
@@ -397,23 +405,31 @@ function checkQuotedPost(hasPostText: boolean) {
       media: { url: string; playable: boolean }[];
     };
   }[] = [];
-  runInNewContext(collectionScript + script, {
-    URL,
-    location: { origin: "https://x.com" },
-    document: {
-      documentElement: { scrollTop: 0, scrollHeight: 800 },
-      querySelectorAll: (selector: string) =>
-        selector === '[role="tab"]'
-          ? [null, { getAttribute: () => "true" }]
-          : [article],
-    },
-    window: {
-      innerHeight: 800,
-      ReactNativeWebView: {
-        postMessage: (json: string) => items.push(...JSON.parse(json).items),
+  runInNewContext(
+    collectionScript +
+      "window.__subsocialStartCollection(() => { return " +
+      script +
+      "});",
+    {
+      URL,
+      setInterval: () => 1,
+      location: { origin: "https://x.com", href: "https://x.com/home" },
+      document: {
+        documentElement: { scrollTop: 0, scrollHeight: 800 },
+        querySelectorAll: (selector: string) =>
+          selector === '[role="tab"]'
+            ? [null, { getAttribute: () => "true" }]
+            : [article],
+      },
+      window: {
+        __subsocialFeedUrl: "https://x.com/home",
+        innerHeight: 800,
+        ReactNativeWebView: {
+          postMessage: (json: string) => items.push(...JSON.parse(json).items),
+        },
       },
     },
-  });
+  );
   assert.equal(items[0].text, parentContent);
   assert.deepEqual(items[0].media, [
     { type: "image", url: photoUrl + "?name=orig" },
@@ -506,6 +522,7 @@ test("waits for X timeline hydration instead of completing an empty collection",
       querySelector: () => null,
     },
     window: {
+      __subsocialFeedUrl: "https://x.com/home",
       __subsocialNextViewport: (advance: boolean) => {
         assert.equal(advance, false);
         waiting = true;

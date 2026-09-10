@@ -24,7 +24,7 @@ import { Typography } from "@/components/ui/typography";
 import { collectorConcurrency } from "@/feed/collection";
 import { exportDatabase } from "@/feed/export-database";
 import { FeedCollector } from "@/feed/feed-collector";
-import { type FeedItem, type FeedPost } from "@/feed/types";
+import { type FeedItem, type FeedPost, type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
 import {
@@ -32,6 +32,7 @@ import {
   YouTubeMediaResolver,
 } from "@/platforms/youtube-media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
+import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { useTheme } from "@/theme/use-theme";
@@ -106,6 +107,7 @@ export const FeedScreen: FC = () => {
   const focused = useIsFocused();
   const [visibleRowId, setVisibleRowId] = useState<string>();
   const [webKitReady, setWebKitReady] = useState(false);
+  const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
   const feed = useFeedRefresh(focused, webKitReady);
   const {
     items,
@@ -114,6 +116,9 @@ export const FeedScreen: FC = () => {
     collection,
   } = feed;
   const visible = focused && feed.foreground;
+  const browserShown =
+    !!attentionBrowser && feed.attention.includes(attentionBrowser);
+  const feedVisible = visible && !browserShown;
 
   const visibleItems = items.filter((item) =>
     activePlatforms.includes(item.platform),
@@ -167,7 +172,7 @@ export const FeedScreen: FC = () => {
   const visibleRow = rows.find((row) => row.id === visibleRowId);
   const media = useYouTubeMedia(
     visibleRow?.item,
-    visible,
+    feedVisible,
     collection.length === 0,
   );
   const activateRow = (row: FeedRow | undefined) => {
@@ -203,17 +208,32 @@ export const FeedScreen: FC = () => {
         />
       )}
 
-      {visible &&
-        collection
-          .slice(0, collectorConcurrency)
-          .map((platform) => (
-            <FeedCollector
-              key={`${feed.runId}:${platform}`}
-              platform={getPlatform(platform)}
-              known={feed.known[platform]!}
-              onFinish={(result) => feed.finish(feed.runId!, result)}
-            />
-          ))}
+      {feed.collectors.slice(0, collectorConcurrency).map((platform) => (
+        <FeedCollector
+          key={`${feed.runId}:${platform}`}
+          platform={getPlatform(platform)}
+          known={feed.known[platform]!}
+          active={visible}
+          attention={feed.attention.includes(platform)}
+          open={
+            attentionBrowser === platform && feed.attention.includes(platform)
+          }
+          onAttention={(needed) =>
+            feed.needsAttention(feed.runId!, platform, needed)
+          }
+          onClose={() =>
+            setAttentionBrowser((current) =>
+              current === platform ? undefined : current,
+            )
+          }
+          onFinish={(result) => {
+            setAttentionBrowser((current) =>
+              current === platform ? undefined : current,
+            );
+            feed.finish(feed.runId!, result);
+          }}
+        />
+      ))}
 
       {visible && webKitReady && media.next && (
         <YouTubeMediaResolver
@@ -242,6 +262,14 @@ export const FeedScreen: FC = () => {
           onTogglePlatform={feed.toggle}
         />
 
+        {feed.attention.map((platform) => (
+          <FeedAttentionNotice
+            key={platform}
+            platformName={getPlatform(platform).label}
+            onPress={() => setAttentionBrowser(platform)}
+          />
+        ))}
+
         <View ref={viewport} collapsable={false} style={{ flex: 1 }}>
           <LegendList
             ref={list}
@@ -261,7 +289,7 @@ export const FeedScreen: FC = () => {
             onMomentumScrollEnd={savePosition}
             data={rows}
             recycleItems
-            extraData={[visibleRowId, media.resolution, visible]}
+            extraData={[visibleRowId, media.resolution, feedVisible]}
             getItemType={getItemType}
             keyExtractor={(row) => row.id}
             renderItem={({ item: row }) => (
@@ -271,7 +299,7 @@ export const FeedScreen: FC = () => {
                 threadStart={row.threadStart}
                 threadEnd={row.threadEnd}
                 threadGapBefore={row.threadGapBefore}
-                active={visible && row.id === visibleRowId}
+                active={feedVisible && row.id === visibleRowId}
                 resolution={
                   row.item.id === visibleRow?.item.id
                     ? media.resolution

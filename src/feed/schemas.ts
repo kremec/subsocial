@@ -66,6 +66,8 @@ export const extractionMessageSchema = z.discriminatedUnion("type", [
     endConfirmed: z.boolean().optional(),
   }),
   z.object({ type: z.literal("error") }),
+  z.object({ type: z.literal("attention") }),
+  z.object({ type: z.literal("ready") }),
 ]);
 
 export const youtubePlaybackMessageSchema = z.discriminatedUnion("type", [

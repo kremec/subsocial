@@ -71,55 +71,72 @@ function extract(
 ): Promise<Message[]> {
   return new Promise((resolve, reject) => {
     const messages: Message[] = [];
-    runInNewContext(collectionScript + youtubeScript, {
-      URL,
-      AbortSignal,
-      setTimeout,
-      clearTimeout,
-      location: { origin: "https://www.youtube.com" },
-      document: {
-        documentElement: { scrollTop: 0, scrollHeight: 800 },
-        querySelectorAll: () =>
-          (options.cardIds || Object.keys(pages)).map((id) =>
-            card(id, options.titles?.[id], options.cardData?.[id]),
-          ),
-      },
-      DOMParser: class {
-        parseFromString() {
-          options.onParseHtml?.();
-          return {
-            querySelector: (selector: string) => ({ content: meta[selector] }),
-          };
-        }
-      },
-      fetch: async (url: string) => {
-        const id = new URL(url).searchParams.get("v")!;
-        options.fetches?.push(id);
-        return { ok: true, text: async () => pages[id] };
-      },
-      window: {
-        __subsocialNextViewport: (advance: boolean) => {
+    runInNewContext(
+      collectionScript +
+        "window.__subsocialNextViewport = nextViewport; window.__subsocialStartCollection(() => { return " +
+        youtubeScript +
+        "});",
+      {
+        URL,
+        setInterval: () => 1,
+        nextViewport: (advance: boolean) => {
           options.onAwaitMetadata?.(advance);
           resolve(messages);
         },
-        innerHeight: 800,
-        __subsocialKnownSourceIds: options.knownSourceIds,
-        __subsocialPendingYoutubeItems: options.pendingItems,
-        __subsocialYoutubeDates: options.cache,
-        ReactNativeWebView: {
-          postMessage: (json: string) => {
-            const message: Message = JSON.parse(json);
-            messages.push(message);
-            try {
-              onMessage?.(message);
-            } catch (error) {
-              reject(error);
-            }
-            if (message.complete) resolve(messages);
+        AbortSignal,
+        setTimeout,
+        clearTimeout,
+        location: {
+          origin: "https://www.youtube.com",
+          href: "https://www.youtube.com/feed/subscriptions",
+        },
+        document: {
+          documentElement: { scrollTop: 0, scrollHeight: 800 },
+          querySelectorAll: () =>
+            (options.cardIds || Object.keys(pages)).map((id) =>
+              card(id, options.titles?.[id], options.cardData?.[id]),
+            ),
+        },
+        DOMParser: class {
+          parseFromString() {
+            options.onParseHtml?.();
+            return {
+              querySelector: (selector: string) => ({
+                content: meta[selector],
+              }),
+            };
+          }
+        },
+        fetch: async (url: string) => {
+          const id = new URL(url).searchParams.get("v")!;
+          options.fetches?.push(id);
+          return { ok: true, text: async () => pages[id] };
+        },
+        window: {
+          __subsocialFeedUrl: "https://www.youtube.com/feed/subscriptions",
+          __subsocialNextViewport: (advance: boolean) => {
+            options.onAwaitMetadata?.(advance);
+            resolve(messages);
+          },
+          innerHeight: 800,
+          __subsocialKnownSourceIds: options.knownSourceIds,
+          __subsocialPendingYoutubeItems: options.pendingItems,
+          __subsocialYoutubeDates: options.cache,
+          ReactNativeWebView: {
+            postMessage: (json: string) => {
+              const message: Message = JSON.parse(json);
+              messages.push(message);
+              try {
+                onMessage?.(message);
+              } catch (error) {
+                reject(error);
+              }
+              if (message.complete) resolve(messages);
+            },
           },
         },
       },
-    });
+    );
   });
 }
 
@@ -421,6 +438,7 @@ async function resolvePlayback(
             },
     },
     window: {
+      __subsocialFeedUrl: "https://www.youtube.com/feed/subscriptions",
       __subsocialPlatform: options.platform,
       ReactNativeWebView: {
         postMessage: (json: string) => messages.push(JSON.parse(json)),
@@ -542,7 +560,9 @@ test("prepares hidden browser videos for muted inline playback before either aut
   const autoplayVideo = new MediaElement();
   let inserted!: () => void;
   runInNewContext(youtubePlaybackSetupScript, {
-    window: {},
+    window: {
+      __subsocialFeedUrl: "https://www.youtube.com/feed/subscriptions",
+    },
     document: { querySelectorAll: () => [autoplayVideo] },
     HTMLMediaElement: MediaElement,
     MutationObserver: class {
@@ -742,6 +762,7 @@ test("all platforms use the same collection message and current scroll position"
     }[] = [];
     const page = { scrollTop: 0, scrollHeight: 2000 };
     const window = {
+      __subsocialFeedUrl: "https://example.com/feed",
       innerHeight: 800,
       ReactNativeWebView: {
         postMessage: (json: string) => messages.push(JSON.parse(json)),
@@ -751,15 +772,24 @@ test("all platforms use the same collection message and current scroll position"
       new URL("./" + platform + ".injected.js", import.meta.url),
       "utf8",
     );
-    runInNewContext(collectionScript + script, {
-      window,
-      document: {
-        documentElement: page,
-        querySelector: () => null,
-        querySelectorAll: () => [],
+    runInNewContext(
+      collectionScript +
+        "window.__subsocialStartCollection(() => { return " +
+        script +
+        "});",
+      {
+        URL,
+        location: { href: "https://example.com/feed" },
+        setInterval: () => 1,
+        window,
+        document: {
+          documentElement: page,
+          querySelector: () => null,
+          querySelectorAll: () => [],
+        },
+        setTimeout: (callback: () => void) => callback(),
       },
-      setTimeout: (callback: () => void) => callback(),
-    });
+    );
     assert.equal(messages.length, 1, platform);
     assert.deepEqual(messages[0], {
       type: "items",
@@ -775,15 +805,19 @@ test("all platforms use the same collection message and current scroll position"
   }
 });
 
-test("collection starts immediately and rescans when the page settles", () => {
+test("collection starts immediately and rescans when the page settles", async () => {
   let scans = 0;
   let timerId = 0;
   let mutate = () => {};
   const timers = new Map<number, { callback: () => void; delay: number }>();
   const page = { scrollTop: 0, scrollHeight: 3000 };
   const context = {
+    URL,
+    location: { href: "https://www.youtube.com/feed/subscriptions" },
+    setInterval: () => 1,
     document: { documentElement: page },
     window: {
+      __subsocialFeedUrl: "https://www.youtube.com/feed/subscriptions",
       innerHeight: 800,
       scrollBy: (_x: number, y: number) => {
         page.scrollTop += y;
@@ -822,6 +856,7 @@ test("collection starts immediately and rescans when the page settles", () => {
   assert.equal(timers.size, 0);
 
   // With no DOM signal, the bounded fallback retries initial skeletons in place.
+  await Promise.resolve();
   nextViewport(false);
   assert.equal(page.scrollTop, 0);
   flush(1500);
@@ -833,6 +868,7 @@ test("collection starts immediately and rescans when the page settles", () => {
   runInNewContext("window.__subsocialSendItems([], false)", context);
   assert.equal(timers.size, 0);
   assert.equal(page.scrollTop, 0);
+  await Promise.resolve();
   nextViewport();
   assert.equal(page.scrollTop, 640);
   assert.equal(scans, 2);

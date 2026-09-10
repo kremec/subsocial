@@ -83,7 +83,11 @@ async function extract(options: {
   };
   const context = {
     URL,
-    location: { origin: "https://www.facebook.com" },
+    setInterval: () => 1,
+    location: {
+      origin: "https://www.facebook.com",
+      href: "https://www.facebook.com/?filter=all&sk=h_chr",
+    },
     document: {
       documentElement: { scrollTop: 0, scrollHeight: 800 },
       querySelectorAll: (selector: string) => {
@@ -92,6 +96,7 @@ async function extract(options: {
       },
     },
     window: {
+      __subsocialFeedUrl: "https://www.facebook.com/?filter=all&sk=h_chr",
       require: (name: string) => {
         assert.equal(name, "CometRelayEnvironment");
         if (options.ready === false) throw new Error("Module not loaded");
@@ -113,7 +118,13 @@ async function extract(options: {
       },
     },
   };
-  runInNewContext(collectionScript + facebookScript, context);
+  runInNewContext(
+    collectionScript +
+      "window.__subsocialStartCollection(() => { return " +
+      facebookScript +
+      "});",
+    context,
+  );
   await new Promise<void>((resolve) => setImmediate(resolve));
   if (options.afterBatch) {
     options.afterBatch(messages[0].items[0]);

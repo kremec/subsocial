@@ -345,3 +345,52 @@ test("disconnect removes the platform from the published snapshot", async () => 
   await app.focus(true);
   assert.deepEqual(ids(app.render().items), ["x:new", "x:old"]);
 });
+
+test("attention retains its collector while other platforms finish and publish", () => {
+  const app = feedHarness(initial);
+  app.current.refresh();
+  const run = app.render();
+  run.needsAttention(run.runId!, "x", true);
+  assert.deepEqual(Array.from(app.render().collection), ["youtube"]);
+  assert.deepEqual(Array.from(app.current.collectors), ["x", "youtube"]);
+  app.database.items = incoming;
+  run.finish(run.runId!, result("youtube"));
+  assert.deepEqual(ids(app.render().items), ids(incoming));
+  assert.deepEqual(Array.from(app.current.attention), ["x"]);
+  assert.equal(app.current.collection.length, 0);
+  assert.deepEqual(Array.from(app.current.collectors), ["x"]);
+
+  app.current.needsAttention(run.runId!, "x", false);
+  assert.deepEqual(Array.from(app.render().collection), ["x"]);
+  assert.equal(app.current.runId, run.runId);
+  app.current.finish(run.runId!, result("x"));
+  assert.equal(app.render().collectors.length, 0);
+  assert.equal(app.current.attention.length, 0);
+});
+
+test("multiple attention notices resolve independently", () => {
+  const app = feedHarness(initial);
+  app.current.refresh();
+  const run = app.render();
+  run.needsAttention(run.runId!, "x", true);
+  run.needsAttention(run.runId!, "youtube", true);
+  assert.equal(app.render().collection.length, 0);
+  app.current.needsAttention(run.runId!, "x", false);
+  assert.deepEqual(Array.from(app.render().attention), ["youtube"]);
+  assert.deepEqual(Array.from(app.current.collection), ["x"]);
+  app.current.finish(run.runId!, result("x"));
+  assert.deepEqual(Array.from(app.render().collectors), ["youtube"]);
+});
+
+test("late attention messages cannot change a finished refresh", () => {
+  const app = feedHarness(initial);
+  app.current.refresh();
+  const run = app.render();
+  complete(run);
+  app.render();
+  app.current.refresh();
+  const next = app.render();
+  run.needsAttention(run.runId!, "x", true);
+  assert.equal(app.render().runId, next.runId);
+  assert.equal(app.current.attention.length, 0);
+});
