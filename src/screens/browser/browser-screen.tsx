@@ -1,11 +1,5 @@
 import { type FC, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  AppState,
-  Platform,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, AppState, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
@@ -20,11 +14,8 @@ import { type PlatformId } from "@/feed/types";
 import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
+import { desktopWebViewProps } from "@/platforms/webview-props";
 import { useTheme } from "@/theme/use-theme";
-
-const iosSafariUserAgent =
-  `Mozilla/5.0 (iPhone; CPU iPhone OS ${String(Platform.Version).replaceAll(".", "_")} like Mac OS X) ` +
-  `AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${Platform.Version} Mobile/15E148 Safari/604.1`;
 
 export const BrowserScreen: FC = () => {
   const theme = useTheme();
@@ -183,13 +174,9 @@ export const BrowserScreen: FC = () => {
       )}
       {!resetting && (
         <WebView
+          {...desktopWebViewProps}
           ref={webView}
           source={{ uri: url }}
-          userAgent={
-            Platform.OS === "ios" && ["reddit", "x"].includes(platform.id)
-              ? iosSafariUserAgent
-              : undefined
-          }
           // Handle every scheme here so WebView cannot launch an external browser.
           originWhitelist={["*"]}
           javaScriptEnabled

@@ -16,6 +16,7 @@ import { youtubePlaybackMessageSchema } from "@/feed/schemas";
 import { type FeedItem } from "@/feed/types";
 import youtubePlaybackSetupScript from "@/platforms/extractors/youtube-playback-setup.injected.js";
 import youtubePlaybackScript from "@/platforms/extractors/youtube-playback.injected.js";
+import { desktopWebViewProps } from "@/platforms/webview-props";
 import {
   youtubeStream,
   type YouTubeResolution,
@@ -71,10 +72,6 @@ interface YouTubeMediaResolverProps {
   onResolve: (id: string, value: YouTubeResolution) => void;
 }
 
-const safariUserAgent =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-  "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
-
 export const YouTubeMediaResolver: FC<YouTubeMediaResolverProps> = (props) => {
   const { item, onResolve } = props;
   const completed = useRef(false);
@@ -107,10 +104,10 @@ export const YouTubeMediaResolver: FC<YouTubeMediaResolverProps> = (props) => {
       }}
     >
       <WebView
+        {...desktopWebViewProps}
         source={{
           uri: `https://www.youtube.com/watch?v=${encodeURIComponent(item.sourceId)}&hl=en`,
         }}
-        userAgent={Platform.OS === "ios" ? safariUserAgent : undefined}
         injectedJavaScriptBeforeContentLoaded={`window.__subsocialPlatform = ${JSON.stringify(Platform.OS)};\n${youtubePlaybackSetupScript}\n${youtubePlaybackScript}`}
         injectedJavaScript={youtubePlaybackScript}
         onMessage={(event) => {

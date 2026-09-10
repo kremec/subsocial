@@ -16,10 +16,8 @@ import {
   saveExtraction,
 } from "@/feed/database";
 import { extractionMessageSchema } from "@/feed/schemas";
-import {
-  desktopUserAgent,
-  type PlatformDefinition,
-} from "@/platforms/platforms";
+import { type PlatformDefinition } from "@/platforms/platforms";
+import { desktopWebViewProps } from "@/platforms/webview-props";
 
 export interface CollectionResult {
   platform: PlatformDefinition["id"];
@@ -147,7 +145,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
         ref={webView}
         source={{ uri: platform.startUrl }}
         originWhitelist={["about:*", "http://*", "https://*"]}
-        userAgent={desktopUserAgent}
+        {...desktopWebViewProps}
         javaScriptEnabled
         domStorageEnabled
         thirdPartyCookiesEnabled
