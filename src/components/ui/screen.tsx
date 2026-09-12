@@ -1,13 +1,7 @@
 import { type FC, type PropsWithChildren } from "react";
-import {
-  Platform,
-  ScrollView,
-  type StyleProp,
-  View,
-  type ViewStyle,
-} from "react-native";
+import { ScrollView, type StyleProp, View, type ViewStyle } from "react-native";
 
-import { SafeAreaView, type Edge } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "@/theme/use-theme";
 
@@ -19,10 +13,6 @@ interface ScreenProps {
 export const Screen: FC<PropsWithChildren<ScreenProps>> = (props) => {
   const { children, scroll = false, style } = props;
   const theme = useTheme();
-  const safeAreaEdges: Edge[] =
-    Platform.OS === "ios"
-      ? ["top", "left", "right", "bottom"]
-      : ["top", "left", "right"];
   const contentStyle = {
     width: "100%" as const,
     maxWidth: theme.layout.screenMaxWidth,
@@ -35,7 +25,6 @@ export const Screen: FC<PropsWithChildren<ScreenProps>> = (props) => {
 
   return (
     <SafeAreaView
-      edges={safeAreaEdges}
       style={{
         flex: 1,
         backgroundColor: theme.colors.background,
