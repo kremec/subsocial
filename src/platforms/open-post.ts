@@ -47,9 +47,15 @@ export async function openPlatformApp(id: PlatformId, url?: string) {
     return;
   }
 
+  if (id === "youtube") {
+    await Linking.openURL(`vnd.youtube:${new URL(url).searchParams.get("v")}`);
+    return;
+  }
+
   await startActivityAsync("android.intent.action.VIEW", {
     data: url,
     packageName: platform.androidPackage,
+    flags: 0x10000000, // FLAG_ACTIVITY_NEW_TASK
   });
 }
 

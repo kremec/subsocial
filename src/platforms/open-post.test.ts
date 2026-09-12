@@ -33,6 +33,7 @@ function navigation(os: "ios" | "android", installed = true, version = 30) {
     }).outputText,
     {
       exports,
+      URL,
       require: (name: string) => {
         if (name === "expo-router")
           return {
@@ -53,9 +54,10 @@ function navigation(os: "ios" | "android", installed = true, version = 30) {
           return {
             startActivityAsync: (
               action: string,
-              options: { data: string; packageName: string },
+              options: { data: string; packageName: string; flags: number },
             ) => {
               assert.equal(action, "android.intent.action.VIEW");
+              assert.equal(options.flags, 0x10000000);
               return launch(options.data, options.packageName);
             },
           };
@@ -123,6 +125,21 @@ test("the iOS app button opens the native app root", async () => {
   ]);
   assert.equal(app.routes.length, 0);
 });
+
+for (const os of ["ios", "android"] as const) {
+  test(`${os}: opens YouTube videos without targeting the official Android package`, async () => {
+    const app = navigation(os);
+    const url = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
+    await app.openPost("youtube", url);
+    assert.deepEqual(app.requests, [
+      {
+        url: os === "android" ? "vnd.youtube:jNQXAC9IVRw" : url,
+        packageName: undefined,
+      },
+    ]);
+    assert.equal(app.routes.length, 0);
+  });
+}
 
 test("the Android app button opens the native app URI", async () => {
   const app = navigation("android");
