@@ -1,13 +1,5 @@
-import { type FC, useEffect } from "react";
+import { type FC } from "react";
 import { View } from "react-native";
-
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Icon } from "@/components/ui/icon";
@@ -22,7 +14,6 @@ interface FeedMenuProps {
   visible: boolean;
   activePlatforms: PlatformId[];
   connectedPlatforms: PlatformId[];
-  loadingPlatforms: PlatformId[];
   onClose: () => void;
   onExportData: () => void;
   onTogglePlatform: (platform: PlatformId) => void;
@@ -33,22 +24,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
     visible,
     activePlatforms,
     connectedPlatforms,
-    loadingPlatforms,
     onClose,
     onExportData,
     onTogglePlatform,
   } = props;
   const theme = useTheme();
-  const pulse = useSharedValue(0.2);
-  const loadingStyle = useAnimatedStyle(() => ({ opacity: pulse.get() }));
-  const loading = loadingPlatforms.length > 0;
-
-  useEffect(() => {
-    pulse.set(0.2);
-    if (loading)
-      pulse.set(withRepeat(withTiming(1, { duration: 800 }), -1, true));
-    return () => cancelAnimation(pulse);
-  }, [loading, pulse]);
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -85,7 +65,6 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
         {platforms.map((platform) => {
           const connected = connectedPlatforms.includes(platform.id);
           const active = activePlatforms.includes(platform.id);
-          const platformLoading = loadingPlatforms.includes(platform.id);
           const borderColor = !connected
             ? theme.colors.danger
             : active
@@ -109,25 +88,10 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 2,
-                  borderColor: platformLoading ? "transparent" : borderColor,
+                  borderColor,
                   borderRadius: theme.radius.sm,
                 }}
               >
-                {platformLoading && (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      {
-                        position: "absolute",
-                        inset: -2,
-                        borderWidth: 2,
-                        borderColor,
-                        borderRadius: theme.radius.sm,
-                      },
-                      loadingStyle,
-                    ]}
-                  />
-                )}
                 <Icon
                   name={`brand-${platform.id}`}
                   color={platform.color}

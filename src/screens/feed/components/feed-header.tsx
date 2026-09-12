@@ -1,19 +1,15 @@
 import { type FC, useEffect, useState } from "react";
-import { View } from "react-native";
+import { AccessibilityInfo, View } from "react-native";
 
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { useReducedMotion } from "react-native-reanimated";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { type PlatformId } from "@/feed/types";
+import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
+import { RefreshPlatformIcon } from "@/screens/feed/components/refresh-platform-icon";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedHeaderProps {
@@ -33,17 +29,20 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
     onTogglePlatform,
   } = props;
   const theme = useTheme();
-  const [menuVisible, setMenuVisible] = useState(false);
-  const loading = loadingPlatforms.length > 0;
-  const pulse = useSharedValue(0.2);
-  const loadingStyle = useAnimatedStyle(() => ({ opacity: pulse.get() }));
-
+  const systemReducedMotion = useReducedMotion();
+  const [reducedMotion, setReducedMotion] = useState(systemReducedMotion);
   useEffect(() => {
-    pulse.set(0.2);
-    if (loading)
-      pulse.set(withRepeat(withTiming(1, { duration: 800 }), -1, true));
-    return () => cancelAnimation(pulse);
-  }, [loading, pulse]);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReducedMotion,
+    );
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
+    return () => subscription.remove();
+  }, []);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const pendingPlatforms = platforms.filter((platform) =>
+    loadingPlatforms.includes(platform.id),
+  );
 
   return (
     <View
@@ -65,38 +64,46 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
       >
         subsocial
       </Typography>
-      <IconButton
-        onPress={() => setMenuVisible(true)}
+      <Animated.View
         style={{
-          width: 36,
           height: 36,
           flexShrink: 0,
-          borderColor: loading ? "transparent" : theme.colors.border,
+          width:
+            36 +
+            pendingPlatforms.length * 26 +
+            (pendingPlatforms.length ? 8 : 0),
+          transition: reducedMotion
+            ? "none"
+            : "width 300ms cubic-bezier(0.33, 1, 0.68, 1)",
         }}
       >
-        {loading && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              {
-                position: "absolute",
-                inset: -1,
-                borderWidth: 1,
-                borderColor: theme.colors.accent,
-                borderRadius: theme.radius.full,
-              },
-              loadingStyle,
-            ]}
+        {platforms.map((platform) => (
+          <RefreshPlatformIcon
+            key={platform.id}
+            platform={platform}
+            reducedMotion={reducedMotion}
+            position={pendingPlatforms.findIndex(
+              (item) => item.id === platform.id,
+            )}
           />
-        )}
-        <Icon name="dots" color={theme.colors.text} size={22} />
-      </IconButton>
+        ))}
+        <IconButton
+          onPress={() => setMenuVisible(true)}
+          style={{
+            position: "absolute",
+            right: 0,
+            width: 36,
+            height: 36,
+          }}
+        >
+          <Icon name="dots" color={theme.colors.text} size={22} />
+        </IconButton>
+      </Animated.View>
 
       <FeedMenu
         visible={menuVisible}
         activePlatforms={activePlatforms}
         connectedPlatforms={connectedPlatforms}
-        loadingPlatforms={loadingPlatforms}
         onClose={() => setMenuVisible(false)}
         onExportData={onExportData}
         onTogglePlatform={onTogglePlatform}
