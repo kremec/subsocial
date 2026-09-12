@@ -16,6 +16,7 @@ interface FeedHeaderProps {
   activePlatforms: PlatformId[];
   connectedPlatforms: PlatformId[];
   loadingPlatforms: PlatformId[];
+  onImportData: () => void;
   onExportData: () => void;
   onTogglePlatform: (platform: PlatformId) => void;
 }
@@ -25,6 +26,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
     activePlatforms,
     connectedPlatforms,
     loadingPlatforms,
+    onImportData,
     onExportData,
     onTogglePlatform,
   } = props;
@@ -105,6 +107,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         activePlatforms={activePlatforms}
         connectedPlatforms={connectedPlatforms}
         onClose={() => setMenuVisible(false)}
+        onImportData={onImportData}
         onExportData={onExportData}
         onTogglePlatform={onTogglePlatform}
       />

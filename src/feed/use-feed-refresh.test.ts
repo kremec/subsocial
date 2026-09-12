@@ -394,3 +394,25 @@ test("late attention messages cannot change a finished refresh", () => {
   assert.equal(app.render().runId, next.runId);
   assert.equal(app.current.attention.length, 0);
 });
+
+test("reloading imported data replaces the feed and clears an active refresh", async () => {
+  const harness = feedHarness([post("old", "x")]);
+  const refreshing = await harness.focus(true);
+  const runId = refreshing.runId!;
+  assert.ok(refreshing.collectors.length > 0);
+
+  const imported = [post("restored", "youtube")];
+  harness.database.items = imported;
+  harness.database.connected = ["youtube"];
+  refreshing.reload();
+  const reloaded = harness.render();
+
+  assert.equal(reloaded.items, imported);
+  assert.deepEqual([...reloaded.connected], ["youtube"]);
+  assert.equal(reloaded.collectors.length, 0);
+  assert.equal(reloaded.runId, undefined);
+
+  reloaded.finish(runId, result("x"));
+  assert.equal(harness.render().items, imported);
+  assert.equal(harness.current.runId, undefined);
+});

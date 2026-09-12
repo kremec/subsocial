@@ -15,6 +15,7 @@ interface FeedMenuProps {
   activePlatforms: PlatformId[];
   connectedPlatforms: PlatformId[];
   onClose: () => void;
+  onImportData: () => void;
   onExportData: () => void;
   onTogglePlatform: (platform: PlatformId) => void;
 }
@@ -25,6 +26,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
     activePlatforms,
     connectedPlatforms,
     onClose,
+    onImportData,
     onExportData,
     onTogglePlatform,
   } = props;
@@ -45,12 +47,22 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
             minHeight: 42,
             flexDirection: "row",
             alignItems: "center",
+            gap: theme.spacing.sm,
             marginBottom: theme.spacing.xs,
           }}
         >
-          <Typography variant="title" style={{ flex: 1 }}>
+          <Typography variant="title" numberOfLines={1} style={{ flex: 1 }}>
             Platforms
           </Typography>
+          <IconButton
+            onPress={() => {
+              onClose();
+              onImportData();
+            }}
+            style={{ width: 36, height: 36 }}
+          >
+            <Icon name="file-import" color={theme.colors.text} size={20} />
+          </IconButton>
           <IconButton
             onPress={() => {
               onClose();
@@ -99,8 +111,13 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                 />
               </View>
 
-              <Typography variant="bodyStrong">{platform.label}</Typography>
-              <View style={{ flex: 1 }} />
+              <Typography
+                variant="bodyStrong"
+                numberOfLines={1}
+                style={{ flex: 1 }}
+              >
+                {platform.label}
+              </Typography>
 
               <IconButton
                 disabled={!connected}

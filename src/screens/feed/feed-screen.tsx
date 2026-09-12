@@ -24,6 +24,7 @@ import { Typography } from "@/components/ui/typography";
 import { collectorConcurrency } from "@/feed/collection";
 import { exportDatabase } from "@/feed/export-database";
 import { FeedCollector } from "@/feed/feed-collector";
+import { importDatabase } from "@/feed/import-database";
 import { type FeedItem, type FeedPost, type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
@@ -250,6 +251,13 @@ export const FeedScreen: FC = () => {
           activePlatforms={activePlatforms}
           connectedPlatforms={connectedPlatforms}
           loadingPlatforms={collection}
+          onImportData={() => {
+            void importDatabase()
+              .then((imported) => {
+                if (imported) feed.reload();
+              })
+              .catch(() => showErrorToast("Could not import data."));
+          }}
           onExportData={() => {
             void exportDatabase().catch(() =>
               showErrorToast("Could not export data."),

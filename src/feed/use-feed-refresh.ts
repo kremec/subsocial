@@ -203,6 +203,12 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     known: run?.known ?? {},
     finish,
     toggle,
+    reload: () => {
+      running.current = undefined;
+      setRun(undefined);
+      setConnected(listConnectedPlatforms());
+      setItems(listFeedItems());
+    },
     refresh: () => {
       if (!run) begin(active);
     },
