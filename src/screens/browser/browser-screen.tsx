@@ -114,6 +114,19 @@ export const BrowserScreen: FC = () => {
         >
           {platform.label}
         </Typography>
+        {connected && (
+          <IconButton
+            disabled={resetting}
+            onPress={confirmReset}
+            style={({ pressed }) => ({
+              borderWidth: 0,
+              backgroundColor: "transparent",
+              opacity: pressed || resetting ? 0.45 : 1,
+            })}
+          >
+            <Icon name="logout" color={theme.colors.text} size={22} />
+          </IconButton>
+        )}
         {installed && (
           <IconButton
             disabled={resetting}
@@ -132,19 +145,6 @@ export const BrowserScreen: FC = () => {
             })}
           >
             <Icon name="external-link" color={theme.colors.text} size={22} />
-          </IconButton>
-        )}
-        {connected && (
-          <IconButton
-            disabled={resetting}
-            onPress={confirmReset}
-            style={({ pressed }) => ({
-              borderWidth: 0,
-              backgroundColor: "transparent",
-              opacity: pressed || resetting ? 0.45 : 1,
-            })}
-          >
-            <Icon name="logout" color={theme.colors.text} size={22} />
           </IconButton>
         )}
         <IconButton
