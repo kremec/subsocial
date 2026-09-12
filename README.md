@@ -29,9 +29,12 @@ The feed refreshes automatically on the first app open each day. Pull down to re
 Saved posts remain readable while new posts load. Open the feed menu to see which platforms are
 still refreshing.
 
-If a platform redirects away from its feed, a "needs attention" notice appears below the header.
-Tap its globe icon to handle the page. Collection resumes when posts are detected on the feed,
-or close the page to retry the feed yourself. Other platforms can finish refreshing while you wait.
+Feed refreshes use direct requests with your on-device login session. If a platform needs you to
+sign in again, a "needs attention" notice appears below the header. Tap its globe icon to handle
+the page, then close it to retry. Other platforms can finish refreshing while you wait.
+Rate-limited requests stop and respect the platform's retry delay.
+
+Reddit loads your home feed of subscribed communities.
 
 Your reading position is saved. When scrolling back up through the feed, use Back to top to return
 to the newest posts.

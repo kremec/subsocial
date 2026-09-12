@@ -70,12 +70,6 @@ export const extractionMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
 ]);
 
-export const youtubePlaybackMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("youtube-stream"), url: z.httpUrl() }),
-  z.object({ type: z.literal("youtube-verification") }),
-  z.object({ type: z.literal("youtube-error") }),
-]);
-
 export type PlatformId = z.infer<typeof platformIdSchema>;
 export type FeedMedia = z.infer<typeof feedMediaSchema>;
 export type FeedPost = z.infer<typeof feedPostSchema>;

@@ -7,7 +7,7 @@ import {
   withYouTubeStream,
   youtubePlaybackStatus,
   youtubeStream,
-} from "@/platforms/youtube-media";
+} from "@/platforms/youtube/media";
 
 const item = (
   id: string,

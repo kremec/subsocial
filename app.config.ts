@@ -34,6 +34,8 @@ export default {
   },
   plugins: [
     "expo-router",
+    "expo-sharing",
+    "expo-video",
     "expo-image",
     "expo-sqlite",
     "./plugins/with-platform-app-queries",

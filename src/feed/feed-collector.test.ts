@@ -9,8 +9,13 @@ import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
 import * as collection from "@/feed/collection";
-import { type FeedCollector } from "@/feed/feed-collector";
-import { extractionMessageSchema } from "@/feed/schemas";
+import {
+  type CollectionResult,
+  type FeedCollector,
+} from "@/feed/feed-collector";
+import { extractedItemSchema } from "@/feed/schemas";
+import { type ExtractedItem } from "@/feed/types";
+import { type FeedPage } from "@/platforms/types";
 
 const source = transpileModule(
   readFileSync(new URL("./feed-collector.tsx", import.meta.url), "utf8"),
@@ -19,39 +24,28 @@ const source = transpileModule(
 type Props = ComponentProps<typeof FeedCollector>;
 type Effect = () => void | (() => void);
 interface EffectCell {
-  dependencies: boolean[];
+  dependencies: object[];
   cleanup?: void | (() => void);
 }
-interface ElementProps {
-  ref?: { current: { injectJavaScript: (script: string) => void } | null };
-  source?: { uri: string };
-  onMessage?: (event: { nativeEvent: { data: string } }) => void;
-  onPress?: () => void;
-}
+class FeedAccessError extends Error {}
 
-function collectorHarness() {
+function collectorHarness(known: string[] = []) {
   const cells: object[] = [];
   const effects: (() => void)[] = [];
   const timers = new Map<number, () => void>();
-  const injections: string[] = [];
   const attention: boolean[] = [];
-  const results: collection.ExtractionMessage[] = [];
+  const results: CollectionResult[] = [];
+  const saved: ExtractedItem[][] = [];
+  const signals: AbortSignal[] = [];
+  let nextPage: ((page: FeedPage | Error) => void) | undefined;
   let cursor = 0;
   let timerId = 0;
-  let closes = 0;
-  let saves = 0;
-  let webview: ElementProps;
-  let webviewKey: string | undefined;
-  let close: (() => void) | undefined;
-  const native = {
-    injectJavaScript: (script: string) => injections.push(script),
-  };
+  let webviews = 0;
   const props: Props = {
     platform: {
       id: "x",
       label: "X",
       startUrl: "https://x.com/home",
-      extractScript: "",
       androidPackage: "",
       androidAppUrl: "",
       appScheme: "",
@@ -59,7 +53,7 @@ function collectorHarness() {
       dataDomains: [],
       sessionCookieGroups: [],
     },
-    known: [],
+    known,
     active: true,
     attention: false,
     open: false,
@@ -68,10 +62,9 @@ function collectorHarness() {
       props.attention = needed;
     },
     onClose: () => {
-      closes++;
       props.open = false;
     },
-    onFinish: () => results.push({ type: "error" }),
+    onFinish: (result) => results.push(result),
   };
   const react = {
     useState<T>(initial: T | (() => T)) {
@@ -86,7 +79,7 @@ function collectorHarness() {
       cells[index] ??= { current: initial };
       return cells[index];
     },
-    useEffect(effect: Effect, dependencies: boolean[]) {
+    useEffect(effect: Effect, dependencies: object[]) {
       const index = cursor++;
       const previous = cells[index] as EffectCell | undefined;
       if (
@@ -101,30 +94,30 @@ function collectorHarness() {
         cell.cleanup = effect();
       });
     },
-    useEffectEvent(callback: () => void) {
+    useEffectEvent(callback: (error?: string) => void) {
       const index = cursor++;
       cells[index] ??= {
         callback,
-        event: () => (cells[index] as { callback: () => void }).callback(),
+        event: (error?: string) =>
+          (cells[index] as { callback: typeof callback }).callback(error),
       };
-      const cell = cells[index] as { callback: () => void; event: () => void };
+      const cell = cells[index] as {
+        callback: typeof callback;
+        event: typeof callback;
+      };
       cell.callback = callback;
       return cell.event;
     },
   };
-  const jsx = (type: string, elementProps: ElementProps, key?: string) => {
-    if (type === "WebView") {
-      webview = elementProps;
-      webviewKey = key;
-      assert.ok(webview.ref);
-      webview.ref.current = native;
-    }
-    if (type === "IconButton") close = elementProps.onPress;
+  const jsx = (type: string) => {
+    if (type === "WebView") webviews++;
     return {};
   };
   const exports = {} as { FeedCollector: typeof FeedCollector };
   runInNewContext(source, {
     exports,
+    Error,
+    AbortController,
     __DEV__: false,
     performance: { now: () => 1 },
     setTimeout: (callback: () => void) => {
@@ -153,17 +146,31 @@ function collectorHarness() {
           return { Typography: "Typography" };
         case "@/feed/collection":
           return collection;
-        case "@/feed/collection.injected.js":
-          return { default: "" };
         case "@/feed/schemas":
-          return { extractionMessageSchema };
-        case "@/platforms/webview-props":
-          return { desktopWebViewProps: { contentMode: "desktop" } };
+          return { extractedItemSchema };
+        case "@/platforms/types":
+          return { FeedAccessError };
+        case "@/platforms/service":
+          return {
+            FeedAccessError,
+            async *platformFeed(_platform: object, signal: AbortSignal) {
+              signals.push(signal);
+              while (!signal.aborted) {
+                const page = await new Promise<FeedPage | Error>((resolve) => {
+                  nextPage = resolve;
+                });
+                if (page instanceof Error) throw page;
+                yield page;
+              }
+            },
+          };
+        case "@/platforms/session":
+          return { syncPlatformSession: async () => {} };
         case "@/feed/database":
           return {
             listPublicationDates: () => [],
-            listPendingYouTubeItems: () => [],
-            saveExtraction: () => saves++,
+            saveExtraction: (_id: string, items: ExtractedItem[]) =>
+              saved.push(items),
           };
         case "@/theme/use-theme":
           return { useTheme: () => ({ colors: {}, spacing: {} }) };
@@ -174,7 +181,7 @@ function collectorHarness() {
   });
   const render = () => {
     cursor = 0;
-    close = undefined;
+    webviews = 0;
     exports.FeedCollector(props);
     effects.splice(0).forEach((effect) => effect());
   };
@@ -182,89 +189,120 @@ function collectorHarness() {
   return {
     props,
     render,
-    injections,
     attention,
-    timers,
     results,
-    get saves() {
-      return saves;
+    saved,
+    signals,
+    timers,
+    get webviews() {
+      return webviews;
     },
-    get closes() {
-      return closes;
+    async send(page: FeedPage | Error) {
+      assert.ok(nextPage);
+      const resolve = nextPage;
+      nextPage = undefined;
+      resolve(page);
+      await new Promise<void>((resolve) => setImmediate(resolve));
     },
-    get webview() {
-      return webview;
-    },
-    get key() {
-      return webviewKey;
-    },
-    close() {
-      assert.ok(close);
-      close();
-    },
-    send(message: collection.ExtractionMessage) {
-      webview.onMessage?.({ nativeEvent: { data: JSON.stringify(message) } });
+    unmount() {
+      for (const cell of cells) (cell as EffectCell).cleanup?.();
     },
   };
 }
-const items: collection.ExtractionMessage = {
-  type: "items",
-  items: [
-    { sourceId: "post", url: "https://x.com/post", publishedAt: 1, media: [] },
-  ],
+const item: ExtractedItem = {
+  sourceId: "post",
+  url: "https://x.com/post",
+  publishedAt: 1,
+  media: [],
 };
 
-test("attention pauses item handling and timeout until ready resumes collection", () => {
+test("collects without a WebView and saves the final API page", async () => {
   const app = collectorHarness();
-  assert.equal(app.timers.size, 1);
-  app.send({ type: "attention" });
-  app.send({ type: "attention" });
-  app.send(items);
-  assert.deepEqual(app.attention, [true]);
-  assert.equal(app.saves, 0);
-  app.render();
+  assert.equal(app.webviews, 0);
+  await app.send({ items: [item], end: true });
+  assert.equal(app.saved.length, 1);
+  assert.equal(app.results.length, 1);
+  assert.equal(app.results[0].items, 1);
   assert.equal(app.timers.size, 0);
-  app.send({ type: "ready" });
-  assert.deepEqual(app.attention, [true, false]);
-  assert.equal(app.closes, 1);
-  assert.match(app.injections.at(-1)!, /__subsocialResumeCollection/);
-  app.render();
-  assert.equal(app.timers.size, 1);
-  app.send(items);
-  assert.equal(app.saves, 1);
 });
 
-test("revealing and closing retain the WebView ref and navigate back to the feed", () => {
+test("stops at a known post without requesting another page", async () => {
+  const app = collectorHarness([item.sourceId]);
+  await app.send({ items: [item], end: false });
+  assert.equal(app.saved.length, 1);
+  assert.equal(app.results.length, 1);
+  assert.equal(app.signals.length, 1);
+});
+
+test("aborts on pause and unmount and discards late API pages", async () => {
+  for (const unmount of [false, true]) {
+    const app = collectorHarness();
+    if (unmount) app.unmount();
+    else {
+      app.props.active = false;
+      app.render();
+    }
+    assert.equal(app.signals[0].aborted, true);
+    assert.equal(app.timers.size, 0);
+    await app.send({ items: [item], end: true });
+    assert.equal(app.saved.length, 0);
+    assert.equal(app.results.length, 0);
+  }
+});
+
+test("requests attention only for access errors and mounts the WebView on demand", async () => {
   const app = collectorHarness();
-  const ref = app.webview.ref;
-  const key = app.key;
-  app.send({ type: "attention" });
+  await app.send(new FeedAccessError("Login required"));
+  assert.deepEqual(app.attention, [true]);
+  assert.equal(app.results.length, 0);
+  app.render();
+  assert.equal(app.webviews, 0);
   app.props.open = true;
   app.render();
-  assert.equal(app.webview.ref, ref);
-  assert.equal(app.key, key);
-  app.close();
-  assert.equal(app.closes, 1);
-  assert.equal(app.props.attention, false);
-  assert.match(
-    app.injections.at(-1)!,
-    /location.replace\("https:\/\/x.com\/home"\)/,
-  );
-  app.render();
-  assert.equal(app.webview.ref, ref);
-  assert.equal(app.key, key);
-  // A navigation may finish with the pre-close injected attention flag.
-  app.send({ type: "ready" });
-  assert.match(app.injections.at(-1)!, /__subsocialResumeCollection/);
-  assert.equal(app.closes, 1);
+  assert.equal(app.webviews, 1);
+  assert.equal(app.signals.length, 1);
 });
 
-test("background collection pauses its timer and ignores item messages", () => {
+test("reports rate limits once without retrying or prompting login", async () => {
   const app = collectorHarness();
-  app.props.active = false;
+  await app.send(new Error("Refresh rate limited. Try again later."));
   app.render();
-  app.send(items);
+  assert.deepEqual(app.attention, []);
+  assert.equal(app.results.length, 1);
+  assert.match(app.results[0].error!, /rate limited/);
+  assert.equal(app.signals.length, 1);
   assert.equal(app.timers.size, 0);
-  assert.equal(app.saves, 0);
-  assert.match(app.injections.at(-1)!, /CollectionActive = false/);
+});
+
+test("timeout aborts the request and cannot finish twice on a late response", async () => {
+  const app = collectorHarness();
+  [...app.timers.values()][0]();
+  assert.equal(app.signals[0].aborted, true);
+  await app.send({ items: [item], end: true });
+  assert.equal(app.results.length, 1);
+  assert.match(app.results[0].error!, /timed out/);
+  assert.equal(app.saved.length, 0);
+});
+
+test("undated posts still stop pagination at known posts and the item limit", async () => {
+  const known = collectorHarness([item.sourceId]);
+  await known.send({
+    items: [{ ...item, publishedAt: undefined }],
+    end: false,
+  });
+  assert.equal(known.results.length, 1);
+  assert.equal(known.saved.length, 0);
+  assert.match(known.results[0].error!, /Publication dates unavailable/);
+
+  const fresh = collectorHarness();
+  await fresh.send({
+    items: Array.from({ length: collection.feedItemLimit }, (_, index) => ({
+      ...item,
+      sourceId: String(index),
+      publishedAt: undefined,
+    })),
+    end: false,
+  });
+  assert.equal(fresh.results.length, 1);
+  assert.equal(fresh.saved.length, 0);
 });

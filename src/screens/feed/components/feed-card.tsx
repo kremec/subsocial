@@ -9,7 +9,7 @@ import {
   youtubePlaybackStatus,
   withYouTubeStream,
   type YouTubeResolution,
-} from "@/platforms/youtube-media";
+} from "@/platforms/youtube/media";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { useTheme } from "@/theme/use-theme";

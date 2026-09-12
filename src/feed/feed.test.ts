@@ -8,11 +8,9 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
-import {
-  extractionMessageSchema,
-  youtubePlaybackMessageSchema,
-} from "@/feed/schemas";
+import { extractionMessageSchema } from "@/feed/schemas";
 import { type ExtractedItem } from "@/feed/types";
+import { youtubePlaybackMessageSchema } from "@/platforms/youtube/schemas/playback-message-schema";
 
 // Exercise the production SQL against SQLite without requiring a native app.
 function openStore(db = new DatabaseSync(":memory:")) {

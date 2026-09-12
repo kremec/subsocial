@@ -14,7 +14,6 @@ import { type PlatformId } from "@/feed/types";
 import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
-import { desktopWebViewProps } from "@/platforms/webview-props";
 import { useTheme } from "@/theme/use-theme";
 
 export const BrowserScreen: FC = () => {
@@ -174,7 +173,6 @@ export const BrowserScreen: FC = () => {
       )}
       {!resetting && (
         <WebView
-          {...desktopWebViewProps}
           ref={webView}
           source={{ uri: url }}
           // Handle every scheme here so WebView cannot launch an external browser.

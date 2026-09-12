@@ -30,7 +30,7 @@ import { getPlatform } from "@/platforms/platforms";
 import {
   useYouTubeMedia,
   YouTubeMediaResolver,
-} from "@/platforms/youtube-media-resolver";
+} from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
 import { FeedCard } from "@/screens/feed/components/feed-card";
@@ -170,11 +170,7 @@ export const FeedScreen: FC = () => {
     return () => listener.remove();
   }, []);
   const visibleRow = rows.find((row) => row.id === visibleRowId);
-  const media = useYouTubeMedia(
-    visibleRow?.item,
-    feedVisible,
-    collection.length === 0,
-  );
+  const media = useYouTubeMedia(visibleRow?.item, feedVisible);
   const activateRow = (row: FeedRow | undefined) => {
     media.activate(row?.item.id);
     setVisibleRowId(row?.id);

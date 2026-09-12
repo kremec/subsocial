@@ -12,15 +12,13 @@ import { useFocusEffect } from "expo-router";
 
 import { WebView } from "react-native-webview";
 
-import { youtubePlaybackMessageSchema } from "@/feed/schemas";
 import { type FeedItem } from "@/feed/types";
-import youtubePlaybackSetupScript from "@/platforms/extractors/youtube-playback-setup.injected.js";
-import youtubePlaybackScript from "@/platforms/extractors/youtube-playback.injected.js";
-import { desktopWebViewProps } from "@/platforms/webview-props";
 import {
   youtubeStream,
   type YouTubeResolution,
-} from "@/platforms/youtube-media";
+} from "@/platforms/youtube/media";
+import youtubePlaybackScript from "@/platforms/youtube/playback.injected.js";
+import { youtubePlaybackMessageSchema } from "@/platforms/youtube/schemas/playback-message-schema";
 
 interface PlaybackResult {
   id: string;
@@ -30,7 +28,6 @@ interface PlaybackResult {
 export function useYouTubeMedia(
   activeItem: FeedItem | undefined,
   visible: boolean,
-  canResolve: boolean,
 ) {
   const [result, setResult] = useState<PlaybackResult>();
   const item =
@@ -58,7 +55,7 @@ export function useYouTubeMedia(
   };
 
   return {
-    next: canResolve && item && !resolution ? item : undefined,
+    next: item && !resolution ? item : undefined,
     resolution,
     resolve,
     retry,
@@ -104,11 +101,10 @@ export const YouTubeMediaResolver: FC<YouTubeMediaResolverProps> = (props) => {
       }}
     >
       <WebView
-        {...desktopWebViewProps}
         source={{
           uri: `https://www.youtube.com/watch?v=${encodeURIComponent(item.sourceId)}&hl=en`,
         }}
-        injectedJavaScriptBeforeContentLoaded={`window.__subsocialPlatform = ${JSON.stringify(Platform.OS)};\n${youtubePlaybackSetupScript}\n${youtubePlaybackScript}`}
+        injectedJavaScriptBeforeContentLoaded={`window.__subsocialPlatform = ${JSON.stringify(Platform.OS)};\n${youtubePlaybackScript}`}
         injectedJavaScript={youtubePlaybackScript}
         onMessage={(event) => {
           if (completed.current) return;
