@@ -22,7 +22,7 @@ export interface PlatformDefinition {
   label: string;
   color: string;
   startUrl: string;
-  androidPackage: string;
+  androidPackage: string | null;
   androidAppUrl: string;
   appScheme: string;
   loginUrl?: string;

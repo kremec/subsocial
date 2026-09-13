@@ -5,6 +5,7 @@ import { facebookFeed, parseFacebookFeed } from "@/platforms/facebook/service";
 
 const story = {
   __typename: "Story",
+  id: "UzpfSTQxMjM4MzAwMjUyNzk5NzoyNjM5NDk4MTA5ODE2NDY0",
   post_id: "123",
   creation_time: 1780000000,
   actors: [{ name: "Person" }],
@@ -61,6 +62,7 @@ test("reads streamed Facebook posts with exact dates, canonical IDs, group names
   assert.equal(page.items.length, 1);
   const item = page.items[0];
   assert.equal(item.sourceId, "pfbidExample");
+  assert.equal(item.androidUrl, `fb://native_post/${story.id}`);
   assert.equal(
     item.url,
     "https://www.facebook.com/groups/group/posts/pfbidExample",
@@ -253,4 +255,16 @@ test("merges deferred video data into indexed edges arriving out of order", () =
       aspectRatio: 2,
     },
   ]);
+});
+
+test("keeps posts without a native story ID available through their web URL", () => {
+  const page = parseFacebookFeed(
+    response().replace(JSON.stringify(story.id), "null"),
+  );
+  assert.equal(page.items.length, 1);
+  assert.equal(page.items[0].androidUrl, undefined);
+  assert.equal(
+    page.items[0].url,
+    "https://www.facebook.com/groups/group/posts/pfbidExample",
+  );
 });

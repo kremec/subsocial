@@ -3,7 +3,7 @@ import { type PlatformDefinition } from "@/platforms/types";
 export const youtubePlatform: PlatformDefinition = {
   id: "youtube",
   androidAppUrl: "vnd.youtube://",
-  androidPackage: "com.google.android.youtube",
+  androidPackage: null,
   appScheme: "youtube",
   dataDomains: ["youtube.com", "google.com", "googlevideo.com", "ytimg.com"],
   label: "YouTube",

@@ -54,6 +54,9 @@ export default {
     ],
   ],
   experiments: {
+    inlineModules: {
+      watchedDirectories: ["src/platforms"],
+    },
     typedRoutes: true,
     reactCompiler: true,
   },

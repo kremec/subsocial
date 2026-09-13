@@ -35,7 +35,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
     >
       {gapBefore && (
         <Pressable
-          onPress={() => void openPost(platform, post.url)}
+          onPress={() => void openPost(platform, post.url, post.androidUrl)}
           style={({ pressed }) => ({
             flexDirection: "row",
             alignItems: "center",

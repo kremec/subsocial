@@ -8,7 +8,14 @@ const platformPackages = [
   "com.google.android.youtube",
 ];
 
-const platformSchemes = ["instagram", "fb", "reddit", "twitter", "vnd.youtube"];
+const platformSchemes = [
+  "https",
+  "instagram",
+  "fb",
+  "reddit",
+  "twitter",
+  "vnd.youtube",
+];
 
 const withPlatformAppQueries: ConfigPlugin = (config) =>
   withAndroidManifest(config, (manifestConfig) => {

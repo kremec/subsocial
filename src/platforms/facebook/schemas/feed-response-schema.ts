@@ -7,6 +7,7 @@ const contentSchema = z.object({
   attachments: z.json().optional(),
 });
 const storySchema = z.object({
+  id: z.string().nullish(),
   __typename: z.string().optional(),
   post_id: z.string().nullish(),
   creation_time: z.number().nullish(),

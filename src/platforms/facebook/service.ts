@@ -176,6 +176,7 @@ export function parseFacebookFeed(response: string) {
     items.push({
       sourceId,
       url: permalink.href,
+      androidUrl: node.id ? `fb://native_post/${node.id}` : undefined,
       publishedAt,
       authorName: authorName || undefined,
       authorHandle: authorName || undefined,

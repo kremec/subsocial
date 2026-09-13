@@ -1,68 +1,56 @@
 import { Linking, Platform } from "react-native";
 
-import { startActivityAsync } from "expo-intent-launcher";
+import { requireNativeModule } from "expo";
 import { router } from "expo-router";
 
 import { type PlatformId } from "@/feed/types";
 import { getPlatform, platforms } from "@/platforms/platforms";
 
+interface PostLauncherModule {
+  openPost: (
+    url: string,
+    packageName: string | null,
+    androidUrl: string | null,
+  ) => Promise<boolean>;
+}
+
+const postLauncher = requireNativeModule<PostLauncherModule>("PostLauncher");
+
 export function openBrowser(platform: PlatformId, url?: string) {
   router.push({ pathname: "/browser", params: { platform, url } });
 }
 
-export async function canOpenPlatformApp(id: PlatformId) {
+function getPlatformAppUrl(id: PlatformId) {
   const platform = getPlatform(id);
-  return (
-    Platform.OS === "ios"
-      ? Linking.canOpenURL(`${platform.appScheme}://`)
-      : Linking.canOpenURL(platform.androidAppUrl)
-  ).catch(() => false);
+  return Platform.OS === "ios"
+    ? `${platform.appScheme}://`
+    : platform.androidAppUrl;
+}
+
+export function canOpenPlatformApp(id: PlatformId) {
+  return Linking.canOpenURL(getPlatformAppUrl(id)).catch(() => false);
+}
+
+export function openPlatformApp(id: PlatformId) {
+  return Linking.openURL(getPlatformAppUrl(id));
 }
 
 export async function getInstalledPlatformIds() {
   const installed = await Promise.all(
     platforms.map(async ({ id }) =>
-      (await canOpenPlatformApp(id)) ? id : undefined,
+      (await canOpenPlatformApp(id)) ? [id] : [],
     ),
   );
-  return installed.filter((id): id is PlatformId => id !== undefined);
+  return installed.flat();
 }
 
-export async function openPlatformApp(id: PlatformId, url?: string) {
-  const platform = getPlatform(id);
-  const installed = await canOpenPlatformApp(id);
-  if (!installed) throw new Error(`${platform.label} is not installed`);
-
-  if (!url) {
-    await Linking.openURL(
-      Platform.OS === "ios"
-        ? `${platform.appScheme}://`
-        : platform.androidAppUrl,
-    );
-    return;
-  }
-
-  if (Platform.OS === "ios") {
-    await Linking.openURL(url);
-    return;
-  }
-
-  if (id === "youtube") {
-    await Linking.openURL(`vnd.youtube:${new URL(url).searchParams.get("v")}`);
-    return;
-  }
-
-  await startActivityAsync("android.intent.action.VIEW", {
-    data: url,
-    packageName: platform.androidPackage,
-    flags: 0x10000000, // FLAG_ACTIVITY_NEW_TASK
-  });
-}
-
-export async function openPost(platform: PlatformId, url: string) {
-  try {
-    await openPlatformApp(platform, url);
-  } catch {
-    openBrowser(platform, url);
-  }
+export async function openPost(
+  id: PlatformId,
+  url: string,
+  androidUrl?: string,
+) {
+  const opened = await postLauncher
+    .openPost(url, getPlatform(id).androidPackage, androidUrl ?? null)
+    .catch(() => false);
+  if (!opened) openBrowser(id, url);
 }

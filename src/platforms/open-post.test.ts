@@ -16,9 +16,9 @@ interface BrowserRoute {
 function navigation(os: "ios" | "android", installed = true, version = 30) {
   let appInstalled = installed;
   const routes: BrowserRoute[] = [];
-  const requests: { url: string; packageName?: string }[] = [];
+  const requests: { url: string; packageName?: string | null }[] = [];
   let probes = 0;
-  const launch = async (url: string, packageName?: string) => {
+  const launch = async (url: string, packageName?: string | null) => {
     requests.push({ url, packageName });
     if (!appInstalled) throw new Error("No app can open this post");
   };
@@ -50,24 +50,33 @@ function navigation(os: "ios" | "android", installed = true, version = 30) {
               openURL: (url: string) => launch(url),
             },
           };
-        if (name === "expo-intent-launcher")
+        if (name === "expo")
           return {
-            startActivityAsync: (
-              action: string,
-              options: { data: string; packageName: string; flags: number },
-            ) => {
-              assert.equal(action, "android.intent.action.VIEW");
-              assert.equal(options.flags, 0x10000000);
-              return launch(options.data, options.packageName);
+            requireNativeModule: (name: string) => {
+              assert.equal(name, "PostLauncher");
+              return {
+                openPost: async (
+                  url: string,
+                  packageName: string | null,
+                  androidUrl: string | null,
+                ) => {
+                  if (os === "android") {
+                    await launch(androidUrl ?? url, packageName);
+                    return true;
+                  }
+                  requests.push({ url, packageName });
+                  return appInstalled;
+                },
+              };
             },
           };
         if (name === "@/platforms/platforms")
           return {
             platforms: [{ id: "instagram" }],
-            getPlatform: () => ({
+            getPlatform: (id: PlatformId) => ({
               startUrl: "https://www.instagram.com/?variant=following",
               androidAppUrl: "instagram://mainfeed",
-              androidPackage: "com.instagram.android",
+              androidPackage: id === "youtube" ? null : "com.instagram.android",
               appScheme: "instagram",
               label: "Instagram",
             }),
@@ -99,7 +108,7 @@ for (const [os, version] of [
     assert.deepEqual(app.requests, [
       {
         url,
-        packageName: os === "android" ? "com.instagram.android" : undefined,
+        packageName: "com.instagram.android",
       },
     ]);
     assert.equal(app.routes.length, 0);
@@ -113,7 +122,7 @@ for (const [os, version] of [
     assert.equal(app.routes[0].pathname, "/browser");
     assert.equal(app.routes[0].params.platform, "instagram");
     assert.equal(app.routes[0].params.url, url);
-    assert.equal(app.requests.length, 0);
+    assert.equal(app.requests.length, 1);
   });
 }
 
@@ -127,14 +136,14 @@ test("the iOS app button opens the native app root", async () => {
 });
 
 for (const os of ["ios", "android"] as const) {
-  test(`${os}: opens YouTube videos without targeting the official Android package`, async () => {
+  test(`${os}: opens YouTube without restricting the app package`, async () => {
     const app = navigation(os);
     const url = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
     await app.openPost("youtube", url);
     assert.deepEqual(app.requests, [
       {
-        url: os === "android" ? "vnd.youtube:jNQXAC9IVRw" : url,
-        packageName: undefined,
+        url,
+        packageName: null,
       },
     ]);
     assert.equal(app.routes.length, 0);
@@ -151,10 +160,10 @@ test("the Android app button opens the native app URI", async () => {
 });
 
 for (const os of ["ios", "android"] as const) {
-  test(`${os}: the app button does nothing when the app is unavailable`, async () => {
+  test(`${os}: the app button rejects when the app is unavailable`, async () => {
     const app = navigation(os, false);
     await assert.rejects(app.openPlatformApp("instagram"));
-    assert.equal(app.requests.length, 0);
+    assert.equal(app.requests.length, 1);
     assert.equal(app.routes.length, 0);
   });
 }
@@ -167,14 +176,14 @@ test("installation changes are detected without restarting", async () => {
   app.setInstalled(true);
   await app.openPost("instagram", url);
 
-  assert.equal(app.probes(), 2);
+  assert.equal(app.probes(), 1);
   assert.equal(app.requests.length, 1);
   assert.equal(app.routes.length, 0);
 
   app.setInstalled(false);
   await app.openPost("instagram", `${url}new/`);
-  assert.equal(app.probes(), 3);
-  assert.equal(app.requests.length, 1);
+  assert.equal(app.probes(), 1);
+  assert.equal(app.requests.length, 2);
   assert.equal(app.routes[0].pathname, "/browser");
   assert.equal(app.routes[0].params.url, `${url}new/`);
 });
@@ -200,3 +209,26 @@ test("verification opens the embedded session without attempting a native app", 
   assert.equal(app.routes.length, 1);
   assert.equal(app.routes[0].params.url, url);
 });
+
+test("iOS universal links do not depend on the app home URI probe", async () => {
+  const app = navigation("ios");
+  await app.openPost("instagram", "https://www.instagram.com/reel/shortcode/");
+  assert.equal(app.probes(), 0);
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.routes.length, 0);
+});
+
+for (const os of ["ios", "android"] as const) {
+  test(`${os}: Facebook keeps its web URL alongside its Android detail link`, async () => {
+    const app = navigation(os);
+    const url = "https://www.facebook.com/groups/group/posts/123/";
+    const androidUrl = "fb://native_post/UzpfSTEyMzo0NTY=";
+    await app.openPost("facebook", url, androidUrl);
+    assert.equal(app.requests[0].url, os === "android" ? androidUrl : url);
+    assert.equal(app.routes.length, 0);
+
+    app.setInstalled(false);
+    await app.openPost("facebook", url, androidUrl);
+    assert.equal(app.routes[0].params.url, url);
+  });
+}

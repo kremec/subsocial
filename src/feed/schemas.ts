@@ -29,6 +29,7 @@ export const feedPostSchema = z.object({
   title: z.string().optional(),
   text: z.string().optional(),
   url: z.httpUrl(),
+  androidUrl: z.url().optional(),
   publishedAt: z.number().positive().optional().catch(undefined),
   media: mediaListSchema.optional(),
   context: z.string().optional(),

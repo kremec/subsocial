@@ -40,7 +40,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
   const feed = variant === "feed";
   const quote = variant === "quote";
   const paddingHorizontal = feed ? theme.spacing.lg : 0;
-  const openPostUrl = () => void openPost(platform, post.url);
+  const openPostUrl = () => void openPost(platform, post.url, post.androidUrl);
   const onPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
     openPostUrl();
