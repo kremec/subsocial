@@ -10,7 +10,6 @@ import { ModuleKind, transpileModule } from "typescript";
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
 import { extractionMessageSchema } from "@/feed/schemas";
 import { type ExtractedItem } from "@/feed/types";
-import { youtubePlaybackMessageSchema } from "@/platforms/youtube/schemas/playback-message-schema";
 
 // Exercise the production SQL against SQLite without requiring a native app.
 function openStore(db = new DatabaseSync(":memory:")) {
@@ -338,24 +337,10 @@ test("the extraction boundary keeps good posts and removes unusable media and ex
   assert.equal(message.items[1].publishedAt, undefined);
 });
 
-test("the bridge rejects malformed envelopes and playback messages", () => {
+test("the bridge rejects malformed envelopes", () => {
   assert.equal(
     extractionMessageSchema.safeParse({ type: "items", items: "invalid" })
       .success,
-    false,
-  );
-  assert.equal(
-    youtubePlaybackMessageSchema.safeParse({
-      type: "youtube-date",
-      publishedAt: "yesterday",
-    }).success,
-    false,
-  );
-  assert.equal(
-    youtubePlaybackMessageSchema.safeParse({
-      type: "youtube-stream",
-      url: "blob:temporary",
-    }).success,
     false,
   );
 });

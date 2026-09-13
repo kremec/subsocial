@@ -15,6 +15,7 @@ export const feedMediaSchema = z.object({
   posterUrl: z.httpUrl().optional().catch(undefined),
   playable: z.boolean().optional(),
   contentType: z.enum(["hls", "progressive"]).optional(),
+  preferredAudioTrack: z.string().optional(),
 });
 
 const mediaListSchema = z

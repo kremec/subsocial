@@ -67,6 +67,23 @@ function feedHarness(initial: FeedItem[], storage = new Map<string, string>()) {
         },
       ];
     },
+    useMemo<T, D>(factory: () => T, dependencies: D[]) {
+      const index = cursor++;
+      const previous = cells[index] as
+        | { value: T; dependencies: D[] }
+        | undefined;
+      if (
+        previous &&
+        dependencies.length === previous.dependencies.length &&
+        dependencies.every((value, i) =>
+          Object.is(value, previous.dependencies[i]),
+        )
+      )
+        return previous.value;
+      const cell = { value: factory(), dependencies };
+      cells[index] = cell;
+      return cell.value;
+    },
     useRef<T>(value: T) {
       const index = cursor++;
       cells[index] ??= { current: value };
@@ -229,8 +246,14 @@ function complete(run: Refresh) {
 
 test("publishes only once all platform collectors finish", () => {
   const app = feedHarness(initial);
+  const active = app.current.active;
   app.current.refresh();
   const run = app.render();
+  assert.equal(
+    run.active,
+    active,
+    "refresh keeps the active-platform array stable",
+  );
   app.database.items = incoming;
   run.finish(run.runId!, result("x"));
   assert.deepEqual(ids(app.render().items), ids(initial));

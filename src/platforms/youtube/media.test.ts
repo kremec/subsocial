@@ -85,12 +85,14 @@ test("applies an ephemeral stream only to YouTube's first media item", () => {
     status: "ready",
     url: "https://rr1.googlevideo.com/videoplayback?id=video",
     contentType: "progressive",
+    preferredAudioTrack: "English - original",
   });
   assert.equal(
     resolved.media[0].url,
     "https://rr1.googlevideo.com/videoplayback?id=video",
   );
   assert.equal(resolved.media[0].contentType, "progressive");
+  assert.equal(resolved.media[0].preferredAudioTrack, "English - original");
   assert.equal(resolved.media[1], video.media[1]);
   assert.equal(withYouTubeStream(video, { status: "error" }), video);
   const instagram = item("instagram", "instagram");

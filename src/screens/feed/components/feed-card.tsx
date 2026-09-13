@@ -1,4 +1,4 @@
-import { type FC } from "react";
+import { type FC, memo } from "react";
 import { View } from "react-native";
 
 import { useRecyclingState } from "@legendapp/list/react-native";
@@ -15,6 +15,7 @@ import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedCardProps {
+  rowId: string;
   item: FeedItem;
   post?: FeedPost;
   threadStart?: boolean;
@@ -22,13 +23,14 @@ interface FeedCardProps {
   threadGapBefore?: boolean;
   active: boolean;
   resolution?: YouTubeResolution;
-  onActivate: () => void;
+  onActivate: (id: string) => void;
   onRetry: () => void;
-  onPlaybackError: () => void;
+  onPlaybackError: (id: string) => void;
 }
 
-export const FeedCard: FC<FeedCardProps> = (props) => {
+export const FeedCard: FC<FeedCardProps> = memo((props) => {
   const {
+    rowId,
     item,
     post,
     threadStart,
@@ -63,7 +65,7 @@ export const FeedCard: FC<FeedCardProps> = (props) => {
   const activePostUrl = active ? selectedVideoUrl : undefined;
   const activatePost = (url: string) => {
     setSelectedPostUrl(url);
-    onActivate();
+    onActivate(rowId);
   };
   const theme = useTheme();
 
@@ -98,10 +100,12 @@ export const FeedCard: FC<FeedCardProps> = (props) => {
         playbackStatus={youtubePlaybackStatus(item, resolution)}
         onRetry={item.platform === "youtube" ? onRetry : undefined}
         onPlaybackError={
-          item.platform === "youtube" ? onPlaybackError : undefined
+          item.platform === "youtube"
+            ? () => onPlaybackError(item.id)
+            : undefined
         }
         onVerification={() => openBrowser(item.platform, item.url)}
       />
     </View>
   );
-};
+});

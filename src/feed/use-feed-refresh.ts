@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import Storage from "expo-sqlite/kv-store";
@@ -44,7 +44,10 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   );
   const [run, setRun] = useState<RefreshRun>();
   const running = useRef<RefreshRun>(undefined);
-  const active = connected.filter((id) => !hidden.includes(id));
+  const active = useMemo(
+    () => connected.filter((id) => !hidden.includes(id)),
+    [connected, hidden],
+  );
   const attention = run?.attention ?? [];
   const collection = (run?.queue ?? []).filter((id) => !attention.includes(id));
 

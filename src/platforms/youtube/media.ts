@@ -5,10 +5,11 @@ export type YouTubeResolution =
       status: "ready";
       url: string;
       contentType: "hls" | "progressive";
+      preferredAudioTrack?: string;
     }
   | { status: "error" | "verification" };
 
-export function youtubeStream(url: string): YouTubeResolution {
+export function youtubeStream(url: string) {
   const source = new URL(url);
   const contentType = /\/manifest\/hls_(?:playlist|variant)\//.test(
     source.pathname,
@@ -24,7 +25,7 @@ export function youtubeStream(url: string): YouTubeResolution {
   ) {
     throw new Error("Invalid YouTube stream");
   }
-  return { status: "ready", url, contentType };
+  return { status: "ready", url, contentType } satisfies YouTubeResolution;
 }
 
 export function youtubePlaybackStatus(
@@ -52,6 +53,7 @@ export function withYouTubeStream(
             ...media,
             url: resolution.url,
             contentType: resolution.contentType,
+            preferredAudioTrack: resolution.preferredAudioTrack,
           },
     ),
   };

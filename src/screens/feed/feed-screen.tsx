@@ -1,4 +1,11 @@
-import { type FC, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  type FC,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AppState, RefreshControl, View } from "react-native";
 
 import { useIsFocused } from "expo-router";
@@ -28,14 +35,15 @@ import { importDatabase } from "@/feed/import-database";
 import { type FeedItem, type FeedPost, type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
-import {
-  useYouTubeMedia,
-  YouTubeMediaResolver,
-} from "@/platforms/youtube/media-resolver";
+import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
+import {
+  FeedVideoPlayerContext,
+  useFeedVideoPlayer,
+} from "@/screens/feed/feed-video-player";
 import { useTheme } from "@/theme/use-theme";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
@@ -106,6 +114,7 @@ const hasPlayableVideo = (row: FeedRow) => {
 export const FeedScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
+  const player = useFeedVideoPlayer();
   const [visibleRowId, setVisibleRowId] = useState<string>();
   const [webKitReady, setWebKitReady] = useState(false);
   const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
@@ -120,11 +129,13 @@ export const FeedScreen: FC = () => {
   const browserShown =
     !!attentionBrowser && feed.attention.includes(attentionBrowser);
   const feedVisible = visible && !browserShown;
-
-  const visibleItems = items.filter((item) =>
-    activePlatforms.includes(item.platform),
+  const rows = useMemo(
+    () =>
+      items
+        .filter((item) => activePlatforms.includes(item.platform))
+        .flatMap(rowsFor),
+    [items, activePlatforms],
   );
-  const rows = visibleItems.flatMap(rowsFor);
   const list = useRef<LegendListRef>(null);
   const readingRowId = useRef<string>(undefined);
   const viewport = useRef<View>(null);
@@ -172,10 +183,10 @@ export const FeedScreen: FC = () => {
   }, []);
   const visibleRow = rows.find((row) => row.id === visibleRowId);
   const media = useYouTubeMedia(visibleRow?.item, feedVisible);
-  const activateRow = (row: FeedRow | undefined) => {
-    media.activate(row?.item.id);
-    setVisibleRowId(row?.id);
-  };
+  const extraData = useMemo(
+    () => [visibleRowId, media.resolution, feedVisible],
+    [visibleRowId, media.resolution, feedVisible],
+  );
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
@@ -184,7 +195,7 @@ export const FeedScreen: FC = () => {
     const row = (
       visible.find((row) => hasPlayableVideo(row.item)) || visible[0]
     )?.item;
-    activateRow(row);
+    setVisibleRowId(row?.id);
   };
 
   return (
@@ -231,14 +242,6 @@ export const FeedScreen: FC = () => {
           }}
         />
       ))}
-
-      {visible && webKitReady && media.next && (
-        <YouTubeMediaResolver
-          key={media.next.id}
-          item={media.next}
-          onResolve={media.resolve}
-        />
-      )}
 
       <View
         style={{
@@ -293,26 +296,29 @@ export const FeedScreen: FC = () => {
             onMomentumScrollEnd={savePosition}
             data={rows}
             recycleItems
-            extraData={[visibleRowId, media.resolution, feedVisible]}
+            extraData={extraData}
             getItemType={getItemType}
             keyExtractor={(row) => row.id}
             renderItem={({ item: row }) => (
-              <FeedCard
-                item={row.item}
-                post={row.post}
-                threadStart={row.threadStart}
-                threadEnd={row.threadEnd}
-                threadGapBefore={row.threadGapBefore}
-                active={feedVisible && row.id === visibleRowId}
-                resolution={
-                  row.item.id === visibleRow?.item.id
-                    ? media.resolution
-                    : undefined
-                }
-                onActivate={() => activateRow(row)}
-                onRetry={media.retry}
-                onPlaybackError={media.fail}
-              />
+              <FeedVideoPlayerContext value={player}>
+                <FeedCard
+                  rowId={row.id}
+                  item={row.item}
+                  post={row.post}
+                  threadStart={row.threadStart}
+                  threadEnd={row.threadEnd}
+                  threadGapBefore={row.threadGapBefore}
+                  active={feedVisible && row.id === visibleRowId}
+                  resolution={
+                    row.item.id === visibleRow?.item.id
+                      ? media.resolution
+                      : undefined
+                  }
+                  onActivate={setVisibleRowId}
+                  onRetry={media.retry}
+                  onPlaybackError={media.fail}
+                />
+              </FeedVideoPlayerContext>
             )}
             viewabilityConfig={viewabilityConfig}
             onViewableItemsChanged={onViewableItemsChanged}
