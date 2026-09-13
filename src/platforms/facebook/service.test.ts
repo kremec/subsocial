@@ -61,7 +61,7 @@ test("reads streamed Facebook posts with exact dates, canonical IDs, group names
   const page = parseFacebookFeed(response());
   assert.equal(page.items.length, 1);
   const item = page.items[0];
-  assert.equal(item.sourceId, "pfbidExample");
+  assert.equal(item.sourceId, "123");
   assert.equal(item.androidUrl, `fb://native_post/${story.id}`);
   assert.equal(
     item.url,
@@ -267,4 +267,252 @@ test("keeps posts without a native story ID available through their web URL", ()
     page.items[0].url,
     "https://www.facebook.com/groups/group/posts/pfbidExample",
   );
+});
+
+function pageFor(node: object) {
+  return parseFacebookFeed(
+    JSON.stringify({
+      data: {
+        viewer: {
+          news_feed: {
+            edges: [{ category: "ORGANIC", node }],
+            page_info: { has_next_page: false },
+          },
+        },
+      },
+    }),
+  ).items[0];
+}
+
+test("uses context group names for both author fields", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: { story: { message: { text: "Group post" } } },
+      context_layout: {
+        story: {
+          comet_sections: {
+            title: {
+              story: {
+                to: { __typename: "Group", name: "Developers" },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  assert.equal(item.authorName, "Developers");
+  assert.equal(item.authorHandle, "Developers");
+});
+
+test("keeps node reel media when content attachments are empty", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: { attachments: [], message: { text: "Living fossils" } },
+      },
+    },
+    attachments: [
+      {
+        media: {
+          __typename: "Video",
+          id: "reel",
+          creation_story: {
+            short_form_video_context: {
+              playback_video: {
+                __typename: "Video",
+                id: "reel",
+                preferred_thumbnail: {
+                  uri: "https://example.com/reel.jpg",
+                  width: 360,
+                  height: 640,
+                },
+                videoDeliveryLegacyFields: {
+                  playable_url_quality_hd: "https://example.com/reel.mp4",
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  });
+  assert.deepEqual(item.media, [
+    {
+      type: "video",
+      url: "https://example.com/reel.mp4",
+      posterUrl: "https://example.com/reel.jpg",
+      playable: true,
+      aspectRatio: 360 / 640,
+    },
+  ]);
+});
+
+test("upgrades duplicate reel previews with playback data from the story context", () => {
+  const preview = {
+    __typename: "Video",
+    id: "reel",
+    preferred_thumbnail: { uri: "https://example.com/reel.jpg" },
+  };
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attachments: [{ media: preview }],
+          short_form_video_context: {
+            playback_video: {
+              __typename: "Video",
+              id: "reel",
+              videoDeliveryLegacyFields: { playable_url: null },
+              playable_url: "https://example.com/reel.mp4",
+            },
+          },
+        },
+      },
+    },
+  });
+  assert.equal(item.media.length, 1);
+  assert.equal(item.media[0].url, "https://example.com/reel.mp4");
+  assert.equal(item.media[0].playable, true);
+  assert.equal(item.media[0].posterUrl, "https://example.com/reel.jpg");
+});
+
+for (const urlField of ["url", "wwwURL"]) {
+  for (const text of [undefined, "My commentary"]) {
+    test(`maps a shared story using ${urlField} ${text ? "with" : "without"} commentary`, () => {
+      const item = pageFor({
+        ...story,
+        comet_sections: {
+          ...story.comet_sections,
+          content: {
+            story: {
+              target_group: { name: "Developers" },
+              message: text ? { text } : null,
+              attached_story: {
+                __typename: "Story",
+                post_id: "original",
+                [urlField]: "https://www.facebook.com/posts/original",
+                target_group: { id: "original-group" },
+                actors: [{ name: "Original author" }],
+                message: { text: "Shared content" },
+                attachments: story.comet_sections.content.story.attachments,
+              },
+            },
+          },
+        },
+      });
+      assert.equal(item.sourceId, "123");
+      assert.equal(item.publishedAt, 1780000000000);
+      assert.equal(item.authorHandle, "Developers");
+      assert.equal(item.text, text);
+      assert.deepEqual(item.media, []);
+      assert.equal(item.quote?.authorName, "Original author");
+      assert.equal(item.quote?.text, "Shared content");
+      assert.equal(item.quote?.url, "https://www.facebook.com/posts/original");
+      assert.equal(item.quote?.media?.[0].url, "https://example.com/photo.jpg");
+    });
+  }
+}
+
+test("keeps the same post identity when Facebook changes its pfbid permalink", () => {
+  const first = pageFor(story);
+  const second = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      timestamp: {
+        story: { url: "https://www.facebook.com/posts/pfbidChanged" },
+      },
+    },
+  });
+  assert.equal(first.sourceId, "123");
+  assert.equal(second.sourceId, first.sourceId);
+  assert.notEqual(second.url, first.url);
+});
+
+test("reads the destination group directly from Facebook story.to", () => {
+  for (const name of ["BOOX Fans Group", "Slovenski developerji"]) {
+    const item = pageFor({
+      ...story,
+      to: { __typename: "Group", name },
+      comet_sections: { ...story.comet_sections, content: { story: {} } },
+    });
+    assert.equal(item.authorName, name);
+    assert.equal(item.authorHandle, name);
+  }
+});
+
+test("uses the reel's video dimensions and nested preferred thumbnail", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attachments: [
+            {
+              styles: {
+                attachment: {
+                  media: {
+                    __typename: "Video",
+                    id: "reel",
+                    width: 1080,
+                    height: 1920,
+                    aspect_ratio: 0.5625,
+                    preferred_thumbnail: {
+                      image: { uri: "https://example.com/reel.jpg" },
+                    },
+                    videoDeliveryLegacyFields: {
+                      browser_native_hd_url: "https://example.com/reel.mp4",
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(item.media[0].aspectRatio, 9 / 16);
+  assert.equal(item.media[0].posterUrl, "https://example.com/reel.jpg");
+});
+
+test("enriches playable video with dimensions from a later record", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attachments: [
+            {
+              media: {
+                __typename: "Video",
+                id: "reel",
+                browser_native_hd_url: "https://example.com/reel.mp4",
+              },
+            },
+            {
+              media: {
+                __typename: "Video",
+                id: "reel",
+                width: 1080,
+                height: 1920,
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(item.media.length, 1);
+  assert.equal(item.media[0].aspectRatio, 9 / 16);
+  assert.equal(item.media[0].playable, true);
 });

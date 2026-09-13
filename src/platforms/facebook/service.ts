@@ -1,6 +1,8 @@
-import type { ExtractedItem, FeedMedia } from "@/feed/types";
+import type { ExtractedItem, FeedMedia, FeedPost } from "@/feed/types";
 import {
   edgeSchema,
+  groupSchema,
+  type FacebookStory,
   pageInfoSchema,
   partSchema,
   rootDataSchema,
@@ -62,26 +64,105 @@ function mediaFor(attachments: Json): FeedMedia[] {
     if (!parsed.success) continue;
     const data = parsed.data;
     const video = data.__typename === "Video";
-    const image = data.image || data.photo_image || data.preferred_thumbnail;
+    const image =
+      data.image ||
+      data.photo_image ||
+      data.preferred_thumbnail?.image ||
+      data.preferred_thumbnail;
     const poster = image?.uri || "";
+    const playback = data.videoDeliveryLegacyFields;
     const playable =
-      data.browser_native_hd_url || data.browser_native_sd_url || "";
-    const url = video ? playable || poster : poster;
+      playback?.browser_native_hd_url ||
+      data.browser_native_hd_url ||
+      playback?.playable_url_quality_hd ||
+      data.playable_url_quality_hd ||
+      playback?.browser_native_sd_url ||
+      data.browser_native_sd_url ||
+      playback?.playable_url ||
+      data.playable_url ||
+      "";
+    const candidateUrl = video ? playable || poster : poster;
+    const id = data.id || candidateUrl;
+    const previous = media.get(id);
+    const url = previous?.playable
+      ? previous.url
+      : candidateUrl || previous?.url;
     if (!url) continue;
     const width = Number(image?.width);
     const height = Number(image?.height);
-    const id = data.id || url;
-    if (media.has(id)) continue;
+    const aspectRatio = video
+      ? data.aspect_ratio ||
+        (data.width && data.height ? data.width / data.height : undefined)
+      : undefined;
     media.set(id, {
       type: video ? "video" : "image",
       url,
-      aspectRatio: width && height ? width / height : undefined,
+      aspectRatio:
+        aspectRatio ||
+        previous?.aspectRatio ||
+        (width && height ? width / height : undefined),
       ...(video
-        ? { posterUrl: poster || undefined, playable: !!playable }
+        ? {
+            posterUrl: poster || previous?.posterUrl,
+            playable: !!(playable || previous?.playable),
+          }
         : {}),
     });
   }
   return [...media.values()];
+}
+
+function postFor(node: FacebookStory): FeedPost | undefined {
+  const sections = node.comet_sections;
+  const content = sections?.content?.story;
+  const url =
+    sections?.timestamp?.story?.url ||
+    node.permalink_url ||
+    node.wwwURL ||
+    node.url;
+  if (!url) return undefined;
+  const permalink = new URL(url);
+  for (const key of [...permalink.searchParams.keys()]) {
+    if (key.startsWith("__cft__") || ["__tn__", "mibextid"].includes(key))
+      permalink.searchParams.delete(key);
+  }
+  const sourceId =
+    node.post_id ||
+    permalink.pathname.match(
+      /\/(?:posts|permalink|share\/p|videos|reel)\/([^/?#]+)/,
+    )?.[1] ||
+    permalink.searchParams.get("story_fbid") ||
+    undefined;
+  const context = sections?.context_layout?.story;
+  const contextGroup = [...objects(context || {})]
+    .map((entry) => groupSchema.safeParse(entry))
+    .find((entry) => entry.success && entry.data.name);
+  const authorName =
+    (node.to?.__typename === "Group" ? node.to.name : undefined) ||
+    content?.target_group?.name ||
+    node.target_group?.name ||
+    node.feedback?.associated_group?.name ||
+    (contextGroup?.success ? contextGroup.data.name : undefined) ||
+    node.actors?.[0]?.name ||
+    content?.actors?.[0]?.name ||
+    undefined;
+  const attached = content?.attached_story || node.attached_story;
+  return {
+    sourceId,
+    url: permalink.href,
+    androidUrl: node.id ? `fb://native_post/${node.id}` : undefined,
+    publishedAt: node.creation_time ? node.creation_time * 1000 : undefined,
+    authorName,
+    authorHandle: authorName,
+    text: content?.message?.text || node.message?.text || undefined,
+    media: mediaFor([
+      content?.attachments || [],
+      node.attachments || [],
+      content?.short_form_video_context || {},
+      node.short_form_video_context || {},
+    ]),
+    quote: attached ? postFor(attached) : undefined,
+  };
 }
 
 function applyPatch(
@@ -152,37 +233,11 @@ export function parseFacebookFeed(response: string) {
       node.sponsored_data
     )
       continue;
-    const sections = node.comet_sections;
-    const content = sections?.content?.story;
-    const context = sections?.context_layout?.story;
-    if (context?.unconnected_waist_data) continue;
-    const url = sections?.timestamp?.story?.url || node.permalink_url;
-    const publishedAt = Number(node.creation_time) * 1000;
-    if (!url || !publishedAt) continue;
-    const permalink = new URL(url);
-    for (const key of [...permalink.searchParams.keys()]) {
-      if (key.startsWith("__cft__") || ["__tn__", "mibextid"].includes(key))
-        permalink.searchParams.delete(key);
-    }
-    const sourceId =
-      permalink.pathname.match(
-        /\/(?:posts|permalink|share\/p|videos|reel)\/([^/?#]+)/,
-      )?.[1] ||
-      permalink.searchParams.get("story_fbid") ||
-      node.post_id;
-    if (!sourceId) continue;
-    const group = content?.target_group || node.feedback?.associated_group;
-    const authorName = group?.name || node.actors?.[0]?.name;
-    items.push({
-      sourceId,
-      url: permalink.href,
-      androidUrl: node.id ? `fb://native_post/${node.id}` : undefined,
-      publishedAt,
-      authorName: authorName || undefined,
-      authorHandle: authorName || undefined,
-      text: content?.message?.text || undefined,
-      media: mediaFor(content?.attachments || node.attachments || []),
-    });
+    const context = object(node.comet_sections?.context_layout?.story);
+    if (context.unconnected_waist_data) continue;
+    const post = postFor(node);
+    if (!post?.sourceId || !post.publishedAt) continue;
+    items.push({ ...post, sourceId: post.sourceId, media: post.media || [] });
   }
   return {
     items,
