@@ -120,12 +120,10 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               </Typography>
 
               <IconButton
-                disabled={!connected}
                 onPress={() => onTogglePlatform(platform.id)}
                 style={{
                   width: 36,
                   height: 36,
-                  opacity: connected ? 1 : 0.4,
                 }}
               >
                 <Icon

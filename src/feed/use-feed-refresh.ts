@@ -45,8 +45,8 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [run, setRun] = useState<RefreshRun>();
   const running = useRef<RefreshRun>(undefined);
   const active = useMemo(
-    () => connected.filter((id) => !hidden.includes(id)),
-    [connected, hidden],
+    () => platformIdSchema.options.filter((id) => !hidden.includes(id)),
+    [hidden],
   );
   const attention = run?.attention ?? [];
   const collection = (run?.queue ?? []).filter((id) => !attention.includes(id));
@@ -88,10 +88,9 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const sync = useEffectEvent((platforms: PlatformId[]) => {
     const added = platforms.some((id) => !connected.includes(id));
     setConnected(platforms);
-    // Disconnecting must hide removed data immediately, even while a refresh is staged.
-    setItems((current) =>
-      current.filter((item) => platforms.includes(item.platform)),
-    );
+    // Remove deleted posts without publishing a refresh that is still staged.
+    const savedIds = new Set(listFeedItems().map((item) => item.id));
+    setItems((current) => current.filter((item) => savedIds.has(item.id)));
     const refreshedToday = Storage.getItemSync(refreshDayKey) === localDay();
     // A new account refreshes the whole feed. Ordinary app opens respect hidden sources.
     if (added) begin(platforms);
@@ -213,7 +212,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       setItems(listFeedItems());
     },
     refresh: () => {
-      if (!run) begin(active);
+      if (!run) begin(connected.filter((id) => active.includes(id)));
     },
   };
 }

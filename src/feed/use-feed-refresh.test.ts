@@ -355,7 +355,7 @@ test("an interrupted first import resumes from posts it already saved", () => {
   assert.deepEqual(Array.from(app.render().known.x ?? []), ["old"]);
 });
 
-test("disconnect removes the platform from the published snapshot", async () => {
+test("explicit logout removes deleted posts from the published snapshot", async () => {
   const app = feedHarness(initial);
   await app.focus(true);
   const run = app.render();
@@ -438,4 +438,26 @@ test("reloading imported data replaces the feed and clears an active refresh", a
   reloaded.finish(runId, result("x"));
   assert.equal(harness.render().items, imported);
   assert.equal(harness.current.runId, undefined);
+});
+
+test("saved posts stay visible without sessions and only connected platforms refresh", async () => {
+  const app = feedHarness(initial);
+  app.database.connected = [];
+  const feed = await app.focus(true);
+  assert.deepEqual(ids(feed.items), ids(initial));
+  assert.ok(initial.every((item) => feed.active.includes(item.platform)));
+  assert.equal(feed.collectors.length, 0);
+
+  feed.refresh();
+  assert.equal(app.render().collectors.length, 0);
+  app.current.toggle("x");
+  assert.equal(app.render().active.includes("x"), false);
+  app.current.toggle("x");
+  assert.equal(app.render().active.includes("x"), true);
+
+  await app.focus(false);
+  app.database.connected = ["youtube"];
+  const connected = await app.focus(true);
+  assert.deepEqual([...connected.collectors], ["youtube"]);
+  assert.deepEqual(ids(connected.items), ids(initial));
 });
