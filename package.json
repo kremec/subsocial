@@ -18,7 +18,8 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "check": "tsc --noEmit",
-    "prepare": "git config --local include.path ../.githooks/.gitconfig"
+    "prepare": "git config --local include.path ../.githooks/.gitconfig",
+    "analyze": "EXPO_ATLAS=true bun expo export --platform android && bunx expo-atlas .expo/atlas.jsonl"
   },
   "dependencies": {
     "@expo/ui": "~57.0.18",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "expo-atlas": "^0.4.0",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
     "typescript": "~6.0.3"
