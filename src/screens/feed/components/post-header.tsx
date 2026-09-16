@@ -54,6 +54,8 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
       >
         <Typography
           variant="bodySmall"
+          numberOfLines={1}
+          ellipsizeMode="tail"
           style={{
             flexShrink: 1,
             fontWeight: "600",
