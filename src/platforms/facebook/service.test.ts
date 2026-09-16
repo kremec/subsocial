@@ -257,6 +257,110 @@ test("merges deferred video data into indexed edges arriving out of order", () =
   ]);
 });
 
+test("reads quoted album video playback without a nested typename", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attached_story: {
+            post_id: "original",
+            url: "https://www.facebook.com/posts/original",
+            attachments: [
+              {
+                all_subattachments: {
+                  nodes: [
+                    {
+                      media: {
+                        __typename: "Video",
+                        id: "video",
+                        image: {
+                          uri: "https://example.com/poster.jpg",
+                          width: 590,
+                          height: 329,
+                        },
+                        video_grid_renderer: {
+                          __typename: "VideoAttachmentGridRenderer",
+                          video: {
+                            id: "video",
+                            width: 1280,
+                            height: 714,
+                            videoDeliveryLegacyFields: {
+                              browser_native_hd_url:
+                                "https://example.com/video.mp4",
+                            },
+                          },
+                        },
+                      },
+                    },
+                    ...story.comet_sections.content.story.attachments,
+                  ],
+                },
+              },
+              { media: { __typename: "Video", id: "video" } },
+            ],
+          },
+        },
+      },
+    },
+  });
+  assert.deepEqual(item.quote?.media, [
+    {
+      type: "video",
+      url: "https://example.com/video.mp4",
+      posterUrl: "https://example.com/poster.jpg",
+      playable: true,
+      aspectRatio: 1280 / 714,
+    },
+    {
+      type: "image",
+      url: "https://example.com/photo.jpg",
+      aspectRatio: 2,
+    },
+  ]);
+});
+
+test("invalid or empty grid video data preserves existing playable media", () => {
+  for (const nested of [
+    { width: 0 },
+    { videoDeliveryLegacyFields: null },
+    { videoDeliveryLegacyFields: { browser_native_hd_url: null } },
+  ]) {
+    const item = pageFor({
+      ...story,
+      comet_sections: { timestamp: story.comet_sections.timestamp },
+      attachments: [
+        {
+          media: {
+            __typename: "Video",
+            id: "video",
+            image: { uri: "https://example.com/poster.jpg" },
+            width: 1280,
+            height: 720,
+            videoDeliveryLegacyFields: {
+              browser_native_hd_url: "https://example.com/video.mp4",
+            },
+            video_grid_renderer: {
+              __typename: "VideoAttachmentGridRenderer",
+              video: { id: "video", ...nested },
+            },
+          },
+        },
+      ],
+    });
+    assert.deepEqual(item.media, [
+      {
+        type: "video",
+        url: "https://example.com/video.mp4",
+        posterUrl: "https://example.com/poster.jpg",
+        playable: true,
+        aspectRatio: 1280 / 720,
+      },
+    ]);
+  }
+});
+
 test("keeps posts without a native story ID available through their web URL", () => {
   const page = parseFacebookFeed(
     response().replace(JSON.stringify(story.id), "null"),

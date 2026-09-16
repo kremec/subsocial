@@ -69,7 +69,7 @@ const playbackSchema = z.object({
   playable_url_quality_hd: z.string().nullish(),
   playable_url: z.string().nullish(),
 });
-export const mediaSchema = playbackSchema.extend({
+const mediaNodeSchema = playbackSchema.extend({
   __typename: z.enum(["Video", "Photo"]),
   id: z.string().nullish(),
   image: imageSchema.nullish(),
@@ -82,6 +82,17 @@ export const mediaSchema = playbackSchema.extend({
   aspect_ratio: z.number().positive().nullish(),
   videoDeliveryLegacyFields: playbackSchema.nullish(),
 });
+export const mediaSchema = z.union([
+  mediaNodeSchema,
+  z
+    .object({
+      __typename: z.literal("VideoAttachmentGridRenderer"),
+      video: mediaNodeSchema.extend({
+        __typename: z.literal("Video").default("Video"),
+      }),
+    })
+    .transform((value) => value.video),
+]);
 export const tokenSchema = z
   .object({ token: z.string().min(1) })
   .transform((value) => value.token);

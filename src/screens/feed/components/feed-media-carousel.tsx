@@ -1,5 +1,5 @@
 import { type FC, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia } from "@/feed/types";
@@ -50,7 +50,10 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
           showPlayButton={!(media.playable && active && index === mediaIndex)}
         />
         {media.playable && active && index === mediaIndex && (
-          <View style={{ position: "absolute", inset: 0 }}>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={{ position: "absolute", inset: 0 }}
+          >
             <FeedVideo
               key={media.url}
               media={media}
@@ -59,7 +62,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               onError={onPlaybackError}
               onVerification={onVerification}
             />
-          </View>
+          </Pressable>
         )}
       </View>
     ) : (
