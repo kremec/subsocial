@@ -1,11 +1,15 @@
-import { type FC, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { Modal, StatusBar, View } from "react-native";
 
 import { Image } from "expo-image";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { fitContainer, ResumableZoom } from "react-native-zoom-toolkit";
+import {
+  fitContainer,
+  ResumableZoom,
+  type ResumableZoomRefType,
+} from "react-native-zoom-toolkit";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -26,6 +30,7 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
   useFullscreenOrientation(visible);
   const [screen, setScreen] = useState({ width: 0, height: 0 });
   const [ratio, setRatio] = useState(aspectRatio || 1);
+  const zoom = useRef<ResumableZoomRefType>(null);
   const imageSize = fitContainer(ratio, screen);
 
   return (
@@ -44,7 +49,19 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
           onLayout={(event) => setScreen(event.nativeEvent.layout)}
           style={{ flex: 1, backgroundColor: "black" }}
         >
-          <ResumableZoom extendGestures scaleMode="clamp">
+          <ResumableZoom
+            ref={zoom}
+            extendGestures
+            scaleMode="clamp"
+            onPanEnd={(event) => {
+              if (
+                event.translationY > 80 &&
+                event.translationY > Math.abs(event.translationX) &&
+                zoom.current?.getState().scale === 1
+              )
+                onClose();
+            }}
+          >
             <Image
               source={{ uri }}
               contentFit="contain"
