@@ -27,6 +27,7 @@ test("keeps external audio attached and identifies the original rendition name",
     url: master,
     contentType: "hls",
     preferredAudioTrack: "English - original",
+    aspectRatio: 16 / 9,
   });
 });
 
@@ -63,6 +64,7 @@ test("selects capped muxed original audio and uses the lowest resolution if all 
     status: "ready",
     url: variant("720"),
     contentType: "hls",
+    aspectRatio: 1920 / 720,
   });
   const large = [
     "#EXTM3U",
@@ -75,6 +77,7 @@ test("selects capped muxed original audio and uses the lowest resolution if all 
     status: "ready",
     url: variant("1080"),
     contentType: "hls",
+    aspectRatio: 3840 / 1080,
   });
 });
 
@@ -151,7 +154,10 @@ test("resolves matching public video through anonymous abortable HTTP requests",
       return Response.json({
         playabilityStatus: { status: "OK" },
         videoDetails: { videoId: "video" },
-        streamingData: { hlsManifestUrl: master },
+        streamingData: {
+          hlsManifestUrl: master,
+          adaptiveFormats: [{ width: 1920, height: 1080 }],
+        },
       });
     }
     return new Response("#EXTM3U\n#EXTINF:2\nsegment.ts");
@@ -162,9 +168,20 @@ test("resolves matching public video through anonymous abortable HTTP requests",
       status: "ready",
       url: master,
       contentType: "hls",
+      aspectRatio: 16 / 9,
     },
   );
   assert.equal(urls.length, 3);
+});
+
+test("uses video metadata instead of rounded master playlist dimensions", () => {
+  const playlist =
+    '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,NAME="Default",URI="audio.m3u8"\n#EXT-X-STREAM-INF:RESOLUTION=426x240\n' +
+    variant("240");
+  const resolved = selectYouTubePlaylist(master, playlist, {
+    adaptiveFormats: [{ width: 1920, height: 1080 }],
+  });
+  assert.equal(resolved.status === "ready" && resolved.aspectRatio, 16 / 9);
 });
 
 test("restricted responses do not fetch media, and mismatched or unsafe streams fail", async () => {

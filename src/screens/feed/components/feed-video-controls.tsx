@@ -146,7 +146,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   }, [player, duration, trackWidth, seekTo]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "black" }}>
       <VideoView
         player={player}
         nativeControls={false}

@@ -46,7 +46,9 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
           url: variant.url,
           posterUrl: poster || undefined,
           playable: true,
-          aspectRatio,
+          aspectRatio:
+            (item.video_info?.aspect_ratio?.[0] || 0) /
+              (item.video_info?.aspect_ratio?.[1] || 0) || aspectRatio,
         });
     }
   }

@@ -17,7 +17,6 @@ import { useTheme } from "@/theme/use-theme";
 interface FeedMediaCarouselProps {
   postUrl: string;
   media: FeedMedia[];
-  cover?: boolean;
   active: boolean;
   playbackStatus?: PlaybackStatus;
   onActivate: () => void;
@@ -31,7 +30,6 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const {
     postUrl,
     media,
-    cover,
     active,
     playbackStatus,
     onActivate,
@@ -52,7 +50,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     setVideoView?.(postUrl, view.current);
     return () => setVideoView?.(postUrl, null);
   }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
-  const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
+  const aspectRatio = selectedMedia?.aspectRatio || 1;
 
   const counter = media.length > 1 && (
     <View
@@ -85,7 +83,6 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         <FeedVideoPreview
           media={media}
           onPress={media.playable ? onActivate : onPress}
-          cover={cover}
           showPlayButton={!(media.playable && active && index === mediaIndex)}
         />
         {media.playable && active && index === mediaIndex && (

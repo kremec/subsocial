@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 const formatSchema = z.object({
+  width: z.number().optional(),
+  height: z.number().optional(),
   audioTrack: z
     .object({
       id: z.string(),

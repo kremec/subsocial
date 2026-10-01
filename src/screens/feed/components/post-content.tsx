@@ -61,7 +61,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
         key={post.url}
         postUrl={post.url}
         media={post.media}
-        cover={feed && platform === "youtube"}
         active={activePostUrl === post.url}
         playbackStatus={playbackStatus}
         onActivate={() => onActivate(post.url)}

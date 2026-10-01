@@ -172,7 +172,9 @@ it("preserves retweet context and media while excluding live broadcasts", () => 
         {
           type: "video",
           media_url_https: "https://example.com/poster.jpg",
+          original_info: { width: 400, height: 300 },
           video_info: {
+            aspect_ratio: [16, 9],
             variants: [
               {
                 content_type: "video/mp4",
@@ -214,6 +216,7 @@ it("preserves retweet context and media while excluding live broadcasts", () => 
   );
   assert.equal(page.items[0].media[0].aspectRatio, 2);
   assert.equal(page.items[0].media[1].url, "https://example.com/large.mp4");
+  assert.equal(page.items[0].media[1].aspectRatio, 16 / 9);
   assert.deepEqual(page.excludedSourceIds, ["broadcast"]);
 });
 

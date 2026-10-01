@@ -10,12 +10,11 @@ import { useTheme } from "@/theme/use-theme";
 interface FeedVideoPreviewProps {
   media: FeedMedia;
   onPress: () => void;
-  cover?: boolean;
   showPlayButton?: boolean;
 }
 
 export const FeedVideoPreview: FC<FeedVideoPreviewProps> = (props) => {
-  const { cover, media, onPress, showPlayButton = true } = props;
+  const { media, onPress, showPlayButton = true } = props;
   const theme = useTheme();
 
   return (
@@ -30,7 +29,7 @@ export const FeedVideoPreview: FC<FeedVideoPreviewProps> = (props) => {
         <Image
           source={{ uri: media.posterUrl }}
           recyclingKey={media.posterUrl}
-          contentFit={cover ? "cover" : "contain"}
+          contentFit="cover"
           style={{ position: "absolute", inset: 0 }}
         />
       )}
