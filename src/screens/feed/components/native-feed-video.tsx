@@ -6,9 +6,10 @@ import {
   useState,
 } from "react";
 
-import { type AudioTrack, VideoView } from "expo-video";
+import { type AudioTrack } from "expo-video";
 
 import { type FeedMedia } from "@/feed/types";
+import { FeedVideoPlayerView } from "@/screens/feed/components/feed-video-player-view";
 import {
   FeedVideoPlayerContext,
   playbackPositionsFor,
@@ -81,5 +82,6 @@ export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
   }, [player, playbackKey, url, contentType, preferredAudioTrack]);
 
   if (loadedUrl !== url) return null;
-  return <VideoView player={player} style={{ flex: 1 }} />;
+  if (!player) return null;
+  return <FeedVideoPlayerView player={player} />;
 };

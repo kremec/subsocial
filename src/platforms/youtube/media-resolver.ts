@@ -18,14 +18,11 @@ export function useYouTubeMedia(
     visible && activeItem?.platform === "youtube" ? activeItem : undefined;
   const id = item?.id;
   const sourceId = item?.sourceId;
+  if (result && (!id || !sourceId)) setResult(undefined);
   const resolution = result?.id === id ? result?.resolution : undefined;
 
   useEffect(() => {
-    if (!id || !sourceId) {
-      setResult(undefined);
-      return;
-    }
-    if (resolution) return;
+    if (!id || !sourceId || resolution) return;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
     let active = true;

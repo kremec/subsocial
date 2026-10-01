@@ -7,6 +7,7 @@ import {
   IconArrowBadgeUp,
   IconArrowDown,
   IconArrowsMinimize,
+  IconArrowsMaximize,
   IconArrowUp,
   IconBalloon,
   IconBarbell,
@@ -69,6 +70,8 @@ import {
   IconTrash,
   IconTrekking,
   IconUserHeart,
+  IconVolume,
+  IconVolumeOff,
   IconWebhook,
   IconWorld,
   IconBrandFacebook,
@@ -77,6 +80,7 @@ import {
   IconBrandX,
   IconBrandYoutube,
   IconPlayerPlay,
+  IconPlayerPause,
   IconX,
 } from "@tabler/icons-react-native";
 import type { IconProps } from "@tabler/icons-react-native";
@@ -107,6 +111,7 @@ const icons = {
   code: IconCode,
   compass: IconCompass,
   compact: IconArrowsMinimize,
+  fullscreen: IconArrowsMaximize,
   copy: IconCopy,
   dots: IconDots,
   droplet: IconDroplet,
@@ -150,6 +155,8 @@ const icons = {
   trash: IconTrash,
   trekking: IconTrekking,
   "user-heart": IconUserHeart,
+  volume: IconVolume,
+  "volume-off": IconVolumeOff,
   webhook: IconWebhook,
   world: IconWorld,
   "brand-facebook": IconBrandFacebook,
@@ -158,6 +165,7 @@ const icons = {
   "brand-x": IconBrandX,
   "brand-youtube": IconBrandYoutube,
   "player-play": IconPlayerPlay,
+  "player-pause": IconPlayerPause,
   x: IconX,
 } satisfies Record<string, ComponentType<IconProps>>;
 

@@ -112,6 +112,8 @@ function harness() {
               };
             case "expo-video":
               return { VideoView: "VideoView" };
+            case "@/screens/feed/components/feed-video-player-view":
+              return { FeedVideoPlayerView: "FeedVideoPlayerView" };
             case "@/screens/feed/feed-video-player":
               return {
                 FeedVideoPlayerContext: {},
