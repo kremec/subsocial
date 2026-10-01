@@ -9,21 +9,26 @@ import {
 import { type AudioTrack, VideoView } from "expo-video";
 
 import { type FeedMedia } from "@/feed/types";
-import { FeedVideoPlayerContext } from "@/screens/feed/feed-video-player";
+import {
+  FeedVideoPlayerContext,
+  playbackPositionsFor,
+} from "@/screens/feed/feed-video-player";
 
 interface NativeFeedVideoProps {
+  playbackKey: string;
   media: FeedMedia;
   onError: () => void;
 }
 
 export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
-  const { media, onError } = props;
+  const { playbackKey, media, onError } = props;
   const { url, contentType, preferredAudioTrack } = media;
   const reportError = useEffectEvent(onError);
   const player = useContext(FeedVideoPlayerContext);
   const [loadedUrl, setLoadedUrl] = useState<string>();
   useLayoutEffect(() => {
     if (!player) return;
+    const positions = playbackPositionsFor(player);
     let phase: "loading" | "ready" | "disposed" = "loading";
     let selectedAudioTrack: AudioTrack | undefined;
     const selectAudioTrack = () => {
@@ -51,12 +56,14 @@ export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
     void player.replaceAsync({ uri: url, contentType }).then(
       () => {
         if (phase === "disposed") return;
-        phase = "ready";
         if (player.status === "error") {
           reportError();
           return;
         }
+        phase = "ready";
         selectAudioTrack();
+        const position = positions.get(playbackKey);
+        if (position !== undefined) player.currentTime = position;
         setLoadedUrl(url);
         player.play();
       },
@@ -65,12 +72,13 @@ export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
       },
     );
     return () => {
+      if (phase === "ready") positions.set(playbackKey, player.currentTime);
       phase = "disposed";
       listener.remove();
       audioListener.remove();
       player.pause();
     };
-  }, [player, url, contentType, preferredAudioTrack]);
+  }, [player, playbackKey, url, contentType, preferredAudioTrack]);
 
   if (loadedUrl !== url) return null;
   return <VideoView player={player} style={{ flex: 1 }} />;

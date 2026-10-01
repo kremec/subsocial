@@ -70,6 +70,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
           >
             <FeedVideo
               key={media.url}
+              playbackKey={`${postUrl}:${index}`}
               media={media}
               playbackStatus={playbackStatus}
               onRetry={onRetry}

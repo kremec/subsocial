@@ -8,6 +8,7 @@ import { NativeFeedVideo } from "@/screens/feed/components/native-feed-video";
 export type PlaybackStatus = "loading" | "error" | "verification";
 
 interface FeedVideoProps {
+  playbackKey: string;
   media: FeedMedia;
   playbackStatus?: PlaybackStatus;
   onRetry?: () => void;
@@ -16,7 +17,7 @@ interface FeedVideoProps {
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
-  const { media, playbackStatus, onRetry, onError, onVerification } = props;
+  const { playbackStatus, onRetry, onError, onVerification } = props;
   const [failed, setFailed] = useState(false);
   const fail = () => {
     setFailed(true);
@@ -24,7 +25,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   };
   const status = playbackStatus || (failed ? "error" : undefined);
 
-  if (!status) return <NativeFeedVideo media={media} onError={fail} />;
+  if (!status) return <NativeFeedVideo {...props} onError={fail} />;
 
   return (
     <View

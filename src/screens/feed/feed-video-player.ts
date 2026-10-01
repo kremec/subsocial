@@ -3,6 +3,14 @@ import { type View } from "react-native";
 
 import { type VideoPlayer, useVideoPlayer } from "expo-video";
 
+const playbackPositions = new WeakMap<VideoPlayer, Map<string, number>>();
+
+export function playbackPositionsFor(player: VideoPlayer) {
+  const positions = playbackPositions.get(player) ?? new Map<string, number>();
+  playbackPositions.set(player, positions);
+  return positions;
+}
+
 export const FeedVideoPlayerContext = createContext<VideoPlayer | null>(null);
 export const FeedVideoLayoutContext = createContext<
   ((postUrl: string, view: View | null) => void) | null

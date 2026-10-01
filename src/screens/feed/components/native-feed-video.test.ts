@@ -21,6 +21,7 @@ interface AudioTrack {
 }
 
 function harness() {
+  const positions = new Map<string, number>();
   const replacements: { resolve: () => void; reject: () => void }[] = [];
   const listeners = new Map<
     object,
@@ -33,6 +34,7 @@ function harness() {
   let releases = 0;
   let errors = 0;
   const player = {
+    currentTime: 0,
     status: "readyToPlay",
     availableAudioTracks: [] as AudioTrack[],
     get audioTrack() {
@@ -48,6 +50,7 @@ function harness() {
       return listener;
     },
     replaceAsync() {
+      player.currentTime = 0;
       return new Promise<void>((resolve, reject) => {
         replacements.push({
           resolve,
@@ -68,6 +71,7 @@ function harness() {
   return {
     player,
     replacements,
+    positions,
     audioSelections,
     emit(event: string) {
       for (const listener of listeners.values()) {
@@ -78,7 +82,7 @@ function harness() {
     get counts() {
       return { plays, pauses, releases, errors, listeners: listeners.size };
     },
-    mount(url: string, preferredAudioTrack?: string) {
+    mount(url: string, preferredAudioTrack?: string, playbackKey = url) {
       let loadedUrl: string | undefined;
       let mounted = false;
       let cleanup: void | (() => void);
@@ -109,7 +113,10 @@ function harness() {
             case "expo-video":
               return { VideoView: "VideoView" };
             case "@/screens/feed/feed-video-player":
-              return { FeedVideoPlayerContext: {} };
+              return {
+                FeedVideoPlayerContext: {},
+                playbackPositionsFor: () => positions,
+              };
             default:
               throw new Error(name);
           }
@@ -117,6 +124,7 @@ function harness() {
       });
       const render = () =>
         exports.NativeFeedVideo({
+          playbackKey,
           media: { type: "video", url, preferredAudioTrack },
           onError: () => {
             errors++;
@@ -235,4 +243,71 @@ test("a new source selects its original track even when the previous source used
   app.emit("availableAudioTracksChange");
   assert.equal(app.audioSelections.length, 1);
   row.unmount();
+});
+
+test("returning to a video resumes its position even when its source URL changes", async () => {
+  const app = harness();
+  const first = app.mount("https://example.com/first.mp4", undefined, "post:0");
+  app.replacements[0]!.resolve();
+  await Promise.resolve();
+  app.player.currentTime = 12;
+  first.unmount();
+
+  const second = app.mount(
+    "https://example.com/second.mp4",
+    undefined,
+    "post:1",
+  );
+  app.replacements[1]!.resolve();
+  await Promise.resolve();
+  assert.equal(app.player.currentTime, 0);
+  app.player.currentTime = 5;
+  second.unmount();
+
+  const returning = app.mount(
+    "https://example.com/new-signed-url.mp4",
+    undefined,
+    "post:0",
+  );
+  app.replacements[2]!.resolve();
+  await Promise.resolve();
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.positions.get("post:1"), 5);
+  returning.unmount();
+});
+
+test("pending or failed replacements cannot overwrite the saved position", async () => {
+  for (const failure of ["pending", "error", "rejected"]) {
+    const app = harness();
+    app.positions.set("post:0", 12);
+    const row = app.mount("https://example.com/first.mp4", undefined, "post:0");
+    if (failure === "error") {
+      app.player.status = "error";
+      app.replacements[0]!.resolve();
+    } else if (failure === "rejected") {
+      app.replacements[0]!.reject();
+    }
+    await Promise.resolve();
+    row.unmount();
+    assert.equal(app.positions.get("post:0"), 12);
+  }
+});
+
+test("a disposed replacement cannot seek the video now using the shared player", async () => {
+  const app = harness();
+  app.positions.set("post:0", 12);
+  const first = app.mount("https://example.com/first.mp4", undefined, "post:0");
+  first.unmount();
+  const second = app.mount(
+    "https://example.com/second.mp4",
+    undefined,
+    "post:1",
+  );
+  app.replacements[1]!.resolve();
+  await Promise.resolve();
+  app.player.currentTime = 3;
+  app.replacements[0]!.resolve();
+  await Promise.resolve();
+  assert.equal(app.player.currentTime, 3);
+  second.unmount();
 });
