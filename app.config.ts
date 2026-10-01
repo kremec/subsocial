@@ -10,7 +10,7 @@ export default {
   updates: {
     url: "https://u.expo.dev/2236c731-2281-4d29-b10b-1338e1099ef7",
   },
-  orientation: "portrait",
+  orientation: "default",
   icon: "./assets/icon.png",
   scheme: "subsocial",
   userInterfaceStyle: "automatic",

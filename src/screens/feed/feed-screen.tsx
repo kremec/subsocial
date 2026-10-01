@@ -45,6 +45,7 @@ import {
   FeedVideoPlayerContext,
   useFeedVideoPlayer,
 } from "@/screens/feed/feed-video-player";
+import { FeedFullscreenContext } from "@/screens/feed/use-fullscreen-orientation";
 import { useTheme } from "@/theme/use-theme";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
@@ -133,9 +134,14 @@ export const FeedScreen: FC = () => {
   const readingRowId = useRef<string>(undefined);
   const viewport = useRef<View>(null);
   const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
+  const fullscreenMedia = useRef(false);
+  const onFullscreen = useCallback((visible: boolean) => {
+    fullscreenMedia.current = visible;
+  }, []);
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const visibleRowId = activeVideo?.rowId;
   const updateVideoVisibility = useCallback((preferred?: ActiveVideo) => {
+    if (fullscreenMedia.current) return;
     const bounds = viewport.current?.getBoundingClientRect();
     if (!bounds) return;
     let video: ActiveVideo | undefined;
@@ -316,122 +322,125 @@ export const FeedScreen: FC = () => {
         ))}
 
         <FeedVideoPlayerContext value={player}>
-          <View
-            ref={viewport}
-            collapsable={false}
-            onLayout={() => updateVideoVisibility()}
-            style={{ flex: 1 }}
-          >
-            <LegendList
-              ref={list}
-              initialScrollIndex={initialScrollIndex}
-              onScroll={(event) => {
-                const { contentOffset, layoutMeasurement } = event.nativeEvent;
-                updateVideoVisibility();
-                const delta = contentOffset.y - previousScrollY.current;
-                if (contentOffset.y <= layoutMeasurement.height * 2) {
-                  setShowBackToTop(false);
-                } else if (Math.abs(delta) > 2) {
-                  setShowBackToTop(delta < 0);
-                }
-                if (Math.abs(delta) > 2)
-                  previousScrollY.current = contentOffset.y;
-              }}
-              scrollEventThrottle={16}
-              onContentSizeChange={() => updateVideoVisibility()}
-              onScrollEndDrag={() => {
-                savePosition();
-                updateVideoVisibility();
-              }}
-              onMomentumScrollEnd={() => {
-                savePosition();
-                updateVideoVisibility();
-              }}
-              data={rows}
-              recycleItems
-              extraData={extraData}
-              getItemType={getItemType}
-              keyExtractor={(row) => row.id}
-              renderItem={({ item: row }) => (
-                <FeedCard
-                  rowId={row.id}
-                  item={row.item}
-                  post={row.post}
-                  threadStart={row.threadStart}
-                  threadEnd={row.threadEnd}
-                  threadGapBefore={row.threadGapBefore}
-                  activePostUrl={
-                    feedVisible && row.id === activeVideo?.rowId
-                      ? activeVideo.postUrl
-                      : undefined
-                  }
-                  onActivate={(postUrl) =>
-                    updateVideoVisibility({ rowId: row.id, postUrl })
-                  }
-                  onVideoView={onVideoView}
-                  resolution={
-                    row.item.id === visibleRow?.item.id
-                      ? media.resolution
-                      : undefined
-                  }
-                  onRetry={media.retry}
-                  onPlaybackError={media.fail}
-                />
-              )}
-              viewabilityConfig={viewabilityConfig}
-              onViewableItemsChanged={onViewableItemsChanged}
-              maintainVisibleContentPosition={{ data: true }}
-              showsVerticalScrollIndicator
-              indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
-              refreshControl={
-                <RefreshControl
-                  refreshing={collection.length > 0}
-                  onRefresh={feed.refresh}
-                  tintColor={theme.colors.accent}
-                  colors={[theme.colors.accent]}
-                />
-              }
-              contentContainerStyle={{
-                flexGrow: 1,
-                paddingBottom: theme.spacing.xl,
-              }}
-              ListEmptyComponent={EmptyFeed}
-            />
+          <FeedFullscreenContext value={onFullscreen}>
             <View
-              pointerEvents="box-none"
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 70,
-                overflow: "hidden",
-              }}
+              ref={viewport}
+              collapsable={false}
+              onLayout={() => updateVideoVisibility()}
+              style={{ flex: 1 }}
             >
-              <Animated.View
-                style={[
-                  { alignSelf: "center", marginTop: theme.spacing.sm },
-                  pillStyle,
-                ]}
-              >
-                <IconButton
-                  disabled={!showBackToTop}
-                  onPress={() =>
-                    list.current?.scrollToIndex({ index: 0, animated: true })
+              <LegendList
+                ref={list}
+                initialScrollIndex={initialScrollIndex}
+                onScroll={(event) => {
+                  const { contentOffset, layoutMeasurement } =
+                    event.nativeEvent;
+                  updateVideoVisibility();
+                  const delta = contentOffset.y - previousScrollY.current;
+                  if (contentOffset.y <= layoutMeasurement.height * 2) {
+                    setShowBackToTop(false);
+                  } else if (Math.abs(delta) > 2) {
+                    setShowBackToTop(delta < 0);
                   }
-                  style={{
-                    width: "auto",
-                    paddingHorizontal: theme.spacing.md,
-                    flexDirection: "row",
-                    gap: theme.spacing.xs,
-                  }}
+                  if (Math.abs(delta) > 2)
+                    previousScrollY.current = contentOffset.y;
+                }}
+                scrollEventThrottle={16}
+                onContentSizeChange={() => updateVideoVisibility()}
+                onScrollEndDrag={() => {
+                  savePosition();
+                  updateVideoVisibility();
+                }}
+                onMomentumScrollEnd={() => {
+                  savePosition();
+                  updateVideoVisibility();
+                }}
+                data={rows}
+                recycleItems
+                extraData={extraData}
+                getItemType={getItemType}
+                keyExtractor={(row) => row.id}
+                renderItem={({ item: row }) => (
+                  <FeedCard
+                    rowId={row.id}
+                    item={row.item}
+                    post={row.post}
+                    threadStart={row.threadStart}
+                    threadEnd={row.threadEnd}
+                    threadGapBefore={row.threadGapBefore}
+                    activePostUrl={
+                      feedVisible && row.id === activeVideo?.rowId
+                        ? activeVideo.postUrl
+                        : undefined
+                    }
+                    onActivate={(postUrl) =>
+                      updateVideoVisibility({ rowId: row.id, postUrl })
+                    }
+                    onVideoView={onVideoView}
+                    resolution={
+                      row.item.id === visibleRow?.item.id
+                        ? media.resolution
+                        : undefined
+                    }
+                    onRetry={media.retry}
+                    onPlaybackError={media.fail}
+                  />
+                )}
+                viewabilityConfig={viewabilityConfig}
+                onViewableItemsChanged={onViewableItemsChanged}
+                maintainVisibleContentPosition={{ data: true }}
+                showsVerticalScrollIndicator
+                indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={collection.length > 0}
+                    onRefresh={feed.refresh}
+                    tintColor={theme.colors.accent}
+                    colors={[theme.colors.accent]}
+                  />
+                }
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  paddingBottom: theme.spacing.xl,
+                }}
+                ListEmptyComponent={EmptyFeed}
+              />
+              <View
+                pointerEvents="box-none"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 70,
+                  overflow: "hidden",
+                }}
+              >
+                <Animated.View
+                  style={[
+                    { alignSelf: "center", marginTop: theme.spacing.sm },
+                    pillStyle,
+                  ]}
                 >
-                  <Icon name="arrow-up" size={18} color={theme.colors.text} />
-                  <Typography>Back to top</Typography>
-                </IconButton>
-              </Animated.View>
+                  <IconButton
+                    disabled={!showBackToTop}
+                    onPress={() =>
+                      list.current?.scrollToIndex({ index: 0, animated: true })
+                    }
+                    style={{
+                      width: "auto",
+                      paddingHorizontal: theme.spacing.md,
+                      flexDirection: "row",
+                      gap: theme.spacing.xs,
+                    }}
+                  >
+                    <Icon name="arrow-up" size={18} color={theme.colors.text} />
+                    <Typography>Back to top</Typography>
+                  </IconButton>
+                </Animated.View>
+              </View>
             </View>
-          </View>
+          </FeedFullscreenContext>
         </FeedVideoPlayerContext>
       </View>
     </Screen>

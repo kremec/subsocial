@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { type FeedMedia } from "@/feed/types";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
+import { useFullscreenOrientation } from "@/screens/feed/use-fullscreen-orientation";
 
 interface FeedVideoPlayerViewProps {
   player: VideoPlayer;
@@ -18,6 +19,7 @@ interface FeedVideoPlayerViewProps {
 export const FeedVideoPlayerView: FC<FeedVideoPlayerViewProps> = (props) => {
   const { player, media, counter } = props;
   const [fullscreen, setFullscreen] = useState(false);
+  useFullscreenOrientation(fullscreen);
   const content = (
     <FeedVideoControls
       player={player}
@@ -34,6 +36,7 @@ export const FeedVideoPlayerView: FC<FeedVideoPlayerViewProps> = (props) => {
       <Modal
         animationType="fade"
         presentationStyle="fullScreen"
+        supportedOrientations={["portrait", "landscape"]}
         statusBarTranslucent
         navigationBarTranslucent
         visible={fullscreen}

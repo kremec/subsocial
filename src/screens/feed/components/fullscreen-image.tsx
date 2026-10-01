@@ -1,5 +1,5 @@
 import { type FC, useState } from "react";
-import { Modal, StatusBar, useWindowDimensions, View } from "react-native";
+import { Modal, StatusBar, View } from "react-native";
 
 import { Image } from "expo-image";
 
@@ -10,6 +10,7 @@ import { fitContainer, ResumableZoom } from "react-native-zoom-toolkit";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
+import { useFullscreenOrientation } from "@/screens/feed/use-fullscreen-orientation";
 import { useTheme } from "@/theme/use-theme";
 
 interface FullscreenImageProps {
@@ -22,7 +23,8 @@ interface FullscreenImageProps {
 export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
   const { uri, aspectRatio, visible, onClose } = props;
   const theme = useTheme();
-  const screen = useWindowDimensions();
+  useFullscreenOrientation(visible);
+  const [screen, setScreen] = useState({ width: 0, height: 0 });
   const [ratio, setRatio] = useState(aspectRatio || 1);
   const imageSize = fitContainer(ratio, screen);
 
@@ -30,6 +32,7 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
     <Modal
       animationType="fade"
       presentationStyle="fullScreen"
+      supportedOrientations={["portrait", "landscape"]}
       statusBarTranslucent
       navigationBarTranslucent
       visible={visible}
@@ -37,7 +40,10 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
     >
       <StatusBar hidden={visible} />
       {visible && (
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "black" }}>
+        <GestureHandlerRootView
+          onLayout={(event) => setScreen(event.nativeEvent.layout)}
+          style={{ flex: 1, backgroundColor: "black" }}
+        >
           <ResumableZoom extendGestures scaleMode="clamp">
             <Image
               source={{ uri }}

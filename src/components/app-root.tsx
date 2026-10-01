@@ -17,6 +17,7 @@ export const AppRoot: FC = () => {
       <Stack
         screenOptions={{
           headerShown: false,
+          orientation: "portrait",
           contentStyle: { backgroundColor: colors.background },
         }}
       >
