@@ -1,8 +1,12 @@
 import { createContext } from "react";
+import { type View } from "react-native";
 
 import { type VideoPlayer, useVideoPlayer } from "expo-video";
 
 export const FeedVideoPlayerContext = createContext<VideoPlayer | null>(null);
+export const FeedVideoLayoutContext = createContext<
+  ((postUrl: string, view: View | null) => void) | null
+>(null);
 
 export function useFeedVideoPlayer() {
   // Feed rows only borrow this player. Recycling a row must not release it.

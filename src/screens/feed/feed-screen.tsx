@@ -1,5 +1,6 @@
 import {
   type FC,
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -54,6 +55,11 @@ interface FeedPosition {
   viewOffset: number;
 }
 
+interface ActiveVideo {
+  rowId: string;
+  postUrl: string;
+}
+
 interface FeedRow {
   id: string;
   item: FeedItem;
@@ -99,23 +105,10 @@ const rowsFor = (item: FeedItem): FeedRow[] => {
 const getItemType = (row: FeedRow) =>
   row.post ? "thread" : row.item.media.length ? "media" : "text";
 
-const hasPlayableVideo = (row: FeedRow) => {
-  for (
-    let post: FeedPost | undefined = row.post || row.item;
-    post;
-    post = post.quote
-  ) {
-    if (post.media?.some((media) => media.type === "video" && media.playable))
-      return true;
-  }
-  return false;
-};
-
 export const FeedScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
   const player = useFeedVideoPlayer();
-  const [visibleRowId, setVisibleRowId] = useState<string>();
   const [webKitReady, setWebKitReady] = useState(false);
   const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
   const feed = useFeedRefresh(focused, webKitReady);
@@ -139,6 +132,53 @@ export const FeedScreen: FC = () => {
   const list = useRef<LegendListRef>(null);
   const readingRowId = useRef<string>(undefined);
   const viewport = useRef<View>(null);
+  const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
+  const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
+  const visibleRowId = activeVideo?.rowId;
+  const updateVideoVisibility = useCallback((preferred?: ActiveVideo) => {
+    const bounds = viewport.current?.getBoundingClientRect();
+    if (!bounds) return;
+    let video: ActiveVideo | undefined;
+    let bestFraction = 0.5;
+    let bestTop = Infinity;
+    for (const candidate of videoViews.current.values()) {
+      const { top, height } = candidate.view.getBoundingClientRect();
+      if (height <= 0 || bounds.height <= 0) continue;
+      const fraction =
+        Math.max(
+          0,
+          Math.min(top + height, bounds.bottom) - Math.max(top, bounds.top),
+        ) / Math.min(height, bounds.height);
+      if (fraction < 0.5) continue;
+      const requested =
+        candidate.rowId === preferred?.rowId &&
+        candidate.postUrl === preferred.postUrl;
+      if (
+        requested ||
+        fraction > bestFraction ||
+        (fraction === bestFraction && top < bestTop)
+      ) {
+        video = { rowId: candidate.rowId, postUrl: candidate.postUrl };
+        bestFraction = fraction;
+        bestTop = top;
+      }
+      if (requested) break;
+    }
+    setActiveVideo((current) =>
+      current?.rowId === video?.rowId && current?.postUrl === video?.postUrl
+        ? current
+        : video,
+    );
+  }, []);
+  const onVideoView = useCallback(
+    (rowId: string, postUrl: string, view: View | null) => {
+      const key = `${rowId}:${postUrl}`;
+      if (view) videoViews.current.set(key, { rowId, postUrl, view });
+      else videoViews.current.delete(key);
+      updateVideoVisibility();
+    },
+    [updateVideoVisibility],
+  );
   const [initialScrollIndex] = useState(() => {
     const saved = Storage.getItemSync(positionKey);
     if (!saved) return undefined;
@@ -184,19 +224,17 @@ export const FeedScreen: FC = () => {
   const visibleRow = rows.find((row) => row.id === visibleRowId);
   const media = useYouTubeMedia(visibleRow?.item, feedVisible);
   const extraData = useMemo(
-    () => [visibleRowId, media.resolution, feedVisible],
-    [visibleRowId, media.resolution, feedVisible],
+    () => [activeVideo, media.resolution, feedVisible],
+    [activeVideo, media.resolution, feedVisible],
   );
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
     const visible = info.viewableItems.filter((row) => row.isViewable);
     readingRowId.current = visible[0]?.item.id;
-    const row = (
-      visible.find((row) => hasPlayableVideo(row.item)) || visible[0]
-    )?.item;
-    setVisibleRowId(row?.id);
+    updateVideoVisibility();
   };
+  useEffect(() => updateVideoVisibility(), [rows, updateVideoVisibility]);
 
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
@@ -277,30 +315,44 @@ export const FeedScreen: FC = () => {
           />
         ))}
 
-        <View ref={viewport} collapsable={false} style={{ flex: 1 }}>
-          <LegendList
-            ref={list}
-            initialScrollIndex={initialScrollIndex}
-            onScroll={(event) => {
-              const { contentOffset, layoutMeasurement } = event.nativeEvent;
-              const delta = contentOffset.y - previousScrollY.current;
-              if (contentOffset.y <= layoutMeasurement.height * 2) {
-                setShowBackToTop(false);
-              } else if (Math.abs(delta) > 2) {
-                setShowBackToTop(delta < 0);
-              }
-              if (Math.abs(delta) > 2)
-                previousScrollY.current = contentOffset.y;
-            }}
-            onScrollEndDrag={savePosition}
-            onMomentumScrollEnd={savePosition}
-            data={rows}
-            recycleItems
-            extraData={extraData}
-            getItemType={getItemType}
-            keyExtractor={(row) => row.id}
-            renderItem={({ item: row }) => (
-              <FeedVideoPlayerContext value={player}>
+        <FeedVideoPlayerContext value={player}>
+          <View
+            ref={viewport}
+            collapsable={false}
+            onLayout={() => updateVideoVisibility()}
+            style={{ flex: 1 }}
+          >
+            <LegendList
+              ref={list}
+              initialScrollIndex={initialScrollIndex}
+              onScroll={(event) => {
+                const { contentOffset, layoutMeasurement } = event.nativeEvent;
+                updateVideoVisibility();
+                const delta = contentOffset.y - previousScrollY.current;
+                if (contentOffset.y <= layoutMeasurement.height * 2) {
+                  setShowBackToTop(false);
+                } else if (Math.abs(delta) > 2) {
+                  setShowBackToTop(delta < 0);
+                }
+                if (Math.abs(delta) > 2)
+                  previousScrollY.current = contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+              onContentSizeChange={() => updateVideoVisibility()}
+              onScrollEndDrag={() => {
+                savePosition();
+                updateVideoVisibility();
+              }}
+              onMomentumScrollEnd={() => {
+                savePosition();
+                updateVideoVisibility();
+              }}
+              data={rows}
+              recycleItems
+              extraData={extraData}
+              getItemType={getItemType}
+              keyExtractor={(row) => row.id}
+              renderItem={({ item: row }) => (
                 <FeedCard
                   rowId={row.id}
                   item={row.item}
@@ -308,72 +360,79 @@ export const FeedScreen: FC = () => {
                   threadStart={row.threadStart}
                   threadEnd={row.threadEnd}
                   threadGapBefore={row.threadGapBefore}
-                  active={feedVisible && row.id === visibleRowId}
+                  activePostUrl={
+                    feedVisible && row.id === activeVideo?.rowId
+                      ? activeVideo.postUrl
+                      : undefined
+                  }
+                  onActivate={(postUrl) =>
+                    updateVideoVisibility({ rowId: row.id, postUrl })
+                  }
+                  onVideoView={onVideoView}
                   resolution={
                     row.item.id === visibleRow?.item.id
                       ? media.resolution
                       : undefined
                   }
-                  onActivate={setVisibleRowId}
                   onRetry={media.retry}
                   onPlaybackError={media.fail}
                 />
-              </FeedVideoPlayerContext>
-            )}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={onViewableItemsChanged}
-            maintainVisibleContentPosition={{ data: true }}
-            showsVerticalScrollIndicator
-            indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
-            refreshControl={
-              <RefreshControl
-                refreshing={collection.length > 0}
-                onRefresh={feed.refresh}
-                tintColor={theme.colors.accent}
-                colors={[theme.colors.accent]}
-              />
-            }
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingBottom: theme.spacing.xl,
-            }}
-            ListEmptyComponent={EmptyFeed}
-          />
-          <View
-            pointerEvents="box-none"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 70,
-              overflow: "hidden",
-            }}
-          >
-            <Animated.View
-              style={[
-                { alignSelf: "center", marginTop: theme.spacing.sm },
-                pillStyle,
-              ]}
+              )}
+              viewabilityConfig={viewabilityConfig}
+              onViewableItemsChanged={onViewableItemsChanged}
+              maintainVisibleContentPosition={{ data: true }}
+              showsVerticalScrollIndicator
+              indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
+              refreshControl={
+                <RefreshControl
+                  refreshing={collection.length > 0}
+                  onRefresh={feed.refresh}
+                  tintColor={theme.colors.accent}
+                  colors={[theme.colors.accent]}
+                />
+              }
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingBottom: theme.spacing.xl,
+              }}
+              ListEmptyComponent={EmptyFeed}
+            />
+            <View
+              pointerEvents="box-none"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 70,
+                overflow: "hidden",
+              }}
             >
-              <IconButton
-                disabled={!showBackToTop}
-                onPress={() =>
-                  list.current?.scrollToIndex({ index: 0, animated: true })
-                }
-                style={{
-                  width: "auto",
-                  paddingHorizontal: theme.spacing.md,
-                  flexDirection: "row",
-                  gap: theme.spacing.xs,
-                }}
+              <Animated.View
+                style={[
+                  { alignSelf: "center", marginTop: theme.spacing.sm },
+                  pillStyle,
+                ]}
               >
-                <Icon name="arrow-up" size={18} color={theme.colors.text} />
-                <Typography>Back to top</Typography>
-              </IconButton>
-            </Animated.View>
+                <IconButton
+                  disabled={!showBackToTop}
+                  onPress={() =>
+                    list.current?.scrollToIndex({ index: 0, animated: true })
+                  }
+                  style={{
+                    width: "auto",
+                    paddingHorizontal: theme.spacing.md,
+                    flexDirection: "row",
+                    gap: theme.spacing.xs,
+                  }}
+                >
+                  <Icon name="arrow-up" size={18} color={theme.colors.text} />
+                  <Typography>Back to top</Typography>
+                </IconButton>
+              </Animated.View>
+            </View>
           </View>
-        </View>
+        </FeedVideoPlayerContext>
       </View>
     </Screen>
   );

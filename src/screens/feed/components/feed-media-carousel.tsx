@@ -1,4 +1,4 @@
-import { type FC, useState } from "react";
+import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { ScrollView } from "react-native-gesture-handler";
@@ -11,9 +11,11 @@ import {
   type PlaybackStatus,
 } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
+import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedMediaCarouselProps {
+  postUrl: string;
   media: FeedMedia[];
   cover?: boolean;
   active: boolean;
@@ -27,6 +29,7 @@ interface FeedMediaCarouselProps {
 
 export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const {
+    postUrl,
     media,
     cover,
     active,
@@ -40,6 +43,15 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
+  const view = useRef<View>(null);
+  const setVideoView = useContext(FeedVideoLayoutContext);
+  const selectedMedia = media[mediaIndex];
+  const playable = selectedMedia?.type === "video" && selectedMedia.playable;
+  useLayoutEffect(() => {
+    if (!playable || !view.current) return;
+    setVideoView?.(postUrl, view.current);
+    return () => setVideoView?.(postUrl, null);
+  }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
   const renderMedia = (media: FeedMedia, index: number) =>
@@ -73,11 +85,12 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
 
   return (
     <View
-      onLayout={
-        media.length > 1
-          ? (event) => setMediaWidth(event.nativeEvent.layout.width)
-          : undefined
-      }
+      ref={view}
+      collapsable={false}
+      onLayout={(event) => {
+        setMediaWidth(event.nativeEvent.layout.width);
+        if (playable) setVideoView?.(postUrl, view.current);
+      }}
       style={{
         width: "100%",
         aspectRatio,
