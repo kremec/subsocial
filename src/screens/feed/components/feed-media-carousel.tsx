@@ -1,5 +1,7 @@
 import { type FC, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
+
+import { ScrollView } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia } from "@/feed/types";

@@ -1,6 +1,8 @@
-import { type FC, Fragment } from "react";
+import { type FC } from "react";
 
 import { Stack } from "expo-router";
+
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { Toast } from "@/components/ui/toast";
 import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
@@ -11,7 +13,7 @@ export const AppRoot: FC = () => {
   usePlatformShortcuts();
 
   return (
-    <Fragment>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -22,6 +24,6 @@ export const AppRoot: FC = () => {
         <Stack.Screen name="browser" options={{ presentation: "modal" }} />
       </Stack>
       <Toast />
-    </Fragment>
+    </GestureHandlerRootView>
   );
 };
