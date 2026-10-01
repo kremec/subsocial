@@ -1,5 +1,6 @@
 import {
   type FC,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -16,10 +17,15 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
+import { type FeedMedia } from "@/feed/types";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
+import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
+import { canDownloadMedia } from "@/screens/feed/download-media";
 
 interface FeedVideoControlsProps {
   player: VideoPlayer;
+  media: FeedMedia;
+  counter?: ReactNode;
   fullscreen: boolean;
   onFullscreen: () => void;
 }
@@ -30,7 +36,8 @@ const timeText = (seconds: number) => {
 };
 
 export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
-  const { player, fullscreen, onFullscreen } = props;
+  const { player, media, counter, fullscreen, onFullscreen } = props;
+  const downloadable = canDownloadMedia(media);
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -158,10 +165,10 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       <View
         style={{
           position: "absolute",
-          top: 0,
+          top: controlsVisible && downloadable ? 44 : 0,
           left: 0,
           right: 0,
-          bottom: controlsVisible ? 56 : 0,
+          bottom: controlsVisible ? 52 : 0,
           flexDirection: "row",
         }}
       >
@@ -205,7 +212,20 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           </View>
         </GestureDetector>
       )}
+      {!controlsVisible && counter}
       {!controlsVisible && <FeedVideoMuteButton />}
+      {downloadable && (
+        <View
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            display: controlsVisible ? "flex" : "none",
+          }}
+        >
+          <MediaDownloadButton media={media} />
+        </View>
+      )}
       {controlsVisible && (
         <View
           style={{
@@ -269,7 +289,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           </GestureDetector>
           <View
             style={{
-              height: 32,
+              height: 28,
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
@@ -301,7 +321,6 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
                 </Typography>
               </View>
             </MenuView>
-            <FeedVideoMuteButton inline />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
@@ -323,6 +342,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
                 size={20}
               />
             </Pressable>
+            <FeedVideoMuteButton inline />
           </View>
         </View>
       )}

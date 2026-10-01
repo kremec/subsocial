@@ -1,5 +1,5 @@
 import { type FC, useState } from "react";
-import { Modal, StatusBar, useWindowDimensions } from "react-native";
+import { Modal, StatusBar, useWindowDimensions, View } from "react-native";
 
 import { Image } from "expo-image";
 
@@ -9,6 +9,7 @@ import { fitContainer, ResumableZoom } from "react-native-zoom-toolkit";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
+import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
 import { useTheme } from "@/theme/use-theme";
 
 interface FullscreenImageProps {
@@ -56,15 +57,20 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
               padding: theme.spacing.md,
             }}
           >
-            <IconButton
-              onPress={onClose}
-              style={{
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-                borderColor: "rgba(255, 255, 255, 0.3)",
-              }}
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
             >
-              <Icon name="x" color="white" size={24} />
-            </IconButton>
+              <MediaDownloadButton media={{ type: "image", url: uri }} />
+              <IconButton
+                onPress={onClose}
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  borderColor: "rgba(255, 255, 255, 0.3)",
+                }}
+              >
+                <Icon name="x" color="white" size={24} />
+              </IconButton>
+            </View>
           </SafeAreaView>
         </GestureHandlerRootView>
       )}

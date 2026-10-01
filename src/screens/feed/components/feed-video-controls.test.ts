@@ -7,6 +7,16 @@ import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
 import { type FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
+import { type canDownloadMedia } from "@/screens/feed/download-media";
+
+const downloadExports = {} as { canDownloadMedia: typeof canDownloadMedia };
+runInNewContext(
+  transpileModule(
+    readFileSync(new URL("../download-media.ts", import.meta.url), "utf8"),
+    { compilerOptions: { module: ModuleKind.CommonJS } },
+  ).outputText,
+  { exports: downloadExports, URL, require: () => ({}) },
+);
 
 const source = transpileModule(
   readFileSync(new URL("./feed-video-controls.tsx", import.meta.url), "utf8"),
@@ -72,6 +82,7 @@ interface Element {
     gesture?: GestureMock;
     accessibilityLabel?: string;
     accessibilityValue?: { now: number };
+    style?: { display?: string };
     onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
   };
 }
@@ -82,7 +93,7 @@ function elements(node: Node): Element[] {
   return [node, ...elements(node.props.children)];
 }
 
-function harness(playing = true) {
+function harness(playing = true, contentType?: "hls" | "progressive") {
   const states: (boolean | number)[] = [];
   const refs: { current: boolean }[] = [];
   let stateIndex = 0;
@@ -182,6 +193,10 @@ function harness(playing = true) {
           return { Typography: "Typography" };
         case "@/screens/feed/components/feed-video-mute-button":
           return { FeedVideoMuteButton: "FeedVideoMuteButton" };
+        case "@/screens/feed/components/media-download-button":
+          return { MediaDownloadButton: "MediaDownloadButton" };
+        case "@/screens/feed/download-media":
+          return downloadExports;
         default:
           throw new Error(name);
       }
@@ -191,6 +206,13 @@ function harness(playing = true) {
     stateIndex = refIndex = effectIndex = 0;
     const tree = exports.FeedVideoControls({
       player: player as Parameters<typeof FeedVideoControls>[0]["player"],
+      media: {
+        type: "video",
+        url: "https://example.com/video.mp4",
+        playable: true,
+        contentType,
+      },
+      counter: { type: "MediaCounter", props: {}, key: null },
       fullscreen: false,
       onFullscreen() {},
     });
@@ -265,6 +287,34 @@ test("background taps reveal or hide controls without changing playback", () => 
     app
       .render()
       .some((element) => element.props.accessibilityLabel === "Video progress"),
+    false,
+  );
+});
+
+test("the media counter hides with the playback overlay while downloads appear", () => {
+  const app = harness();
+  const visible = (type: string) =>
+    app.render().some((element) => element.type === type);
+  const downloadVisible = () =>
+    app.render().find((element) => element.props.style?.display)?.props.style
+      ?.display === "flex";
+  assert.equal(visible("MediaCounter"), true);
+  assert.equal(visible("MediaDownloadButton"), true);
+  assert.equal(downloadVisible(), false);
+  app.backgroundTap();
+  assert.equal(visible("MediaCounter"), false);
+  assert.equal(downloadVisible(), true);
+  app.backgroundTap();
+  assert.equal(visible("MediaCounter"), true);
+  assert.equal(visible("MediaDownloadButton"), true);
+  assert.equal(downloadVisible(), false);
+});
+
+test("streaming videos have no download button when the overlay is shown", () => {
+  const app = harness(true, "hls");
+  app.backgroundTap();
+  assert.equal(
+    app.render().some((element) => element.type === "MediaDownloadButton"),
     false,
   );
 });

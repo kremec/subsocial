@@ -1,5 +1,6 @@
 import {
   type FC,
+  type ReactNode,
   useContext,
   useEffectEvent,
   useLayoutEffect,
@@ -18,11 +19,12 @@ import {
 interface NativeFeedVideoProps {
   playbackKey: string;
   media: FeedMedia;
+  counter?: ReactNode;
   onError: () => void;
 }
 
 export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
-  const { playbackKey, media, onError } = props;
+  const { playbackKey, media, counter, onError } = props;
   const { url, contentType, preferredAudioTrack } = media;
   const reportError = useEffectEvent(onError);
   const player = useContext(FeedVideoPlayerContext);
@@ -81,7 +83,8 @@ export const NativeFeedVideo: FC<NativeFeedVideoProps> = (props) => {
     };
   }, [player, playbackKey, url, contentType, preferredAudioTrack]);
 
-  if (loadedUrl !== url) return null;
-  if (!player) return null;
-  return <FeedVideoPlayerView player={player} />;
+  if (loadedUrl !== url || !player) return counter || null;
+  return (
+    <FeedVideoPlayerView player={player} media={media} counter={counter} />
+  );
 };

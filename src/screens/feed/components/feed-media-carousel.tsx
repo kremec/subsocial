@@ -54,6 +54,31 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
+  const counter = media.length > 1 && (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: theme.spacing.sm,
+        right: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        borderRadius: theme.radius.full,
+        backgroundColor: "rgba(0, 0, 0, 0.62)",
+      }}
+    >
+      <Typography
+        variant="caption"
+        style={{
+          color: "#FFFFFF",
+          fontWeight: "600",
+        }}
+      >
+        {mediaIndex + 1}/{media.length}
+      </Typography>
+    </View>
+  );
+
   const renderMedia = (media: FeedMedia, index: number) =>
     media.type === "video" ? (
       <View style={{ flex: 1 }}>
@@ -72,6 +97,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               key={media.url}
               playbackKey={`${postUrl}:${index}`}
               media={media}
+              counter={counter}
               playbackStatus={playbackStatus}
               onRetry={onRetry}
               onError={onPlaybackError}
@@ -125,30 +151,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
             </ScrollView>
           )}
 
-      {media.length > 1 && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: theme.spacing.sm,
-            right: theme.spacing.sm,
-            paddingHorizontal: theme.spacing.sm,
-            paddingVertical: theme.spacing.xs,
-            borderRadius: theme.radius.full,
-            backgroundColor: "rgba(0, 0, 0, 0.62)",
-          }}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              color: "#FFFFFF",
-              fontWeight: "600",
-            }}
-          >
-            {mediaIndex + 1}/{media.length}
-          </Typography>
-        </View>
-      )}
+      {!(active && playable) && counter}
     </View>
   );
 };

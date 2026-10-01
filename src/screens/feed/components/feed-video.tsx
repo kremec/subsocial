@@ -1,4 +1,4 @@
-import { type FC, useState } from "react";
+import { type FC, type ReactNode, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
@@ -10,6 +10,7 @@ export type PlaybackStatus = "loading" | "error" | "verification";
 interface FeedVideoProps {
   playbackKey: string;
   media: FeedMedia;
+  counter?: ReactNode;
   playbackStatus?: PlaybackStatus;
   onRetry?: () => void;
   onError?: () => void;
@@ -17,7 +18,7 @@ interface FeedVideoProps {
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
-  const { playbackStatus, onRetry, onError, onVerification } = props;
+  const { counter, playbackStatus, onRetry, onError, onVerification } = props;
   const [failed, setFailed] = useState(false);
   const fail = () => {
     setFailed(true);
@@ -37,6 +38,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
           status === "loading" ? "transparent" : "rgba(0, 0, 0, 0.75)",
       }}
     >
+      {counter}
       {status === "loading" ? (
         <ActivityIndicator color="white" />
       ) : (
