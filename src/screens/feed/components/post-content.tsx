@@ -8,6 +8,7 @@ import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
 import { type PlaybackStatus } from "@/screens/feed/components/feed-video";
+import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
 
@@ -144,6 +145,16 @@ export const PostContent: FC<PostContentProps> = (props) => {
         </View>
       )}
       {!feed && media}
+      {!!post.attachment && (
+        <View
+          style={{
+            paddingHorizontal,
+            marginTop: post.media?.length || post.text ? theme.spacing.md : 0,
+          }}
+        >
+          <PostAttachment attachment={post.attachment} compact={quote} />
+        </View>
+      )}
       {!!post.quote && (
         <View style={{ paddingHorizontal }}>
           <PostContent

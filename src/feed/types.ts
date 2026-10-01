@@ -1,6 +1,7 @@
 export type {
   PlatformId,
   FeedMedia,
+  FeedAttachment,
   FeedPost,
   ExtractedPost,
   ExtractedItem,

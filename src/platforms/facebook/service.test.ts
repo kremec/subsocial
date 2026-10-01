@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { extractedItemSchema } from "@/feed/schemas";
 import { facebookFeed, parseFacebookFeed } from "@/platforms/facebook/service";
 
 const story = {
@@ -619,4 +620,121 @@ test("enriches playable video with dimensions from a later record", () => {
   assert.equal(item.media.length, 1);
   assert.equal(item.media[0].aspectRatio, 9 / 16);
   assert.equal(item.media[0].playable, true);
+});
+
+test("keeps event cover, title and date without a post message", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attachments: [
+            {
+              styles: {
+                attachment: {
+                  url: "https://www.facebook.com/events/456/",
+                  title_with_entities: { text: "Spring festival" },
+                  target: {
+                    __typename: "Event",
+                    name: "Spring festival",
+                    capitalized_day_time_sentence: "Thu, Apr 8, 2027 at 10 PM",
+                    event_place: null,
+                  },
+                  media: {
+                    __typename: "ProfilePicAttachmentMedia",
+                    image: {
+                      uri: "https://example.com/event.jpg",
+                      width: 1200,
+                      height: 630,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(item.text, undefined);
+  assert.deepEqual(item.attachment, {
+    type: "event",
+    title: "Spring festival",
+    url: "https://www.facebook.com/events/456/",
+    startsAtText: "Thu, Apr 8, 2027 at 10 PM",
+    description: undefined,
+  });
+  assert.equal(item.media.length, 1);
+  assert.equal(item.media[0].url, "https://example.com/event.jpg");
+  assert.equal(item.media[0].aspectRatio, 1200 / 630);
+  assert.deepEqual(extractedItemSchema.parse(item).attachment, item.attachment);
+});
+
+test("keeps link title and destination without a thumbnail or message", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          attachments: [
+            {
+              styles: {
+                attachment: {
+                  url: "https://l.facebook.com/l.php?u=https%3A%2F%2Favto.net%2Fad%2F123",
+                  title_with_entities: { text: "TAM 190 T15, 12000 EUR" },
+                  media: { __typename: "ExternalUrl" },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(item.attachment?.type, "link");
+  assert.equal(item.attachment?.title, "TAM 190 T15, 12000 EUR");
+  assert.equal(item.attachment?.url, "https://avto.net/ad/123");
+  assert.deepEqual(item.media, []);
+});
+
+test("reads link preview images while preserving commentary and normal photos", () => {
+  const item = pageFor({
+    ...story,
+    comet_sections: {
+      ...story.comet_sections,
+      content: {
+        story: {
+          message: { text: "Worth reading" },
+          attachments: [
+            {
+              url: "https://example.com/article",
+              title_with_entities: { text: "Article title" },
+              description: { text: "Article summary" },
+              media: {
+                __typename: "ExternalUrl",
+                image: {
+                  uri: "https://example.com/preview.jpg",
+                  width: 800,
+                  height: 400,
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(item.text, "Worth reading");
+  assert.equal(item.attachment?.description, "Article summary");
+  assert.deepEqual(item.media, [
+    {
+      type: "image",
+      url: "https://example.com/preview.jpg",
+      aspectRatio: 2,
+    },
+  ]);
+  assert.equal(pageFor(story).attachment, undefined);
+  assert.equal(pageFor(story).media[0].url, "https://example.com/photo.jpg");
 });

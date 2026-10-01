@@ -1,3 +1,4 @@
+import { feedAttachmentSchema, feedMediaSchema } from "@/feed/schemas";
 import type { ExtractedItem, FeedMedia, FeedPost } from "@/feed/types";
 import {
   edgeSchema,
@@ -15,6 +16,7 @@ import {
   bootstrap,
   object,
   objects,
+  string,
   type Json,
   type JsonObject,
 } from "@/platforms/json";
@@ -112,6 +114,67 @@ function mediaFor(attachments: Json): FeedMedia[] {
   return [...media.values()];
 }
 
+function attachmentFor(attachments: Json) {
+  for (const entry of objects(attachments)) {
+    const media = object(entry.media);
+    const event = object(entry.target);
+    const rawUrl =
+      string(media.external_url) || string(entry.url) || string(event.url);
+    if (!rawUrl) continue;
+    let url: URL;
+    try {
+      url = new URL(rawUrl);
+      if (
+        /(^|\.)facebook\.com$/.test(url.hostname) &&
+        url.pathname === "/l.php"
+      )
+        url = new URL(url.searchParams.get("u") || rawUrl);
+    } catch {
+      continue;
+    }
+    const isEvent =
+      event.__typename === "Event" ||
+      (/^(www\.)?facebook\.com$/.test(url.hostname) &&
+        /^\/events\/\d+/.test(url.pathname));
+    const title =
+      string(object(entry.title_with_entities).text) ||
+      string(object(entry.title).text) ||
+      string(entry.title) ||
+      (isEvent ? string(event.name) : "");
+    if (
+      !isEvent &&
+      media.__typename !== "ExternalUrl" &&
+      /(^|\.)facebook\.com$/.test(url.hostname)
+    )
+      continue;
+    const parsed = feedAttachmentSchema.safeParse({
+      type: isEvent ? "event" : "link",
+      title,
+      url: url.href,
+      description: string(object(entry.description).text) || undefined,
+      startsAtText: isEvent
+        ? string(event.capitalized_day_time_sentence) || undefined
+        : undefined,
+    });
+    if (!parsed.success) continue;
+    const image = object(media.image);
+    const preview = feedMediaSchema.safeParse({
+      type: "image",
+      url: image.uri,
+      aspectRatio:
+        typeof image.width === "number" &&
+        typeof image.height === "number" &&
+        image.height > 0
+          ? image.width / image.height
+          : undefined,
+    });
+    return {
+      attachment: parsed.data,
+      image: preview.success ? preview.data : undefined,
+    };
+  }
+}
+
 function postFor(node: FacebookStory): FeedPost | undefined {
   const sections = node.comet_sections;
   const content = sections?.content?.story;
@@ -147,6 +210,15 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     content?.actors?.[0]?.name ||
     undefined;
   const attached = content?.attached_story || node.attached_story;
+  const attachments = [content?.attachments || [], node.attachments || []];
+  const preview = attachmentFor(attachments);
+  const media = mediaFor([
+    attachments,
+    content?.short_form_video_context || {},
+    node.short_form_video_context || {},
+  ]);
+  if (preview?.image && !media.some((item) => item.url === preview.image?.url))
+    media.push(preview.image);
   return {
     sourceId,
     url: permalink.href,
@@ -155,12 +227,8 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     authorName,
     authorHandle: authorName,
     text: content?.message?.text || node.message?.text || undefined,
-    media: mediaFor([
-      content?.attachments || [],
-      node.attachments || [],
-      content?.short_form_video_context || {},
-      node.short_form_video_context || {},
-    ]),
+    media,
+    attachment: preview?.attachment,
     quote: attached ? postFor(attached) : undefined,
   };
 }

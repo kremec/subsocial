@@ -22,6 +22,14 @@ const mediaListSchema = z
   .array(feedMediaSchema.nullable().catch(null))
   .transform((media) => media.filter((item) => item !== null));
 
+export const feedAttachmentSchema = z.object({
+  type: z.enum(["event", "link"]),
+  title: z.string().min(1),
+  url: z.httpUrl(),
+  description: z.string().optional(),
+  startsAtText: z.string().optional(),
+});
+
 export const feedPostSchema = z.object({
   sourceId: z.string().min(1).optional(),
   replyToSourceId: z.string().min(1).optional(),
@@ -33,6 +41,7 @@ export const feedPostSchema = z.object({
   androidUrl: z.url().optional(),
   publishedAt: z.number().positive().optional().catch(undefined),
   media: mediaListSchema.optional(),
+  attachment: feedAttachmentSchema.optional().catch(undefined),
   context: z.string().optional(),
   get quote() {
     return feedPostSchema.optional();
@@ -74,6 +83,7 @@ export const extractionMessageSchema = z.discriminatedUnion("type", [
 
 export type PlatformId = z.infer<typeof platformIdSchema>;
 export type FeedMedia = z.infer<typeof feedMediaSchema>;
+export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
 export type FeedPost = z.infer<typeof feedPostSchema>;
 export type ExtractedPost = z.infer<typeof extractedPostSchema>;
 export type ExtractedItem = z.infer<typeof extractedItemSchema>;
