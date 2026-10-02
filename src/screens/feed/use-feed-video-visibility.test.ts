@@ -126,3 +126,15 @@ test("fullscreen keeps the active video through layout and recycled view changes
   assert.equal(app.result.current.activeVideo?.rowId, "second");
   await app.unmount();
 });
+
+test("only fullscreen images suspend feed playback", async () => {
+  const app = await harness();
+  await act(() => app.result.current.onFullscreen(true, "video"));
+  assert.equal(app.result.current.imageFullscreen, false);
+  await act(() => app.result.current.onFullscreen(false, "video"));
+  await act(() => app.result.current.onFullscreen(true, "image"));
+  assert.equal(app.result.current.imageFullscreen, true);
+  await act(() => app.result.current.onFullscreen(false, "image"));
+  assert.equal(app.result.current.imageFullscreen, false);
+  await app.unmount();
+});

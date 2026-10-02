@@ -3,23 +3,29 @@ import { Platform } from "react-native";
 
 import { useNavigation } from "expo-router";
 
-export const FeedFullscreenContext = createContext<
-  ((visible: boolean) => void) | null
->(null);
+export type FullscreenMediaType = "image" | "video";
 
-export function useFullscreenOrientation(visible: boolean) {
+export const FeedFullscreenContext = createContext<{
+  onFullscreen: (visible: boolean, type: FullscreenMediaType) => void;
+  imageFullscreen: boolean;
+} | null>(null);
+
+export function useFullscreenOrientation(
+  visible: boolean,
+  type: FullscreenMediaType = "video",
+) {
   const navigation = useNavigation();
-  const onFullscreen = useContext(FeedFullscreenContext);
+  const onFullscreen = useContext(FeedFullscreenContext)?.onFullscreen;
 
   useLayoutEffect(() => {
     if (!visible) return;
-    onFullscreen?.(true);
+    onFullscreen?.(true, type);
     if (Platform.OS === "android")
       navigation.setOptions({ orientation: "default" });
     return () => {
       if (Platform.OS === "android")
         navigation.setOptions({ orientation: "portrait" });
-      onFullscreen?.(false);
+      onFullscreen?.(false, type);
     };
-  }, [navigation, onFullscreen, visible]);
+  }, [navigation, onFullscreen, visible, type]);
 }

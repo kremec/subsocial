@@ -55,7 +55,7 @@ function harness(platform: "android" | "ios") {
   const FullscreenProvider: FC<FullscreenProviderProps> = (props) =>
     createElement(
       exports.FeedFullscreenContext,
-      { value: onFullscreen },
+      { value: { onFullscreen, imageFullscreen: false } },
       props.children,
     );
   return {

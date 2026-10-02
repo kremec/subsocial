@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type View } from "react-native";
 
 import { type FeedItem } from "@/feed/types";
+import { type FullscreenMediaType } from "@/screens/feed/use-fullscreen-orientation";
 
 interface ActiveVideo {
   rowId: string;
@@ -12,9 +13,14 @@ export function useFeedVideoVisibility(rows: readonly Pick<FeedItem, "id">[]) {
   const viewport = useRef<View>(null);
   const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
   const fullscreenMedia = useRef(false);
-  const onFullscreen = useCallback((visible: boolean) => {
-    fullscreenMedia.current = visible;
-  }, []);
+  const [imageFullscreen, setImageFullscreen] = useState(false);
+  const onFullscreen = useCallback(
+    (visible: boolean, type: FullscreenMediaType = "video") => {
+      fullscreenMedia.current = visible;
+      setImageFullscreen(visible && type === "image");
+    },
+    [],
+  );
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const updateVideoVisibility = useCallback((preferred?: ActiveVideo) => {
     if (fullscreenMedia.current) return;
@@ -69,5 +75,6 @@ export function useFeedVideoVisibility(rows: readonly Pick<FeedItem, "id">[]) {
     updateVideoVisibility,
     onVideoView,
     onFullscreen,
+    imageFullscreen,
   };
 }

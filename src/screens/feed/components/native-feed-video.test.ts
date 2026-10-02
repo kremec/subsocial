@@ -40,6 +40,7 @@ function harness() {
   let releases = 0;
   let errors = 0;
   const player = {
+    playing: false,
     currentTime: 0,
     status: "readyToPlay",
     availableAudioTracks: [] as AudioTrack[],
@@ -65,9 +66,11 @@ function harness() {
       });
     },
     play() {
+      player.playing = true;
       plays++;
     },
     pause() {
+      player.playing = false;
       pauses++;
     },
     release() {
@@ -90,6 +93,7 @@ function harness() {
     },
     async mount(url: string, preferredAudioTrack?: string, playbackKey = url) {
       const context = createContext(player);
+      const fullscreenContext = createContext({ imageFullscreen: false });
       const exports = {} as { NativeFeedVideo: typeof NativeFeedVideo };
       runInNewContext(source, {
         exports,
@@ -106,6 +110,8 @@ function harness() {
                 FeedVideoPlayerContext: context,
                 playbackPositionsFor: () => positions,
               };
+            case "@/screens/feed/use-fullscreen-orientation":
+              return { FeedFullscreenContext: fullscreenContext };
             default:
               throw new Error(name);
           }
@@ -123,7 +129,15 @@ function harness() {
           media: { type: "video", url: nextUrl, preferredAudioTrack },
           onError,
         });
-      const result = await render(element(url, playbackKey));
+      let currentElement = element(url, playbackKey);
+      let imageFullscreen = false;
+      const wrapped = () =>
+        createElement(
+          fullscreenContext,
+          { value: { imageFullscreen } },
+          currentElement,
+        );
+      const result = await render(wrapped());
       return {
         ...result,
         get root() {
@@ -133,11 +147,75 @@ function harness() {
           nextUrl: string,
           nextPlaybackKey = playbackKey,
           onError?: () => void,
-        ) => result.rerender(element(nextUrl, nextPlaybackKey, onError)),
+        ) => {
+          currentElement = element(nextUrl, nextPlaybackKey, onError);
+          return result.rerender(wrapped());
+        },
+        suspend: (visible: boolean) => {
+          imageFullscreen = visible;
+          return result.rerender(wrapped());
+        },
       };
     },
   };
 }
+
+test("fullscreen images pause and resume playing videos without replacing or seeking their source", async () => {
+  const app = harness();
+  const row = await app.mount("https://example.com/video.mp4");
+  await act(() => app.replacements[0]!.resolve());
+  app.player.currentTime = 12;
+  await row.suspend(true);
+  assert.equal(app.player.playing, false);
+  await row.suspend(true);
+  await row.suspend(false);
+  assert.equal(app.player.playing, true);
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.replacements.length, 1);
+  assert.equal(app.counts.plays, 2);
+  assert.equal(app.counts.pauses, 1);
+  await row.unmount();
+});
+
+test("closing an image does not resume a manually paused or unmounted video", async () => {
+  for (const unmount of [false, true]) {
+    const app = harness();
+    const row = await app.mount("https://example.com/video.mp4");
+    await act(() => app.replacements[0]!.resolve());
+    if (!unmount) app.player.pause();
+    await row.suspend(true);
+    if (unmount) await row.unmount();
+    else await row.suspend(false);
+    assert.equal(app.player.playing, false);
+    assert.equal(app.counts.plays, 1);
+    if (!unmount) await row.unmount();
+  }
+});
+
+test("a load completing behind an image waits until the image closes", async () => {
+  const app = harness();
+  const row = await app.mount("https://example.com/video.mp4");
+  await row.suspend(true);
+  await act(() => app.replacements[0]!.resolve());
+  assert.equal(app.counts.plays, 0);
+  assert.equal(app.player.playing, false);
+  await row.suspend(false);
+  assert.equal(app.counts.plays, 1);
+  await row.unmount();
+});
+
+test("changing a suspended source cannot resume it before its load completes", async () => {
+  const app = harness();
+  const row = await app.mount("https://example.com/first.mp4");
+  await act(() => app.replacements[0]!.resolve());
+  await row.suspend(true);
+  await row.replace("https://example.com/second.mp4");
+  await row.suspend(false);
+  assert.equal(app.counts.plays, 1);
+  await act(() => app.replacements[1]!.resolve());
+  assert.equal(app.counts.plays, 2);
+  await row.unmount();
+});
 
 test("a replaced row's pending load cannot play or report an error after unmount", async () => {
   const app = harness();

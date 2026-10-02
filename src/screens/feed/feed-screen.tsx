@@ -133,6 +133,7 @@ export const FeedScreen: FC = () => {
     updateVideoVisibility,
     onVideoView,
     onFullscreen,
+    imageFullscreen,
   } = useFeedVideoVisibility(rows);
   const [initialScrollIndex] = useState(() => {
     const saved = Storage.getItemSync(positionKey);
@@ -257,7 +258,7 @@ export const FeedScreen: FC = () => {
         ))}
 
         <FeedVideoPlayerContext value={player}>
-          <FeedFullscreenContext value={onFullscreen}>
+          <FeedFullscreenContext value={{ onFullscreen, imageFullscreen }}>
             <View
               ref={viewport}
               collapsable={false}

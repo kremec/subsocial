@@ -27,7 +27,7 @@ interface FullscreenImageProps {
 export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
   const { uri, aspectRatio, visible, onClose } = props;
   const theme = useTheme();
-  useFullscreenOrientation(visible);
+  useFullscreenOrientation(visible, "image");
   const [screen, setScreen] = useState({ width: 0, height: 0 });
   const [ratio, setRatio] = useState(aspectRatio || 1);
   const zoom = useRef<ResumableZoomRefType>(null);
