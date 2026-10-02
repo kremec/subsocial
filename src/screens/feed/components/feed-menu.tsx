@@ -7,6 +7,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
+import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
 
@@ -79,11 +80,6 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
         {platforms.map((platform) => {
           const connected = connectedPlatforms.includes(platform.id);
           const active = activePlatforms.includes(platform.id);
-          let borderColor: string = theme.colors.border;
-          if (failedPlatforms.includes(platform.id))
-            borderColor = theme.colors.danger;
-          else if (connected)
-            borderColor = active ? theme.colors.success : theme.colors.warning;
 
           return (
             <View
@@ -95,23 +91,12 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                 gap: theme.spacing.sm,
               }}
             >
-              <View
-                style={{
-                  width: 38,
-                  height: 38,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 2,
-                  borderColor,
-                  borderRadius: theme.radius.sm,
-                }}
-              >
-                <Icon
-                  name={`brand-${platform.id}`}
-                  color={platform.color}
-                  size={22}
-                />
-              </View>
+              <PlatformIcon
+                platform={platform}
+                connected={connected}
+                active={active}
+                failed={failedPlatforms.includes(platform.id)}
+              />
 
               <Typography
                 variant="bodyStrong"

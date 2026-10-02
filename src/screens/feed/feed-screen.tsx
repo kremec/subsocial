@@ -22,7 +22,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { WebView } from "react-native-webview";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -36,6 +35,7 @@ import { importDatabase } from "@/feed/import-database";
 import { type FeedItem, type FeedPost, type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
+import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
 import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
@@ -244,21 +244,7 @@ export const FeedScreen: FC = () => {
 
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
-      {!webKitReady && (
-        <WebView
-          pointerEvents="none"
-          source={{ html: "" }}
-          onLoadEnd={() => setWebKitReady(true)}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1,
-            height: 1,
-            opacity: 0,
-          }}
-        />
-      )}
+      {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
 
       {feed.collectors.slice(0, collectorConcurrency).map((platform) => (
         <FeedCollector
