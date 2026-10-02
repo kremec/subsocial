@@ -151,7 +151,7 @@ export function selectYouTubePlaylist(
 export async function resolveYouTubePlayback(
   videoId: string,
   signal: AbortSignal,
-  request: typeof fetch = fetch,
+  request: (url: string, options?: RequestInit) => Promise<Response> = fetch,
 ): Promise<YouTubeResolution> {
   const checkAborted = () => {
     if (signal.aborted)

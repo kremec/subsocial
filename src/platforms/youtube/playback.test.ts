@@ -141,7 +141,7 @@ test("supports React Native's AbortSignal without throwIfAborted", async () => {
 test("resolves matching public video through anonymous abortable HTTP requests", async () => {
   const controller = new AbortController();
   const urls: string[] = [];
-  const request: typeof fetch = async (input, options) => {
+  const request = async (input: string, options?: RequestInit) => {
     const url = String(input);
     urls.push(url);
     assert.equal(options?.credentials, "omit");
@@ -192,7 +192,7 @@ test("restricted responses do not fetch media, and mismatched or unsafe streams 
     "UNPLAYABLE",
   ]) {
     let calls = 0;
-    const request: typeof fetch = async () =>
+    const request = async () =>
       ++calls === 1
         ? Response.json({ responseContext: { visitorData: "visitor" } })
         : Response.json({ playabilityStatus: { status } });
@@ -213,7 +213,7 @@ test("restricted responses do not fetch media, and mismatched or unsafe streams 
     ["video", "https://example.com/hls.m3u8"],
   ]) {
     let calls = 0;
-    const request: typeof fetch = async () =>
+    const request = async () =>
       ++calls === 1
         ? Response.json({ responseContext: { visitorData: "visitor" } })
         : Response.json({
@@ -231,7 +231,7 @@ test("restricted responses do not fetch media, and mismatched or unsafe streams 
 test("aborts before the next request even if an in-flight fetch ignores cancellation", async () => {
   const controller = new AbortController();
   let calls = 0;
-  const request: typeof fetch = async () => {
+  const request = async () => {
     calls += 1;
     controller.abort();
     return Response.json({ responseContext: { visitorData: "visitor" } });

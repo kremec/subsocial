@@ -57,10 +57,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@testing-library/react-native": "14.0.1",
+    "@types/bun": "^1.4.2",
     "@types/react": "~19.2.2",
     "expo-atlas": "^0.4.0",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
+    "test-renderer": "~1.2.0",
     "typescript": "~6.0.3"
   },
   "patchedDependencies": {
