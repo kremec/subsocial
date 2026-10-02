@@ -9,7 +9,7 @@ import {
 
 import { z } from "zod";
 
-import { database } from "@/feed/database";
+import { database, migrateDatabase } from "@/feed/database";
 import { feedPostSchema, platformIdSchema } from "@/feed/schemas";
 
 const importDatabaseName = "subsocial-import.db";
@@ -70,6 +70,7 @@ export async function importDatabase(): Promise<boolean> {
         row.id,
       );
     }
+    migrateDatabase(imported);
     await backupDatabaseAsync({
       sourceDatabase: imported,
       destDatabase: database,

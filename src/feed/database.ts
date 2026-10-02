@@ -1,4 +1,4 @@
-import { openDatabaseSync } from "expo-sqlite";
+import { openDatabaseSync, type SQLiteDatabase } from "expo-sqlite";
 
 import { feedItemLimit } from "@/feed/collection";
 import {
@@ -19,31 +19,14 @@ interface FeedItemRow {
   thread_id: string;
 }
 
-export const database = openDatabaseSync("subsocial.db");
-database.execSync(`
-  PRAGMA journal_mode = WAL;
-  CREATE TABLE IF NOT EXISTS feed_items (
-    id TEXT PRIMARY KEY NOT NULL,
-    platform TEXT NOT NULL,
-    source_id TEXT NOT NULL,
-    published_at INTEGER,
-    fetched_at INTEGER NOT NULL,
-    item_json TEXT NOT NULL,
-    thread_id TEXT NOT NULL
-  );
-  DROP INDEX IF EXISTS feed_items_order;
-  CREATE INDEX IF NOT EXISTS feed_items_publication_order
-    ON feed_items (published_at DESC, id DESC);
-  CREATE TABLE IF NOT EXISTS connections (platform TEXT PRIMARY KEY NOT NULL);
-  UPDATE feed_items SET item_json = json_remove(
-    json_set(item_json, '$.media[0].url', json_extract(item_json, '$.media[0].posterUrl')),
-    '$.media[0].expiresAt', '$.media[0].contentType'
-  )
-  WHERE platform = 'youtube'
-    AND (json_extract(item_json, '$.media[0].expiresAt') IS NOT NULL
-      OR json_extract(item_json, '$.media[0].contentType') IS NOT NULL)
-    AND json_extract(item_json, '$.media[0].posterUrl') IS NOT NULL;
-`);
+const databaseVersion = 1;
+export let database: SQLiteDatabase;
+
+export function initializeDatabase(): void {
+  database ??= openDatabaseSync("subsocial.db");
+  database.execSync("PRAGMA journal_mode = WAL");
+  migrateDatabase(database);
+}
 
 function postFromRow(row: FeedItemRow): ExtractedPost {
   return {
@@ -94,11 +77,12 @@ export function saveExtraction(
   fetchedAt = Date.now(),
 ): void {
   database.withTransactionSync(() =>
-    savePosts(platform, items, excludedSourceIds, fetchedAt),
+    savePosts(database, platform, items, excludedSourceIds, fetchedAt),
   );
 }
 
 function savePosts(
+  connection: SQLiteDatabase,
   platform: PlatformId,
   items: ExtractedItem[],
   excludedSourceIds: string[],
@@ -106,7 +90,7 @@ function savePosts(
   retainUndated = false,
 ): void {
   const excluded = new Set(excludedSourceIds);
-  const insert = database.prepareSync(`
+  const insert = connection.prepareSync(`
     INSERT INTO feed_items (id, platform, source_id, published_at, fetched_at, item_json, thread_id)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
@@ -116,7 +100,7 @@ function savePosts(
   `);
   try {
     for (const sourceId of excluded)
-      database.runSync(
+      connection.runSync(
         "DELETE FROM feed_items WHERE id = ?",
         `${platform}:${sourceId}`,
       );
@@ -127,7 +111,7 @@ function savePosts(
       for (const post of [root, ...(thread ?? [])])
         if (!excluded.has(post.sourceId))
           posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
-      const previous = database.getAllSync<FeedItemRow>(
+      const previous = connection.getAllSync<FeedItemRow>(
         "SELECT * FROM feed_items WHERE id IN (SELECT value FROM json_each(?))",
         JSON.stringify([...posts.keys()].map((id) => `${platform}:${id}`)),
       );
@@ -135,7 +119,7 @@ function savePosts(
       const threadId = groups.sort()[0] ?? `${platform}:${item.sourceId}`;
       // Overlap connects entire existing groups, including offscreen replies.
       if (groups.length > 1)
-        database.runSync(
+        connection.runSync(
           "UPDATE feed_items SET thread_id = ? WHERE thread_id IN (SELECT value FROM json_each(?))",
           threadId,
           JSON.stringify(groups),
@@ -161,56 +145,89 @@ function savePosts(
   }
 }
 
-// Migrate both previous JSON layouts once, preserving first-seen times and media.
-const columns = database.getAllSync<{ name: string }>(
-  "PRAGMA table_info(feed_items)",
-);
-if (!columns.some((column) => column.name === "thread_id")) {
-  database.withTransactionSync(() => {
-    database.execSync("ALTER TABLE feed_items ADD COLUMN thread_id TEXT");
-    const groups = database
-      .getAllSync<FeedItemRow>("SELECT * FROM feed_items")
-      .map((row) => {
-        const stored = JSON.parse(row.item_json) as
-          | ExtractedItem
-          | { thread: ExtractedPost[] };
-        const root =
-          "url" in stored
-            ? stored
-            : stored.thread.find((post) => post.sourceId === row.source_id)!;
-        const item: ExtractedItem = {
-          ...root,
-          sourceId: row.source_id,
-          publishedAt: row.published_at ?? root.publishedAt,
-          media: root.media ?? [],
-          thread: stored.thread,
-        };
-        const { thread: _thread, ...post } = item;
-        // Flatten every existing root first so normal merging can retain its loaded media.
-        database.runSync(
-          "UPDATE feed_items SET item_json = ?, thread_id = id WHERE id = ?",
-          serializePost(post),
-          row.id,
-        );
-        return { row, item };
-      });
-    for (const { row, item } of groups) {
-      savePosts(row.platform, [item], [], row.fetched_at, true);
-      database.runSync(
-        "UPDATE feed_items SET fetched_at = MIN(fetched_at, ?) WHERE id IN (SELECT value FROM json_each(?))",
-        row.fetched_at,
-        JSON.stringify(
-          [item, ...(item.thread ?? [])].map(
-            (post) => `${row.platform}:${post.sourceId}`,
-          ),
-        ),
+export function migrateDatabase(connection: SQLiteDatabase): void {
+  const version = connection.getFirstSync<{ user_version: number }>(
+    "PRAGMA user_version",
+  )!.user_version;
+  if (version > databaseVersion)
+    throw new Error("This database requires a newer version of Subsocial.");
+  if (version === databaseVersion) return;
+
+  connection.withTransactionSync(() => {
+    connection.execSync(`
+      CREATE TABLE IF NOT EXISTS feed_items (
+        id TEXT PRIMARY KEY NOT NULL,
+        platform TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        published_at INTEGER,
+        fetched_at INTEGER NOT NULL,
+        item_json TEXT NOT NULL,
+        thread_id TEXT NOT NULL
       );
+      DROP INDEX IF EXISTS feed_items_order;
+      CREATE INDEX IF NOT EXISTS feed_items_publication_order
+        ON feed_items (published_at DESC, id DESC);
+      CREATE TABLE IF NOT EXISTS connections (platform TEXT PRIMARY KEY NOT NULL);
+    `);
+    // Migrate both previous JSON layouts, preserving first-seen times and media.
+    const columns = connection.getAllSync<{ name: string }>(
+      "PRAGMA table_info(feed_items)",
+    );
+    if (!columns.some((column) => column.name === "thread_id")) {
+      connection.execSync("ALTER TABLE feed_items ADD COLUMN thread_id TEXT");
+      const groups = connection
+        .getAllSync<FeedItemRow>("SELECT * FROM feed_items")
+        .map((row) => {
+          const stored = JSON.parse(row.item_json) as
+            | ExtractedItem
+            | { thread: ExtractedPost[] };
+          const root =
+            "url" in stored
+              ? stored
+              : stored.thread.find((post) => post.sourceId === row.source_id)!;
+          const item: ExtractedItem = {
+            ...root,
+            sourceId: row.source_id,
+            publishedAt: row.published_at ?? root.publishedAt,
+            media: root.media ?? [],
+            thread: stored.thread,
+          };
+          const { thread: _thread, ...post } = item;
+          // Flatten every existing root first so normal merging can retain its loaded media.
+          connection.runSync(
+            "UPDATE feed_items SET item_json = ?, thread_id = id WHERE id = ?",
+            serializePost(post),
+            row.id,
+          );
+          return { row, item };
+        });
+      for (const { row, item } of groups) {
+        savePosts(connection, row.platform, [item], [], row.fetched_at, true);
+        connection.runSync(
+          "UPDATE feed_items SET fetched_at = MIN(fetched_at, ?) WHERE id IN (SELECT value FROM json_each(?))",
+          row.fetched_at,
+          JSON.stringify(
+            [item, ...(item.thread ?? [])].map(
+              (post) => `${row.platform}:${post.sourceId}`,
+            ),
+          ),
+        );
+      }
     }
+    connection.execSync(`
+      UPDATE feed_items SET item_json = json_remove(
+        json_set(item_json, '$.media[0].url', json_extract(item_json, '$.media[0].posterUrl')),
+        '$.media[0].expiresAt', '$.media[0].contentType'
+      )
+      WHERE platform = 'youtube'
+        AND (json_extract(item_json, '$.media[0].expiresAt') IS NOT NULL
+          OR json_extract(item_json, '$.media[0].contentType') IS NOT NULL)
+        AND json_extract(item_json, '$.media[0].posterUrl') IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS feed_items_thread ON feed_items (thread_id);
+      PRAGMA user_version = ${databaseVersion};
+    `);
   });
 }
-database.execSync(
-  "CREATE INDEX IF NOT EXISTS feed_items_thread ON feed_items (thread_id)",
-);
 
 const cachedItems = new Map<string, { key: string; item: FeedItem }>();
 export function listFeedItems(): FeedItem[] {

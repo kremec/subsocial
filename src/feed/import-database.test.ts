@@ -8,10 +8,16 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 import { z } from "zod";
 
+import { feedItemLimit } from "@/feed/collection";
 import { feedPostSchema, platformIdSchema } from "@/feed/schemas";
 
 const importSource = transpileModule(
   readFileSync(new URL("./import-database.ts", import.meta.url), "utf8"),
+  { compilerOptions: { module: ModuleKind.CommonJS } },
+).outputText;
+
+const databaseSource = transpileModule(
+  readFileSync(new URL("./database.ts", import.meta.url), "utf8"),
   { compilerOptions: { module: ModuleKind.CommonJS } },
 ).outputText;
 
@@ -34,8 +40,25 @@ function importHarness() {
     JSON.stringify({ url: "https://youtube.com/watch?v=video", media: [] }),
     "youtube:video",
   );
-  const state = { backups: 0, closed: false, payloads: ["original data"] };
+  const state = {
+    backups: 0,
+    closed: false,
+    payloads: ["original data"],
+    version: 0,
+  };
   const imported = {
+    execSync: (sql: string) => db.exec(sql),
+    getFirstSync: (sql: string) => db.prepare(sql).get(),
+    withTransactionSync: (action: () => void) => {
+      db.exec("BEGIN");
+      try {
+        action();
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
     getAllSync: (sql: string) => db.prepare(sql).all(),
     runSync: (sql: string, ...params: string[]) =>
       db.prepare(sql).run(...params),
@@ -44,6 +67,15 @@ function importHarness() {
       db.close();
     },
   };
+  const databaseExports = {} as typeof import("./database");
+  runInNewContext(databaseSource, {
+    exports: databaseExports,
+    require(name: string) {
+      if (name === "expo-sqlite") return {};
+      if (name === "@/feed/collection") return { feedItemLimit };
+      throw new Error(name);
+    },
+  });
   const exports = {} as typeof import("./import-database");
   runInNewContext(importSource, {
     exports,
@@ -65,6 +97,9 @@ function importHarness() {
             openDatabaseSync: () => imported,
             backupDatabaseAsync: async () => {
               state.backups++;
+              state.version = Number(
+                db.prepare("PRAGMA user_version").get()!.user_version,
+              );
               state.payloads = db
                 .prepare("SELECT item_json FROM feed_items ORDER BY id")
                 .all()
@@ -72,7 +107,7 @@ function importHarness() {
             },
           };
         case "@/feed/database":
-          return { database: {} };
+          return { ...databaseExports, database: {} };
         case "@/feed/schemas":
           return { feedPostSchema, platformIdSchema };
         case "zod":
@@ -101,8 +136,30 @@ test("accepts exported posts and pending undated rows with metadata outside JSON
   );
   assert.equal(await app.importDatabase(), true);
   assert.equal(app.state.backups, 1);
+  assert.equal(app.state.version, 1);
   assert.equal(app.state.payloads.length, 2);
   assert.equal(app.state.closed, true);
+});
+
+test("current-version imports preserve playable YouTube sources without rerunning migration SQL", async () => {
+  const app = importHarness();
+  const media = {
+    type: "video",
+    url: "https://example.com/playback.mp4",
+    posterUrl: "https://example.com/poster.jpg",
+    contentType: "progressive",
+    playable: true,
+  };
+  app.db.exec("PRAGMA user_version = 1");
+  app.db.prepare("UPDATE feed_items SET item_json = ?").run(
+    JSON.stringify({
+      url: "https://youtube.com/watch?v=video",
+      media: [media],
+    }),
+  );
+  assert.equal(await app.importDatabase(), true);
+  assert.equal(app.state.version, 1);
+  assert.deepEqual(JSON.parse(app.state.payloads[0]).media, [media]);
 });
 
 test("rejects invalid JSON, platforms, identities, timestamps, and essential payload fields before backup", async () => {
@@ -118,6 +175,7 @@ test("rejects invalid JSON, platforms, identities, timestamps, and essential pay
     `UPDATE feed_items SET item_json = '{"url":"invalid"}'`,
     `UPDATE feed_items SET item_json = '{"url":"https://example.com","text":{}}'`,
     "ALTER TABLE feed_items RENAME COLUMN thread_id TO obsolete",
+    "PRAGMA user_version = 2",
   ]) {
     const app = importHarness();
     app.db.exec(sql);

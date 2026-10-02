@@ -13,10 +13,16 @@ import { type ExtractedItem } from "@/feed/types";
 import { type FeedPage } from "@/platforms/types";
 
 // Exercise the production SQL against SQLite without requiring a native app.
-function openStore(db = new DatabaseSync(":memory:")) {
+function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
   const reads: number[] = [];
+  const statements: string[] = [];
+  let opens = 0;
   const database = {
-    execSync: (sql: string) => db.exec(sql),
+    execSync: (sql: string) => {
+      statements.push(sql);
+      db.exec(sql);
+    },
+    getFirstSync: (sql: string) => db.prepare(sql).get(),
     getAllSync: (sql: string, ...params: string[]) => {
       const rows = db.prepare(sql).all(...params);
       reads.push(rows.length);
@@ -55,13 +61,28 @@ function openStore(db = new DatabaseSync(":memory:")) {
     {
       exports,
       require: (name: string) => {
-        if (name === "expo-sqlite") return { openDatabaseSync: () => database };
+        if (name === "expo-sqlite")
+          return {
+            openDatabaseSync: () => {
+              opens++;
+              return database;
+            },
+          };
         if (name === "@/feed/collection") return { feedItemLimit };
         throw new Error(name);
       },
     },
   );
-  return { ...exports, db, reads };
+  if (initialize) exports.initializeDatabase();
+  return {
+    ...exports,
+    db,
+    reads,
+    statements,
+    get opens() {
+      return opens;
+    },
+  };
 }
 
 const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
@@ -69,6 +90,110 @@ const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
   publishedAt,
   url: `https://example.com/${sourceId}`,
   media: [],
+});
+
+test("database imports do not open or migrate until explicit initialization", () => {
+  const store = openStore(new DatabaseSync(":memory:"), false);
+  assert.equal(store.opens, 0);
+  assert.deepEqual(store.statements, []);
+  assert.equal(
+    store.db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!
+      .count,
+    0,
+  );
+  store.initializeDatabase();
+  assert.equal(store.opens, 1);
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 1);
+  assert.deepEqual(Array.from(store.listFeedItems()), []);
+  store.db.close();
+});
+
+test("completed migrations do not run again on repeated initialization or restart", () => {
+  const store = openStore();
+  const media = {
+    type: "video" as const,
+    url: "https://example.com/playback.mp4",
+    posterUrl: "https://example.com/poster.jpg",
+    contentType: "progressive" as const,
+    playable: true,
+  };
+  store.saveExtraction(
+    "youtube",
+    [{ ...post("video", 1), media: [media] }],
+    [],
+  );
+  const statements = store.statements.length;
+  store.initializeDatabase();
+  assert.equal(store.opens, 1);
+  assert.equal(store.statements.length, statements + 1);
+  assert.deepEqual({ ...store.listFeedItems()[0].media[0] }, media);
+
+  const restarted = openStore(store.db);
+  assert.equal(restarted.statements.length, 1);
+  assert.deepEqual({ ...restarted.listFeedItems()[0].media[0] }, media);
+  store.db.close();
+});
+
+test("failed migrations roll back schema, data, indexes, and version before retry", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec(`
+    CREATE TABLE feed_items (
+      id TEXT PRIMARY KEY, platform TEXT, source_id TEXT,
+      published_at INTEGER, fetched_at INTEGER, item_json TEXT
+    );
+    CREATE INDEX feed_items_order ON feed_items (fetched_at DESC, id DESC);
+  `);
+  const insert = db.prepare("INSERT INTO feed_items VALUES (?, ?, ?, ?, ?, ?)");
+  insert.run("x:good", "x", "good", 1, 10, JSON.stringify(post("good", 1)));
+  insert.run("x:bad", "x", "bad", 2, 20, "{");
+  const original = db.prepare("SELECT * FROM feed_items ORDER BY id").all();
+  const store = openStore(db, false);
+
+  assert.throws(() => store.initializeDatabase(), /JSON/);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 0);
+  assert.deepEqual(
+    db.prepare("SELECT * FROM feed_items ORDER BY id").all(),
+    original,
+  );
+  assert.ok(
+    !db
+      .prepare("PRAGMA table_info(feed_items)")
+      .all()
+      .some((column) => column.name === "thread_id"),
+  );
+  assert.ok(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE name = 'feed_items_order'")
+      .get(),
+  );
+  assert.equal(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE name = 'connections'")
+      .get(),
+    undefined,
+  );
+
+  db.prepare("UPDATE feed_items SET item_json = ? WHERE id = 'x:bad'").run(
+    JSON.stringify(post("bad", 2)),
+  );
+  store.initializeDatabase();
+  assert.equal(store.opens, 1);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 1);
+  assert.equal(store.listFeedItems().length, 2);
+  db.close();
+});
+
+test("startup rejects a newer database without changing its schema or version", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA user_version = 2");
+  const store = openStore(db, false);
+  assert.throws(() => store.initializeDatabase(), /newer version/);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!.count,
+    0,
+  );
+  db.close();
 });
 
 test("retains 500 per platform so busy platforms cannot evict quieter ones", () => {
@@ -249,6 +374,47 @@ test("migration replaces persisted YouTube streams with their poster", () => {
   assert.equal(media.playable, true);
   assert.equal(media.contentType, undefined);
   store.db.close();
+});
+
+test("the first migration normalizes YouTube media after flattening either legacy layout", () => {
+  const legacy = {
+    ...post("video", 1),
+    media: [
+      {
+        type: "video",
+        url: "https://example.com/playback.mp4",
+        posterUrl: "https://example.com/poster.jpg",
+        expiresAt: 123,
+        contentType: "progressive",
+        playable: true,
+      },
+    ],
+  };
+  for (const payload of [
+    { ...legacy, thread: [legacy] },
+    { thread: [legacy] },
+  ]) {
+    const db = new DatabaseSync(":memory:");
+    db.exec(`CREATE TABLE feed_items (
+      id TEXT PRIMARY KEY, platform TEXT, source_id TEXT,
+      published_at INTEGER, fetched_at INTEGER, item_json TEXT
+    )`);
+    db.prepare("INSERT INTO feed_items VALUES (?, ?, ?, ?, ?, ?)").run(
+      "youtube:video",
+      "youtube",
+      "video",
+      1,
+      10,
+      JSON.stringify(payload),
+    );
+    const store = openStore(db);
+    const media = store.listFeedItems()[0].media[0];
+    assert.equal(media.url, legacy.media[0].posterUrl);
+    assert.equal(media.contentType, undefined);
+    assert.ok(!("expiresAt" in media));
+    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 1);
+    db.close();
+  }
 });
 
 test("migration merges overlapping old groups without losing loaded standalone media", () => {
