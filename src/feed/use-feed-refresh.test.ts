@@ -309,6 +309,38 @@ test("the first foreground return on a new local day refreshes automatically", a
   assert.notEqual(resumed.runId, first.runId);
 });
 
+test("manual refresh includes hidden platforms without changing visibility", () => {
+  const app = feedHarness(initial);
+  app.current.toggle("x");
+  app.render().refresh();
+  const run = app.render();
+  assert.deepEqual(Array.from(run.collectors), ["x", "youtube"]);
+  assert.equal(run.active.includes("x"), false);
+  app.database.items = incoming;
+  complete(run);
+  const refreshed = app.render();
+  assert.deepEqual(ids(refreshed.items), ids(incoming));
+  assert.equal(refreshed.active.includes("x"), false);
+  refreshed.toggle("x");
+  assert.equal(app.render().active.includes("x"), true);
+  assert.deepEqual(ids(app.current.items), ids(incoming));
+});
+
+test("automatic refresh includes saved hidden platforms on opening and a new day", async () => {
+  const storage = new Map([["hidden-platforms", JSON.stringify(["x"])]]);
+  const app = feedHarness(initial, storage);
+  const opened = await app.focus(true);
+  assert.deepEqual(Array.from(opened.collectors), ["x", "youtube"]);
+  assert.equal(opened.active.includes("x"), false);
+  complete(opened);
+  app.render();
+  await app.appState("background");
+  app.nextDay();
+  const resumed = await app.appState("active");
+  assert.deepEqual(Array.from(resumed.collectors), ["x", "youtube"]);
+  assert.equal(resumed.active.includes("x"), false);
+});
+
 test("connecting a platform refreshes immediately and marks the day", async () => {
   const app = feedHarness(initial);
   app.database.connected = ["x", "youtube", "instagram"];

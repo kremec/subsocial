@@ -92,10 +92,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     const savedIds = new Set(listFeedItems().map((item) => item.id));
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
     const refreshedToday = Storage.getItemSync(refreshDayKey) === localDay();
-    // A new account refreshes the whole feed. Ordinary app opens respect hidden sources.
-    if (added) begin(platforms);
-    else if (!running.current && !refreshedToday)
-      begin(platforms.filter((id) => !hidden.includes(id)));
+    if (added || (!running.current && !refreshedToday)) begin(platforms);
   });
 
   useEffect(() => {
@@ -212,7 +209,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       setItems(listFeedItems());
     },
     refresh: () => {
-      if (!run) begin(connected.filter((id) => active.includes(id)));
+      if (!run) begin(connected);
     },
   };
 }
