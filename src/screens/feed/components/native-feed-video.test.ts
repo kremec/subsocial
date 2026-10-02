@@ -1,7 +1,14 @@
 /// <reference types="node" />
 
 import * as react from "react";
-import { createContext, createElement } from "react";
+import {
+  type FC,
+  type ReactNode,
+  createContext,
+  createElement,
+  useContext,
+  useLayoutEffect,
+} from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 
 import { afterEach } from "bun:test";
@@ -12,48 +19,47 @@ import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
 import { type NativeFeedVideo } from "@/screens/feed/components/native-feed-video";
+import {
+  type MediaVideoContext,
+  type MediaVideoProvider,
+} from "@/screens/media/media-video-provider";
+import { type useMediaVideoPlayback } from "@/screens/media/use-media-video-playback";
 import { act, cleanup, render } from "@/test/react-native";
 
 afterEach(cleanup);
 
-const source = transpileModule(
-  readFileSync(new URL("./native-feed-video.tsx", import.meta.url), "utf8"),
-  { compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX } },
-).outputText;
+function compiled(path: string) {
+  return transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
+    compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX },
+  }).outputText;
+}
 
-interface AudioTrack {
-  id?: string;
-  name: string;
+const hookSource = compiled("../../media/use-media-video-playback.ts");
+const providerSource = compiled("../../media/media-video-provider.tsx");
+const videoSource = compiled("./native-feed-video.tsx");
+
+type PlaybackContext = NonNullable<react.ContextType<typeof MediaVideoContext>>;
+
+interface CapturePlaybackProps {
+  children?: ReactNode;
 }
 
 function harness() {
   const positions = new Map<string, number>();
   const replacements: { resolve: () => void; reject: () => void }[] = [];
-  const listeners = new Map<
-    object,
-    { event: string; callback: (event: { status: string }) => void }
-  >();
-  const audioSelections: AudioTrack[] = [];
-  let audioTrack: AudioTrack | undefined;
+  const listeners = new Map<object, (event: { status: string }) => void>();
+  const appStateListeners = new Set<(state: string) => void>();
   let plays = 0;
   let pauses = 0;
-  let releases = 0;
   let errors = 0;
   const player = {
-    playing: false,
     currentTime: 0,
+    playing: false,
     status: "readyToPlay",
-    availableAudioTracks: [] as AudioTrack[],
-    get audioTrack() {
-      return audioTrack;
-    },
-    set audioTrack(track: AudioTrack | undefined) {
-      audioTrack = track;
-      if (track) audioSelections.push(track);
-    },
-    addListener(event: string, callback: (event: { status: string }) => void) {
+    availableAudioTracks: [],
+    addListener(_event: string, callback: (event: { status: string }) => void) {
       const listener = { remove: () => listeners.delete(listener) };
-      listeners.set(listener, { event, callback });
+      listeners.set(listener, callback);
       return listener;
     },
     replaceAsync() {
@@ -73,377 +79,237 @@ function harness() {
       player.playing = false;
       pauses++;
     },
-    release() {
-      releases++;
-    },
   };
+  const playerContext = createContext(player);
+  const hookExports = {} as {
+    useMediaVideoPlayback: typeof useMediaVideoPlayback;
+  };
+  const providerExports = {} as {
+    MediaVideoContext: typeof MediaVideoContext;
+    MediaVideoProvider: typeof MediaVideoProvider;
+  };
+  const videoExports = {} as { NativeFeedVideo: typeof NativeFeedVideo };
+  function require(name: string) {
+    switch (name) {
+      case "react":
+        return react;
+      case "react/jsx-runtime":
+        return jsxRuntime;
+      case "react-native":
+        return {
+          AppState: {
+            currentState: "active",
+            addEventListener(
+              _event: string,
+              callback: (state: string) => void,
+            ) {
+              appStateListeners.add(callback);
+              return { remove: () => appStateListeners.delete(callback) };
+            },
+          },
+        };
+      case "@/screens/feed/feed-video-player":
+        return {
+          FeedVideoPlayerContext: playerContext,
+          useFeedVideoPlayer: () => player,
+          playbackPositionsFor: () => positions,
+        };
+      case "@/screens/media/use-media-video-playback":
+        return hookExports;
+      case "@/platforms/youtube/media-resolver":
+        return { YouTubeMediaContext: createContext(null) };
+      case "@/screens/media/media-video-provider":
+        return providerExports;
+      case "@/screens/feed/components/feed-video-player-view":
+        return { FeedVideoPlayerView: "FeedVideoPlayerView" };
+      default:
+        throw new Error(name);
+    }
+  }
+  for (const [source, exports] of [
+    [hookSource, hookExports],
+    [providerSource, providerExports],
+    [videoSource, videoExports],
+  ] as const)
+    runInNewContext(source, { exports, require });
+
+  let playback: PlaybackContext | null = null;
+  const CapturePlayback: FC<CapturePlaybackProps> = (props) => {
+    const context = useContext(providerExports.MediaVideoContext);
+    useLayoutEffect(() => {
+      playback = context;
+    });
+    return props.children;
+  };
+  const onError = () => errors++;
   return {
     player,
     replacements,
-    positions,
-    audioSelections,
-    emit(event: string) {
-      for (const listener of listeners.values()) {
-        if (listener.event === event)
-          listener.callback({ status: player.status });
-      }
-    },
     get counts() {
-      return { plays, pauses, releases, errors, listeners: listeners.size };
+      return { plays, pauses, errors, listeners: listeners.size };
     },
-    async mount(url: string, preferredAudioTrack?: string, playbackKey = url) {
-      const context = createContext(player);
-      const fullscreenContext = createContext({ imageFullscreen: false });
-      const exports = {} as { NativeFeedVideo: typeof NativeFeedVideo };
-      runInNewContext(source, {
-        exports,
-        require(name: string) {
-          switch (name) {
-            case "react":
-              return react;
-            case "react/jsx-runtime":
-              return jsxRuntime;
-            case "@/screens/feed/components/feed-video-player-view":
-              return { FeedVideoPlayerView: "FeedVideoPlayerView" };
-            case "@/screens/feed/feed-video-player":
-              return {
-                FeedVideoPlayerContext: context,
-                playbackPositionsFor: () => positions,
-              };
-            case "@/screens/feed/use-fullscreen-orientation":
-              return { FeedFullscreenContext: fullscreenContext };
-            default:
-              throw new Error(name);
-          }
-        },
+    get loadedVideo() {
+      return playback?.loadedVideo;
+    },
+    video(
+      key = "feed",
+      playbackKey = "post:0",
+      url = "first.mp4",
+      fullscreen = false,
+    ) {
+      return createElement(videoExports.NativeFeedVideo, {
+        key,
+        playbackKey,
+        media: { type: "video", url },
+        fullscreen,
+        onError,
       });
-      const element = (
-        nextUrl: string,
-        nextPlaybackKey: string,
-        onError = () => {
-          errors++;
-        },
-      ) =>
-        createElement(exports.NativeFeedVideo, {
-          playbackKey: nextPlaybackKey,
-          media: { type: "video", url: nextUrl, preferredAudioTrack },
-          onError,
-        });
-      let currentElement = element(url, playbackKey);
-      let imageFullscreen = false;
-      const wrapped = () =>
+    },
+    status(status: string) {
+      player.status = status;
+      if (status === "error") {
+        player.playing = false;
+      }
+      for (const listener of listeners.values()) listener({ status });
+    },
+    appState(state: "active" | "background") {
+      for (const listener of appStateListeners) listener(state);
+    },
+    async mount(children: ReactNode) {
+      const element = (children: ReactNode) =>
         createElement(
-          fullscreenContext,
-          { value: { imageFullscreen } },
-          currentElement,
+          providerExports.MediaVideoProvider,
+          null,
+          createElement(CapturePlayback, null, children),
         );
-      const result = await render(wrapped());
+      const app = await render(element(children));
       return {
-        ...result,
+        ...app,
         get root() {
-          return result.root;
+          return app.root;
         },
-        replace: (
-          nextUrl: string,
-          nextPlaybackKey = playbackKey,
-          onError?: () => void,
-        ) => {
-          currentElement = element(nextUrl, nextPlaybackKey, onError);
-          return result.rerender(wrapped());
-        },
-        suspend: (visible: boolean) => {
-          imageFullscreen = visible;
-          return result.rerender(wrapped());
-        },
+        show: (children: ReactNode) => app.rerender(element(children)),
       };
     },
   };
 }
 
-test("fullscreen images pause and resume playing videos without replacing or seeking their source", async () => {
+test("feed to fullscreen transfers the same player without reloading or seeking", async () => {
   const app = harness();
-  const row = await app.mount("https://example.com/video.mp4");
+  const screen = await app.mount(app.video());
   await act(() => app.replacements[0]!.resolve());
   app.player.currentTime = 12;
-  await row.suspend(true);
-  assert.equal(app.player.playing, false);
-  await row.suspend(true);
-  await row.suspend(false);
-  assert.equal(app.player.playing, true);
-  assert.equal(app.player.currentTime, 12);
+  const counts = app.counts;
+  await screen.show(app.video("fullscreen", "post:0", "first.mp4", true));
   assert.equal(app.replacements.length, 1);
-  assert.equal(app.counts.plays, 2);
-  assert.equal(app.counts.pauses, 1);
-  await row.unmount();
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.player.playing, true);
+  assert.deepEqual(app.counts, counts);
+  assert.ok(screen.root);
+  assert.equal(screen.root.props.player, app.player);
+  assert.equal(screen.root.props.fullscreen, true);
+  await screen.show(app.video());
+  assert.equal(app.replacements.length, 1);
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.counts.plays, 1);
 });
 
-test("closing an image does not resume a manually paused or unmounted video", async () => {
-  for (const unmount of [false, true]) {
+test("an image pauses feed playback and preserves prior playing or paused state", async () => {
+  for (const manuallyPaused of [false, true]) {
     const app = harness();
-    const row = await app.mount("https://example.com/video.mp4");
+    const screen = await app.mount(app.video());
     await act(() => app.replacements[0]!.resolve());
-    if (!unmount) app.player.pause();
-    await row.suspend(true);
-    if (unmount) await row.unmount();
-    else await row.suspend(false);
+    app.player.currentTime = 12;
+    if (manuallyPaused) app.player.pause();
+    await screen.show(null);
     assert.equal(app.player.playing, false);
-    assert.equal(app.counts.plays, 1);
-    if (!unmount) await row.unmount();
+    await screen.show(app.video());
+    assert.equal(app.player.playing, !manuallyPaused);
+    assert.equal(app.player.currentTime, 12);
+    assert.equal(app.replacements.length, 1);
+    await screen.unmount();
   }
 });
 
-test("a load completing behind an image waits until the image closes", async () => {
+test("a load completed behind an image waits until feed playback returns", async () => {
   const app = harness();
-  const row = await app.mount("https://example.com/video.mp4");
-  await row.suspend(true);
+  const screen = await app.mount(app.video());
+  await screen.show(null);
   await act(() => app.replacements[0]!.resolve());
-  assert.equal(app.counts.plays, 0);
   assert.equal(app.player.playing, false);
-  await row.suspend(false);
-  assert.equal(app.counts.plays, 1);
-  await row.unmount();
-});
-
-test("changing a suspended source cannot resume it before its load completes", async () => {
-  const app = harness();
-  const row = await app.mount("https://example.com/first.mp4");
-  await act(() => app.replacements[0]!.resolve());
-  await row.suspend(true);
-  await row.replace("https://example.com/second.mp4");
-  await row.suspend(false);
-  assert.equal(app.counts.plays, 1);
-  await act(() => app.replacements[1]!.resolve());
-  assert.equal(app.counts.plays, 2);
-  await row.unmount();
-});
-
-test("a replaced row's pending load cannot play or report an error after unmount", async () => {
-  const app = harness();
-  const first = await app.mount("https://example.com/first.mp4");
-  assert.ok(app.counts.listeners > 0);
-  await first.unmount();
-  assert.deepEqual(app.counts, {
-    plays: 0,
-    pauses: 1,
-    releases: 0,
-    errors: 0,
-    listeners: 0,
-  });
-
-  const second = await app.mount("https://example.com/second.mp4");
-  await act(() => app.replacements[0]!.resolve());
   assert.equal(app.counts.plays, 0);
-  assert.equal(app.counts.errors, 0);
-  assert.equal(second.toJSON(), null);
+  await screen.show(app.video());
+  assert.equal(app.player.playing, true);
+  assert.equal(app.replacements.length, 1);
+});
 
+test("backgrounding pauses playback and cannot resume a removed borrower", async () => {
+  const app = harness();
+  const screen = await app.mount(app.video());
+  await act(() => app.replacements[0]!.resolve());
+  await act(() => app.appState("background"));
+  assert.equal(app.player.playing, false);
+  await act(() => app.appState("active"));
+  assert.equal(app.player.playing, true);
+  await act(() => app.appState("background"));
+  await screen.show(null);
+  await act(() => app.appState("active"));
+  assert.equal(app.player.playing, false);
+  assert.equal(app.counts.plays, 2);
+});
+
+test("cleanup from an expired borrower cannot pause the newer video", async () => {
+  const app = harness();
+  const first = app.video("first");
+  const second = app.video("second", "post:1", "second.mp4");
+  const screen = await app.mount(first);
+  await act(() => app.replacements[0]!.resolve());
+  await screen.show([first, second]);
   await act(() => app.replacements[1]!.resolve());
-  assert.equal(app.counts.plays, 1);
-  assert.ok(second.root);
-  assert.equal(second.root.props.player, app.player);
-  await second.unmount();
-  assert.deepEqual(app.counts, {
-    plays: 1,
-    pauses: 2,
-    releases: 0,
-    errors: 0,
-    listeners: 0,
-  });
+  const counts = app.counts;
+  await screen.show(second);
+  assert.equal(app.player.playing, true);
+  assert.deepEqual(app.counts, counts);
+  assert.equal(app.loadedVideo?.playbackKey, "post:1");
 });
 
-test("a rejected load after unmount does not report a stale playback error", async () => {
+test("registering a failed source retries it and reports through its current borrower", async () => {
   const app = harness();
-  const row = await app.mount("https://example.com/failed.mp4");
-  await row.unmount();
-  await act(() => app.replacements[0]!.reject());
-  assert.deepEqual(app.counts, {
-    plays: 0,
-    pauses: 1,
-    releases: 0,
-    errors: 0,
-    listeners: 0,
-  });
-});
-
-test("original audio is selected on load or late discovery without selecting it twice", async () => {
-  for (const late of [false, true]) {
-    const app = harness();
-    const original = { name: "English original" };
-    const tracks = [{ name: "English dubbed" }, original];
-    if (!late) app.player.availableAudioTracks = tracks;
-    const row = await app.mount("https://example.com/audio.mp4", original.name);
-    app.emit("availableAudioTracksChange");
-    assert.equal(app.audioSelections.length, 0);
-    await act(() => app.replacements[0]!.resolve());
-    if (late) {
-      assert.equal(app.audioSelections.length, 0);
-      app.player.availableAudioTracks = tracks;
-      app.emit("availableAudioTracksChange");
-    }
-    assert.equal(app.player.audioTrack, original);
-    app.emit("availableAudioTracksChange");
-    assert.equal(app.audioSelections.length, 1);
-    await row.unmount();
-  }
-});
-
-test("previous source errors are ignored while replacement is pending", async () => {
-  const app = harness();
-  app.player.status = "error";
-  const row = await app.mount("https://example.com/new.mp4");
-  app.emit("statusChange");
-  assert.equal(app.counts.errors, 0);
-  app.player.status = "readyToPlay";
-  await act(() => app.replacements[0]!.resolve());
-  assert.equal(app.counts.errors, 0);
-  assert.equal(app.counts.plays, 1);
-  app.player.status = "error";
-  app.emit("statusChange");
-  assert.equal(app.counts.errors, 1);
-  await row.unmount();
-});
-
-test("a new source selects its original track even when the previous source used the same name", async () => {
-  const app = harness();
-  const oldTrack = { id: "old-original", name: "English original" };
-  app.player.audioTrack = oldTrack;
-  app.audioSelections.length = 0;
-  const original = { id: "new-original", name: oldTrack.name };
-  app.player.availableAudioTracks = [original];
-  const row = await app.mount("https://example.com/next.mp4", original.name);
-  await act(() => app.replacements[0]!.resolve());
-  assert.equal(app.player.audioTrack, original);
-  assert.deepEqual(app.audioSelections, [original]);
-  app.emit("availableAudioTracksChange");
-  assert.equal(app.audioSelections.length, 1);
-  await row.unmount();
-});
-
-test("returning to a video resumes its position even when its source URL changes", async () => {
-  const app = harness();
-  const first = await app.mount(
-    "https://example.com/first.mp4",
-    undefined,
-    "post:0",
-  );
+  const screen = await app.mount(app.video());
   await act(() => app.replacements[0]!.resolve());
   app.player.currentTime = 12;
-  await first.unmount();
-
-  const second = await app.mount(
-    "https://example.com/second.mp4",
-    undefined,
-    "post:1",
-  );
-  await act(() => app.replacements[1]!.resolve());
-  assert.equal(app.player.currentTime, 0);
-  app.player.currentTime = 5;
-  await second.unmount();
-
-  const returning = await app.mount(
-    "https://example.com/new-signed-url.mp4",
-    undefined,
-    "post:0",
-  );
-  await act(() => app.replacements[2]!.resolve());
-  assert.equal(app.player.currentTime, 12);
-  assert.equal(app.positions.get("post:1"), 5);
-  await returning.unmount();
-});
-
-test("pending or failed replacements cannot overwrite the saved position", async () => {
-  for (const failure of ["pending", "error", "rejected"]) {
-    const app = harness();
-    app.positions.set("post:0", 12);
-    const row = await app.mount(
-      "https://example.com/first.mp4",
-      undefined,
-      "post:0",
-    );
-    await act(() => {
-      if (failure === "error") {
-        app.player.status = "error";
-        app.replacements[0]!.resolve();
-      } else if (failure === "rejected") {
-        app.replacements[0]!.reject();
-      }
-    });
-    await row.unmount();
-    assert.equal(app.positions.get("post:0"), 12);
-  }
-});
-
-test("a disposed replacement cannot seek the video now using the shared player", async () => {
-  const app = harness();
-  app.positions.set("post:0", 12);
-  const first = await app.mount(
-    "https://example.com/first.mp4",
-    undefined,
-    "post:0",
-  );
-  await first.unmount();
-  const second = await app.mount(
-    "https://example.com/second.mp4",
-    undefined,
-    "post:1",
-  );
-  await act(() => app.replacements[1]!.resolve());
-  app.player.currentTime = 3;
-  await act(() => app.replacements[0]!.resolve());
-  assert.equal(app.player.currentTime, 3);
-  await second.unmount();
-});
-
-test("rerendering a row replaces its source and ignores the previous pending load", async () => {
-  const app = harness();
-  const row = await app.mount("https://example.com/first.mp4");
-  await row.replace("https://example.com/second.mp4");
+  await act(() => app.status("error"));
+  assert.equal(app.counts.errors, 1);
+  await screen.show(null);
+  await screen.show(app.video());
   assert.equal(app.replacements.length, 2);
-  assert.equal(app.counts.listeners, 2);
-  assert.equal(app.counts.pauses, 1);
-
-  await act(() => app.replacements[0]!.resolve());
-  assert.equal(app.counts.plays, 0);
-  assert.equal(row.toJSON(), null);
-
+  assert.equal(app.loadedVideo, undefined);
+  await act(() => app.status("readyToPlay"));
   await act(() => app.replacements[1]!.resolve());
-  assert.equal(app.counts.plays, 1);
-  assert.ok(row.root);
-  assert.equal(row.root.props.player, app.player);
-
-  app.player.currentTime = 9;
-  await row.replace("https://example.com/third.mp4");
-  assert.equal(row.toJSON(), null);
-  assert.equal(app.positions.get("https://example.com/first.mp4"), 9);
-  await row.unmount();
-  await act(() => app.replacements[2]!.reject());
-  assert.equal(app.counts.errors, 0);
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.player.playing, true);
+  assert.equal(app.counts.errors, 1);
+  await screen.unmount();
   assert.equal(app.counts.listeners, 0);
 });
 
-test("rerenders use the latest error callback without restarting the current source", async () => {
-  const app = harness();
-  const url = "https://example.com/first.mp4";
-  const row = await app.mount(url);
-  let latestErrors = 0;
-  await row.replace(url, url, () => {
-    latestErrors++;
-  });
-  assert.equal(app.replacements.length, 1);
-  assert.equal(app.counts.pauses, 0);
-
-  await act(() => app.replacements[0]!.resolve());
-  app.player.status = "error";
-  await act(() => app.emit("statusChange"));
-  assert.equal(latestErrors, 1);
-  assert.equal(app.counts.errors, 0);
-});
-
-test("a rejected source replaced during rerender cannot report a stale error", async () => {
-  const app = harness();
-  const row = await app.mount("https://example.com/first.mp4");
-  await row.replace("https://example.com/second.mp4");
-  await act(() => app.replacements[0]!.reject());
-  assert.equal(app.counts.errors, 0);
-  await act(() => app.replacements[1]!.reject());
-  assert.equal(app.counts.errors, 1);
+test("rejected loads retry even when native status does not report an error", async () => {
+  for (const behindImage of [false, true]) {
+    const app = harness();
+    const screen = await app.mount(app.video());
+    app.player.status = behindImage ? "loading" : "readyToPlay";
+    if (behindImage) await screen.show(null);
+    await act(() => app.replacements[0]!.reject());
+    assert.equal(app.counts.errors, 1);
+    assert.equal(app.loadedVideo, undefined);
+    await screen.show(null);
+    await screen.show(app.video());
+    assert.equal(app.replacements.length, 2);
+    app.player.status = "readyToPlay";
+    await act(() => app.replacements[1]!.resolve());
+    assert.equal(app.player.playing, true);
+    assert.equal(screen.root?.props.media.url, "first.mp4");
+    assert.equal(app.counts.errors, 1);
+    await screen.unmount();
+  }
 });

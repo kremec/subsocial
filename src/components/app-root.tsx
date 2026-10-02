@@ -10,10 +10,11 @@ import { Screen } from "@/components/ui/screen";
 import { Toast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
 import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
+import { MediaVideoProvider } from "@/screens/media/media-video-provider";
 import { useTheme } from "@/theme/use-theme";
 
 export const AppRoot: FC = () => {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   const { ready, error } = useAppBootstrap();
   usePlatformShortcuts();
 
@@ -33,16 +34,29 @@ export const AppRoot: FC = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          orientation: "portrait",
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="browser" options={{ presentation: "modal" }} />
-      </Stack>
+      <MediaVideoProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            orientation: "portrait",
+            statusBarStyle: themeName === "dark" ? "light" : "dark",
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="browser" options={{ presentation: "modal" }} />
+          <Stack.Screen
+            name="media"
+            options={{
+              presentation: "transparentModal",
+              orientation: "default",
+              animation: "fade",
+              statusBarHidden: true,
+              contentStyle: { backgroundColor: "black" },
+            }}
+          />
+        </Stack>
+      </MediaVideoProvider>
       <Toast />
     </GestureHandlerRootView>
   );

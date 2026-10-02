@@ -4,6 +4,7 @@ import { Pressable, type PressableProps } from "react-native";
 import { useTheme } from "@/theme/use-theme";
 
 interface IconButtonProps {
+  accessibilityLabel?: string;
   onPress?: () => void;
   onLongPress?: () => void;
   disabled?: boolean;
@@ -15,6 +16,8 @@ export const IconButton: FC<PropsWithChildren<IconButtonProps>> = (props) => {
   const theme = useTheme();
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.accessibilityLabel}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}

@@ -7,7 +7,7 @@ import { useRecyclingState } from "@legendapp/list/react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia } from "@/feed/types";
-import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
+import { openMedia } from "@/screens/media/open-media";
 
 interface FeedImageProps {
   media: FeedMedia;
@@ -26,14 +26,13 @@ export const FeedImage: FC<FeedImageProps> = (props) => {
   const [failedUrl, setFailedUrl] = useRecyclingState<string | undefined>(
     undefined,
   );
-  const [fullscreen, setFullscreen] = useRecyclingState(false);
 
   return (
     <View style={{ flex: 1 }}>
       <Pressable
         onPress={(event) => {
           event.stopPropagation();
-          setFullscreen(true);
+          openMedia({ ...media, url });
         }}
         style={{ flex: 1 }}
       >
@@ -60,13 +59,6 @@ export const FeedImage: FC<FeedImageProps> = (props) => {
           </View>
         )}
       </Pressable>
-      <FullscreenImage
-        key={url}
-        uri={url}
-        aspectRatio={media.aspectRatio}
-        visible={fullscreen}
-        onClose={() => setFullscreen(false)}
-      />
     </View>
   );
 };

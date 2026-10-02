@@ -10,6 +10,7 @@ export type PlaybackStatus = "loading" | "error" | "verification";
 interface FeedVideoProps {
   playbackKey: string;
   media: FeedMedia;
+  fullscreen?: boolean;
   counter?: ReactNode;
   playbackStatus?: PlaybackStatus;
   onRetry?: () => void;

@@ -16,10 +16,22 @@ function measuredView(top: number, height: number) {
   };
 }
 
+interface VisibilityProps {
+  rows: { id: string }[];
+  enabled: boolean;
+}
+
 async function harness() {
-  const hook = await renderHook(useFeedVideoVisibility, {
-    initialProps: [{ id: "first" }, { id: "second" }],
-  });
+  const hook = await renderHook(
+    (props: VisibilityProps) =>
+      useFeedVideoVisibility(props.rows, props.enabled),
+    {
+      initialProps: {
+        rows: [{ id: "first" }, { id: "second" }],
+        enabled: true,
+      },
+    },
+  );
   const viewport = measuredView(0, 100);
   hook.result.current.viewport.current = viewport.view;
   return hook;
@@ -92,7 +104,7 @@ test("recycled views are removed and row changes remeasure mounted videos", asyn
 
   video.bounds.top = 200;
   video.bounds.bottom = 300;
-  await app.rerender([{ id: "first" }]);
+  await app.rerender({ rows: [{ id: "first" }], enabled: true });
   assert.equal(app.result.current.activeVideo, undefined);
 
   await act(() => app.result.current.onVideoView("first", "new-url", null));
@@ -103,38 +115,25 @@ test("recycled views are removed and row changes remeasure mounted videos", asyn
   await app.unmount();
 });
 
-test("fullscreen keeps the active video through layout and recycled view changes until visibility resumes", async () => {
+test("an unfocused feed retains selection until it can measure visible videos again", async () => {
   const app = await harness();
   const video = measuredView(0, 100);
   await act(() =>
     app.result.current.onVideoView("first", "first-url", video.view),
   );
   const active = app.result.current.activeVideo;
+  await app.rerender({
+    rows: [{ id: "first" }, { id: "second" }],
+    enabled: false,
+  });
   await act(() => {
-    app.result.current.onFullscreen(true);
     app.result.current.onVideoView("first", "first-url", null);
     app.result.current.onVideoView("second", "second-url", video.view);
     app.result.current.updateVideoVisibility();
   });
-  await app.rerender([{ id: "second" }]);
+  await app.rerender({ rows: [{ id: "second" }], enabled: false });
   assert.equal(app.result.current.activeVideo, active);
-
-  await act(() => {
-    app.result.current.onFullscreen(false);
-    app.result.current.updateVideoVisibility();
-  });
+  await app.rerender({ rows: [{ id: "second" }], enabled: true });
   assert.equal(app.result.current.activeVideo?.rowId, "second");
-  await app.unmount();
-});
-
-test("only fullscreen images suspend feed playback", async () => {
-  const app = await harness();
-  await act(() => app.result.current.onFullscreen(true, "video"));
-  assert.equal(app.result.current.imageFullscreen, false);
-  await act(() => app.result.current.onFullscreen(false, "video"));
-  await act(() => app.result.current.onFullscreen(true, "image"));
-  assert.equal(app.result.current.imageFullscreen, true);
-  await act(() => app.result.current.onFullscreen(false, "image"));
-  assert.equal(app.result.current.imageFullscreen, false);
   await app.unmount();
 });

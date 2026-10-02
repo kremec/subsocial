@@ -80,6 +80,8 @@ function appRoot(initializeDatabase: () => void) {
           return { Typography: "Text" };
         case "@/platforms/use-platform-shortcuts":
           return { usePlatformShortcuts() {} };
+        case "@/screens/media/media-video-provider":
+          return { MediaVideoProvider: "MediaVideoProvider" };
         case "@/theme/use-theme":
           return {
             useTheme: () => ({

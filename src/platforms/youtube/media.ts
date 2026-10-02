@@ -30,7 +30,7 @@ export function youtubeStream(url: string) {
 }
 
 export function youtubePlaybackStatus(
-  item: FeedItem,
+  item: Pick<FeedItem, "platform">,
   resolution: YouTubeResolution | undefined,
 ) {
   if (item.platform !== "youtube") return undefined;
@@ -39,10 +39,9 @@ export function youtubePlaybackStatus(
     : resolution?.status || "loading";
 }
 
-export function withYouTubeStream(
-  item: FeedItem,
-  resolution: YouTubeResolution | undefined,
-): FeedItem {
+export function withYouTubeStream<
+  T extends Pick<FeedItem, "platform" | "media">,
+>(item: T, resolution: YouTubeResolution | undefined): T {
   if (item.platform !== "youtube" || resolution?.status !== "ready")
     return item;
   return {
