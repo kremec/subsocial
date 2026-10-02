@@ -7,9 +7,21 @@ import {
   openDatabaseSync,
 } from "expo-sqlite";
 
+import { z } from "zod";
+
 import { database } from "@/feed/database";
+import { feedPostSchema, platformIdSchema } from "@/feed/schemas";
 
 const importDatabaseName = "subsocial-import.db";
+const importedRowSchema = z.object({
+  id: z.string().min(1),
+  platform: platformIdSchema,
+  source_id: z.string().min(1),
+  published_at: z.number().positive().nullable(),
+  fetched_at: z.number().nonnegative(),
+  item_json: z.string(),
+  thread_id: z.string().min(1),
+});
 
 export async function importDatabase(): Promise<boolean> {
   const result = await DocumentPicker.getDocumentAsync({
@@ -35,10 +47,29 @@ export async function importDatabase(): Promise<boolean> {
 
   try {
     // Reject unrelated or incompatible databases before replacing local data.
-    imported.getAllSync(
-      "SELECT id, platform, source_id, published_at, fetched_at, item_json, thread_id FROM feed_items LIMIT 0",
+    const rows = z
+      .array(importedRowSchema)
+      .parse(
+        imported.getAllSync(
+          "SELECT id, platform, source_id, published_at, fetched_at, item_json, thread_id FROM feed_items",
+        ),
+      );
+    z.array(z.object({ platform: platformIdSchema })).parse(
+      imported.getAllSync("SELECT platform FROM connections"),
     );
-    imported.getAllSync("SELECT platform FROM connections LIMIT 0");
+    for (const row of rows) {
+      if (
+        row.id !== `${row.platform}:${row.source_id}` ||
+        !row.thread_id.startsWith(`${row.platform}:`)
+      )
+        throw new Error("Invalid imported post identity");
+      const post = feedPostSchema.parse(JSON.parse(row.item_json));
+      imported.runSync(
+        "UPDATE feed_items SET item_json = ? WHERE id = ?",
+        JSON.stringify(post),
+        row.id,
+      );
+    }
     await backupDatabaseAsync({
       sourceDatabase: imported,
       destDatabase: database,
