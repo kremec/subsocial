@@ -1,6 +1,5 @@
 import {
   type FC,
-  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -45,6 +44,7 @@ import {
   FeedVideoPlayerContext,
   useFeedVideoPlayer,
 } from "@/screens/feed/feed-video-player";
+import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { FeedFullscreenContext } from "@/screens/feed/use-fullscreen-orientation";
 import { useTheme } from "@/theme/use-theme";
 
@@ -54,11 +54,6 @@ const positionKey = "feed-position";
 interface FeedPosition {
   id: string;
   viewOffset: number;
-}
-
-interface ActiveVideo {
-  rowId: string;
-  postUrl: string;
 }
 
 interface FeedRow {
@@ -132,59 +127,13 @@ export const FeedScreen: FC = () => {
   );
   const list = useRef<LegendListRef>(null);
   const readingRowId = useRef<string>(undefined);
-  const viewport = useRef<View>(null);
-  const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
-  const fullscreenMedia = useRef(false);
-  const onFullscreen = useCallback((visible: boolean) => {
-    fullscreenMedia.current = visible;
-  }, []);
-  const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
-  const visibleRowId = activeVideo?.rowId;
-  const updateVideoVisibility = useCallback((preferred?: ActiveVideo) => {
-    if (fullscreenMedia.current) return;
-    const bounds = viewport.current?.getBoundingClientRect();
-    if (!bounds) return;
-    let video: ActiveVideo | undefined;
-    let bestFraction = 0.5;
-    let bestTop = Infinity;
-    for (const candidate of videoViews.current.values()) {
-      const { top, height } = candidate.view.getBoundingClientRect();
-      if (height <= 0 || bounds.height <= 0) continue;
-      const fraction =
-        Math.max(
-          0,
-          Math.min(top + height, bounds.bottom) - Math.max(top, bounds.top),
-        ) / Math.min(height, bounds.height);
-      if (fraction < 0.5) continue;
-      const requested =
-        candidate.rowId === preferred?.rowId &&
-        candidate.postUrl === preferred.postUrl;
-      if (
-        requested ||
-        fraction > bestFraction ||
-        (fraction === bestFraction && top < bestTop)
-      ) {
-        video = { rowId: candidate.rowId, postUrl: candidate.postUrl };
-        bestFraction = fraction;
-        bestTop = top;
-      }
-      if (requested) break;
-    }
-    setActiveVideo((current) =>
-      current?.rowId === video?.rowId && current?.postUrl === video?.postUrl
-        ? current
-        : video,
-    );
-  }, []);
-  const onVideoView = useCallback(
-    (rowId: string, postUrl: string, view: View | null) => {
-      const key = `${rowId}:${postUrl}`;
-      if (view) videoViews.current.set(key, { rowId, postUrl, view });
-      else videoViews.current.delete(key);
-      updateVideoVisibility();
-    },
-    [updateVideoVisibility],
-  );
+  const {
+    viewport,
+    activeVideo,
+    updateVideoVisibility,
+    onVideoView,
+    onFullscreen,
+  } = useFeedVideoVisibility(rows);
   const [initialScrollIndex] = useState(() => {
     const saved = Storage.getItemSync(positionKey);
     if (!saved) return undefined;
@@ -227,7 +176,7 @@ export const FeedScreen: FC = () => {
     });
     return () => listener.remove();
   }, []);
-  const visibleRow = rows.find((row) => row.id === visibleRowId);
+  const visibleRow = rows.find((row) => row.id === activeVideo?.rowId);
   const media = useYouTubeMedia(visibleRow?.item, feedVisible);
   const extraData = useMemo(
     () => [activeVideo, media.resolution, feedVisible],
@@ -240,7 +189,6 @@ export const FeedScreen: FC = () => {
     readingRowId.current = visible[0]?.item.id;
     updateVideoVisibility();
   };
-  useEffect(() => updateVideoVisibility(), [rows, updateVideoVisibility]);
 
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
