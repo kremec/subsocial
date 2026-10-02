@@ -366,6 +366,38 @@ test("a failed refresh retries all connected platforms on the next opening", asy
   ]);
 });
 
+test("a platform stays failed during retry until it refreshes successfully", async () => {
+  const app = feedHarness(initial);
+  const first = await app.focus(true);
+  first.finish(first.runId!, { ...result("x"), error: "Offline" });
+  assert.deepEqual(Array.from(app.render().failed), ["x"]);
+  first.finish(first.runId!, result("youtube"));
+  assert.deepEqual(Array.from(app.render().failed), ["x"]);
+
+  await app.appState("background");
+  const retry = await app.appState("active");
+  assert.deepEqual(Array.from(retry.failed), ["x"]);
+  retry.finish(retry.runId!, result("x"));
+  assert.deepEqual(Array.from(app.render().failed), []);
+  first.finish(first.runId!, { ...result("x"), error: "Late failure" });
+  assert.deepEqual(Array.from(app.render().failed), []);
+  retry.finish(retry.runId!, result("youtube"));
+});
+
+test("sign-in attention stays failed until the platform refreshes successfully", () => {
+  const app = feedHarness(initial);
+  app.current.refresh();
+  const run = app.render();
+  run.needsAttention(run.runId!, "x", true);
+  run.needsAttention(run.runId!, "x", true);
+  assert.deepEqual(Array.from(app.render().failed), ["x"]);
+  run.needsAttention(run.runId!, "x", false);
+  assert.deepEqual(Array.from(app.render().failed), ["x"]);
+  run.finish(run.runId!, result("x"));
+  assert.deepEqual(Array.from(app.render().failed), []);
+  run.finish(run.runId!, result("youtube"));
+});
+
 test("an interrupted initial collection retains its empty boundary", () => {
   const storage = new Map([[collectionKnownKey("x"), "[]"]]);
   const app = feedHarness(initial, storage);
@@ -441,6 +473,8 @@ test("reloading imported data replaces the feed and clears an active refresh", a
   const refreshing = await harness.focus(true);
   const runId = refreshing.runId!;
   assert.ok(refreshing.collectors.length > 0);
+  refreshing.finish(runId, { ...result("x"), error: "Offline" });
+  assert.deepEqual([...harness.render().failed], ["x"]);
 
   const imported = [post("restored", "youtube")];
   harness.database.items = imported;
@@ -452,6 +486,7 @@ test("reloading imported data replaces the feed and clears an active refresh", a
   assert.deepEqual([...reloaded.connected], ["youtube"]);
   assert.equal(reloaded.collectors.length, 0);
   assert.equal(reloaded.runId, undefined);
+  assert.deepEqual([...reloaded.failed], []);
 
   reloaded.finish(runId, result("x"));
   assert.equal(harness.render().items, imported);

@@ -15,6 +15,7 @@ import { useTheme } from "@/theme/use-theme";
 interface FeedHeaderProps {
   activePlatforms: PlatformId[];
   connectedPlatforms: PlatformId[];
+  failedPlatforms: PlatformId[];
   loadingPlatforms: PlatformId[];
   onImportData: () => void;
   onExportData: () => void;
@@ -25,6 +26,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
   const {
     activePlatforms,
     connectedPlatforms,
+    failedPlatforms,
     loadingPlatforms,
     onImportData,
     onExportData,
@@ -106,6 +108,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         visible={menuVisible}
         activePlatforms={activePlatforms}
         connectedPlatforms={connectedPlatforms}
+        failedPlatforms={failedPlatforms}
         onClose={() => setMenuVisible(false)}
         onImportData={onImportData}
         onExportData={onExportData}

@@ -14,6 +14,7 @@ interface FeedMenuProps {
   visible: boolean;
   activePlatforms: PlatformId[];
   connectedPlatforms: PlatformId[];
+  failedPlatforms: PlatformId[];
   onClose: () => void;
   onImportData: () => void;
   onExportData: () => void;
@@ -25,6 +26,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
     visible,
     activePlatforms,
     connectedPlatforms,
+    failedPlatforms,
     onClose,
     onImportData,
     onExportData,
@@ -77,11 +79,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
         {platforms.map((platform) => {
           const connected = connectedPlatforms.includes(platform.id);
           const active = activePlatforms.includes(platform.id);
-          const borderColor = !connected
-            ? theme.colors.danger
-            : active
-              ? theme.colors.success
-              : theme.colors.warning;
+          let borderColor: string = theme.colors.border;
+          if (failedPlatforms.includes(platform.id))
+            borderColor = theme.colors.danger;
+          else if (connected)
+            borderColor = active ? theme.colors.success : theme.colors.warning;
 
           return (
             <View

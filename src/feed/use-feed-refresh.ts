@@ -28,6 +28,7 @@ interface RefreshRun {
 export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [items, setItems] = useState(listFeedItems);
   const [connected, setConnected] = useState(listConnectedPlatforms);
+  const [failed, setFailed] = useState<PlatformId[]>([]);
   const [hidden, setHidden] = useState<PlatformId[]>(() => {
     const value = Storage.getItemSync("hidden-platforms") || "[]";
     return platformIdSchema.array().parse(JSON.parse(value));
@@ -109,6 +110,11 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       !current.queue.includes(result.platform)
     )
       return;
+    setFailed((failed) => {
+      const next = failed.filter((id) => id !== result.platform);
+      if (result.error) next.push(result.platform);
+      return next;
+    });
     if (!result.error)
       Storage.removeItemSync(collectionKnownKey(result.platform));
     const next = {
@@ -163,6 +169,10 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       !current.queue.includes(platform)
     )
       return;
+    if (needed)
+      setFailed((failed) =>
+        failed.includes(platform) ? failed : [...failed, platform],
+      );
     const attention = current.attention.filter((id) => id !== platform);
     if (needed) attention.push(platform);
     const next = { ...current, attention };
@@ -183,6 +193,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   return {
     items,
     connected,
+    failed,
     active,
     collection,
     collectors: run?.queue ?? [],
@@ -196,6 +207,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     reload: () => {
       running.current = undefined;
       setRun(undefined);
+      setFailed([]);
       setConnected(listConnectedPlatforms());
       setItems(listFeedItems());
     },

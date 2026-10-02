@@ -297,6 +297,7 @@ export const FeedScreen: FC = () => {
         <FeedHeader
           activePlatforms={activePlatforms}
           connectedPlatforms={connectedPlatforms}
+          failedPlatforms={feed.failed}
           loadingPlatforms={collection}
           onImportData={() => {
             void importDatabase()
