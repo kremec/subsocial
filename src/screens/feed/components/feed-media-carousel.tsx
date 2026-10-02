@@ -42,6 +42,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<View>(null);
+  const carousel = useRef<ScrollView>(null);
   const setVideoView = useContext(FeedVideoLayoutContext);
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
@@ -126,10 +127,17 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         ? renderMedia(media[0], 0)
         : mediaWidth > 0 && (
             <ScrollView
+              ref={carousel}
               horizontal
               pagingEnabled
               nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
+              onContentSizeChange={(width) =>
+                carousel.current?.scrollTo({
+                  x: (mediaIndex * width) / media.length,
+                  animated: false,
+                })
+              }
               onMomentumScrollEnd={(event) => {
                 setMediaIndex(
                   Math.round(event.nativeEvent.contentOffset.x / mediaWidth),
