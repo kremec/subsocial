@@ -13,7 +13,6 @@ export type { ExtractionMessage } from "@/feed/schemas";
 // Keep the previous session separate from posts found during this collection.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();
-  private encounteredKnown = false;
   private batchAdded = false;
   private idleBatches = 0;
   private stalledBatches = 0;
@@ -22,19 +21,25 @@ export class CollectionProgress {
 
   constructor(private readonly known: Set<string>) {}
 
-  accept(message: Extract<ExtractionMessage, { type: "items" }>) {
+  accept(
+    message: Extract<ExtractionMessage, { type: "items" }>,
+    boundarySourceIds?: string[],
+  ) {
     const excluded = new Set(message.excludedSourceIds ?? []);
+    const boundary = (
+      boundarySourceIds ??
+      message.items
+        .filter((item) => !excluded.has(item.sourceId))
+        .flatMap((item) => [
+          item.sourceId,
+          ...(item.thread?.map((post) => post.sourceId) ?? []),
+        ])
+    ).filter((id) => !excluded.has(id));
+    const reachedKnown =
+      boundary.length > 0 && boundary.every((id) => this.known.has(id));
     const items: ExtractedItem[] = [];
-    for (const item of new Map(
-      message.items.map((item) => [item.sourceId, item]),
-    ).values()) {
+    for (const item of message.items) {
       if (excluded.has(item.sourceId)) continue;
-      if (
-        this.known.has(item.sourceId) ||
-        item.thread?.some((post) => this.known.has(post.sourceId))
-      ) {
-        this.encounteredKnown = true;
-      }
       const previous = this.seen.get(item.sourceId);
       if (previous === undefined) {
         if (this.seen.size >= feedItemLimit) continue;
@@ -70,7 +75,7 @@ export class CollectionProgress {
       stop:
         complete &&
         (this.seen.size >= feedItemLimit ||
-          this.encounteredKnown ||
+          reachedKnown ||
           message.endConfirmed ||
           this.idleBatches >= 3),
     };

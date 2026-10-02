@@ -22,6 +22,7 @@ test("Reddit preserves crosspost media, excludes ads, and follows listing cursor
     signal: new AbortController().signal,
     fetch: async (url) => {
       calls.push(url);
+      assert.equal(new URL(url).pathname, "/new.json");
       if (calls.length === 2) {
         assert.equal(new URL(url).searchParams.get("after"), "t3_next");
         return Response.json({

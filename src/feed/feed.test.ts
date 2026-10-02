@@ -560,11 +560,12 @@ test("saves each virtualized viewport, deduplicating overlap within this run", (
   assert.equal(next.stop, false);
   assert.equal(progress.accept(batch("two", "three")).added, false);
   const end = progress.accept(batch("three", "old", "four"));
-  assert.equal(end.stop, true);
+  assert.equal(end.stop, false);
   assert.deepEqual(
     end.items.map((item) => item.sourceId),
     ["old", "four"],
   );
+  assert.equal(progress.accept(batch("old")).stop, true);
 });
 
 test("waits for completed enrichment before stopping at a previous-session post", () => {
@@ -575,8 +576,9 @@ test("waits for completed enrichment before stopping at a previous-session post"
   );
   const dated = { ...post("new"), publishedAt: 123 };
   const end = progress.accept({ ...batch("old"), items: [dated, post("old")] });
-  assert.equal(end.stop, true);
+  assert.equal(end.stop, false);
   assert.deepEqual(end.items, [dated]);
+  assert.equal(progress.accept(batch("old")).stop, true);
 });
 
 test("enforces the unique item cap even on an oversized partial batch", () => {
@@ -633,16 +635,62 @@ test("new partial items reset the end-of-feed retry count", () => {
   assert.equal(progress.accept(empty).stop, false);
 });
 
-test("recognizes previous-session posts inside a newly grouped thread", () => {
-  const progress = new CollectionProgress(new Set(["old-reply"]));
+test("continues while any member of a thread is unseen", () => {
+  for (const known of [["old-reply"], ["new-reply"]]) {
+    const progress = new CollectionProgress(new Set(known));
+    const result = progress.accept({
+      ...batch(),
+      items: [
+        {
+          ...post("new-reply"),
+          thread: [post("old-reply"), post("new-reply")],
+        },
+      ],
+    });
+    assert.equal(result.stop, false);
+    assert.equal(result.items.length, 1);
+  }
+  const progress = new CollectionProgress(new Set(["old-reply", "new-reply"]));
+  assert.equal(
+    progress.accept({
+      ...batch(),
+      items: [
+        {
+          ...post("new-reply"),
+          thread: [post("old-reply"), post("new-reply")],
+        },
+      ],
+    }).stop,
+    true,
+  );
+});
+
+test("preserves different thread members when a page repeats the same root", () => {
+  const progress = new CollectionProgress(new Set(["root", "old"]));
   const result = progress.accept({
     ...batch(),
     items: [
-      { ...post("new-reply"), thread: [post("old-reply"), post("new-reply")] },
+      { ...post("root"), thread: [post("unseen"), post("root")] },
+      { ...post("root"), thread: [post("old"), post("root")] },
     ],
   });
-  assert.equal(result.stop, true);
-  assert.equal(result.items.length, 1);
+  assert.equal(result.stop, false);
+  assert.equal(result.items.length, 2);
+  const store = openStore();
+  store.saveExtraction(
+    "x",
+    result.items.map((item) => ({
+      ...item,
+      publishedAt: 3,
+      thread: item.thread?.map((post, index) => ({
+        ...post,
+        publishedAt: index + 1,
+      })),
+    })),
+    [],
+  );
+  assert.deepEqual(store.listSourceIds("x").sort(), ["old", "root", "unseen"]);
+  store.db.close();
 });
 
 test("excluded posts do not trigger overlap and never appear in saved items", () => {

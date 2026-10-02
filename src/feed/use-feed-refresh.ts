@@ -55,12 +55,12 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const begin = (platforms: PlatformId[]) => {
     const known = Object.fromEntries(
       platforms.map((id) => {
-        // Preserve an existing boundary; a first import can resume from rows it already saved.
+        // Preserve even an empty boundary so interrupted initial collections can finish.
         const key = collectionKnownKey(id);
-        const previous = JSON.parse(
-          Storage.getItemSync(key) || "[]",
-        ) as string[];
-        const value = previous.length ? previous : listSourceIds(id);
+        const previous = Storage.getItemSync(key);
+        const value = previous
+          ? (JSON.parse(previous) as string[])
+          : listSourceIds(id);
         Storage.setItemSync(key, JSON.stringify(value));
         return [id, value];
       }),

@@ -71,6 +71,7 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
   if (!parsed.success) throw new Error("X feed unavailable.");
   const items: ExtractedItem[] = [];
   const excludedSourceIds: string[] = [];
+  const boundarySourceIds: string[] = [];
   let cursor = "";
   for (const instruction of parsed.data) {
     for (const entry of instruction.entries || []) {
@@ -89,8 +90,7 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         const retweet = tweet?.legacy?.retweeted_status_result?.result;
         const original = retweet || tweet;
         const post = postFor(original);
-        if (!post || seen.has(post.sourceId)) continue;
-        seen.add(post.sourceId);
+        if (!post) continue;
         if (
           (original?.legacy?.entities?.urls || []).some((link) =>
             /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\//.test(
@@ -101,6 +101,9 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
           excludedSourceIds.push(post.sourceId);
           continue;
         }
+        if (!retweet) boundarySourceIds.push(post.sourceId);
+        if (seen.has(post.sourceId)) continue;
+        seen.add(post.sourceId);
         if (retweet) {
           const by = postFor(tweet);
           post.context = by?.authorHandle;
@@ -115,7 +118,7 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
       }
     }
   }
-  return { items, excludedSourceIds, end: !cursor, cursor };
+  return { items, excludedSourceIds, boundarySourceIds, end: !cursor, cursor };
 }
 
 const features = {

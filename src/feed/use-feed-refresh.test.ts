@@ -366,11 +366,11 @@ test("a failed refresh retries all connected platforms on the next opening", asy
   ]);
 });
 
-test("an interrupted first import resumes from posts it already saved", () => {
+test("an interrupted initial collection retains its empty boundary", () => {
   const storage = new Map([[collectionKnownKey("x"), "[]"]]);
   const app = feedHarness(initial, storage);
   app.current.refresh();
-  assert.deepEqual(Array.from(app.render().known.x ?? []), ["old"]);
+  assert.deepEqual(Array.from(app.render().known.x ?? []), []);
 });
 
 test("explicit logout removes deleted posts from the published snapshot", async () => {

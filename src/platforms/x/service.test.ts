@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 /// <reference types="node" />
 import { describe, it } from "node:test";
 
+import { CollectionProgress } from "@/feed/collection";
 import type { JsonObject } from "@/platforms/json";
 import { xFeed, xPage } from "@/platforms/x/service";
 
@@ -218,6 +219,97 @@ it("preserves retweet context and media while excluding live broadcasts", () => 
   assert.equal(page.items[0].media[1].url, "https://example.com/large.mp4");
   assert.equal(page.items[0].media[1].aspectRatio, 16 / 9);
   assert.deepEqual(page.excludedSourceIds, ["broadcast"]);
+  assert.deepEqual(page.boundarySourceIds, []);
+});
+
+it("stops only on a fully known page of original tweets, including conversation members", () => {
+  const retweet = tweet("retweet");
+  retweet.legacy = { retweeted_status_result: { result: tweet("known") } };
+  const conversation = {
+    content: {
+      items: ["known", "new"].map((id) => ({
+        item: { itemContent: { tweet_results: { result: tweet(id) } } },
+      })),
+    },
+  };
+  for (const scenario of [
+    { entries: [entry(retweet)], boundary: [], stop: false },
+    {
+      entries: [entry(retweet), entry(tweet("new"))],
+      boundary: ["new"],
+      stop: false,
+    },
+    {
+      entries: [conversation],
+      boundary: ["known", "new"],
+      stop: false,
+    },
+    {
+      entries: [entry(tweet("known"))],
+      boundary: ["known"],
+      stop: true,
+    },
+  ]) {
+    const page = xPage({
+      data: {
+        home: {
+          home_timeline_urt: {
+            instructions: [
+              {
+                entries: [
+                  ...scenario.entries,
+                  { content: { cursorType: "Bottom", value: "next" } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+    assert.deepEqual(page.boundarySourceIds, scenario.boundary);
+    const progress = new CollectionProgress(new Set(["known"]));
+    const accepted = progress.accept(
+      { type: "items", items: page.items },
+      page.boundarySourceIds,
+    );
+    assert.equal(accepted.stop, scenario.stop);
+    if (scenario.entries[0] === conversation) {
+      assert.equal(page.items[0].sourceId, "known");
+      assert.deepEqual(
+        accepted.items[0].thread?.map((post) => post.sourceId),
+        ["known", "new"],
+      );
+    }
+  }
+});
+
+it("counts an original tweet as a boundary even when its repost is first in a conversation", () => {
+  const original = tweet("known");
+  const retweet = tweet("retweet");
+  retweet.legacy = { retweeted_status_result: { result: original } };
+  const page = xPage({
+    data: {
+      home: {
+        home_timeline_urt: {
+          instructions: [
+            {
+              entries: [
+                {
+                  content: {
+                    items: [retweet, original].map((result) => ({
+                      item: { itemContent: { tweet_results: { result } } },
+                    })),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(page.items.length, 1);
+  assert.deepEqual(page.boundarySourceIds, ["known"]);
 });
 
 it("normalizes X dates to ISO before parsing on Hermes", () => {

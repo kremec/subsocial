@@ -65,6 +65,37 @@ test("YouTube yields cached dates without fetching older video metadata after th
   assert.equal(calls.length, 1);
 });
 
+test("YouTube yields exclusions before a known video can stop collection", async () => {
+  const upcoming = video("upcoming");
+  const live = {
+    videoRenderer: { videoId: "live", badges: [{ style: "LIVE" }] },
+  };
+  const calls: string[] = [];
+  const feed = youtubeFeed({
+    signal: new AbortController().signal,
+    cookies: { SAPISID: "session" },
+    dates: new Map([["known", 1000]]),
+    fetch: async (url, init) => {
+      calls.push(url);
+      return init?.method
+        ? Response.json({ videoDetails: { isUpcoming: true } })
+        : html([live, upcoming, video("known"), video("older")]);
+    },
+  });
+  for (const id of ["live", "upcoming"]) {
+    const page = await feed.next();
+    assert.deepEqual(page.value, {
+      items: [],
+      excludedSourceIds: [id],
+      end: false,
+    });
+  }
+  const known = await feed.next();
+  assert.equal(known.value?.items[0].sourceId, "known");
+  await feed.return(undefined);
+  assert.equal(calls.length, 2);
+});
+
 test("YouTube reads publication metadata and follows the returned continuation once", async () => {
   const endpoints: string[] = [];
   const dates = new Map<string, number>();

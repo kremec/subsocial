@@ -234,6 +234,25 @@ test("stops at a known post without requesting another page", async () => {
   assert.equal(app.signals.length, 1);
 });
 
+test("continues past reposts and mixed pages until the platform boundary is known", async () => {
+  const app = collectorHarness([item.sourceId]);
+  await app.send({ items: [item], boundarySourceIds: [], end: false });
+  assert.equal(app.results.length, 0);
+  const fresh = { ...item, sourceId: "new" };
+  await app.send({ items: [fresh, item], end: false });
+  assert.equal(app.results.length, 0);
+  assert.deepEqual(
+    app.saved.flat().map((post) => post.sourceId),
+    [item.sourceId, "new"],
+  );
+  await app.send({
+    items: [item],
+    boundarySourceIds: [item.sourceId],
+    end: false,
+  });
+  assert.equal(app.results.length, 1);
+});
+
 test("aborts on pause and unmount and discards late API pages", async () => {
   for (const unmount of [false, true]) {
     const app = collectorHarness();

@@ -130,7 +130,6 @@ export async function* youtubeFeed(
       ]);
       pending = [];
     }
-    const excludedSourceIds: string[] = [];
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);
@@ -142,7 +141,7 @@ export async function* youtubeFeed(
           !!node.upcomingEventData,
       );
       if (live) {
-        excludedSourceIds.push(sourceId);
+        yield { items: [], excludedSourceIds: [sourceId], end: false };
         continue;
       }
       let publishedAt = request.dates.get(sourceId);
@@ -155,7 +154,7 @@ export async function* youtubeFeed(
         const microformat = player.microformat?.playerMicroformatRenderer;
         const liveDetails = microformat?.liveBroadcastDetails;
         if (details.isLive || details.isUpcoming || liveDetails?.isLiveNow) {
-          excludedSourceIds.push(sourceId);
+          yield { items: [], excludedSourceIds: [sourceId], end: false };
           continue;
         }
         publishedAt = [
@@ -210,7 +209,7 @@ export async function* youtubeFeed(
     if (page.continuation && cursors.has(page.continuation))
       throw new Error("YouTube did not advance the feed.");
     const end = !page.continuation;
-    yield { items: [], excludedSourceIds, end };
+    yield { items: [], end };
     if (end) return;
     cursors.add(page.continuation);
     data = browseResponseSchema.parse(

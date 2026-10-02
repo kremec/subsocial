@@ -89,7 +89,7 @@ export async function* redditFeed(
   let after = "";
   const cursors = new Set<string>();
   while (!request.signal.aborted) {
-    const url = new URL("https://www.reddit.com/.json?limit=25&raw_json=1");
+    const url = new URL("https://www.reddit.com/new.json?limit=25&raw_json=1");
     if (after) url.searchParams.set("after", after);
     const response = await request.fetch(url.href, { signal: request.signal });
     const listing = listingSchema.safeParse(await response.json());
