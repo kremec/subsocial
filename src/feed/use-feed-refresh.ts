@@ -25,13 +25,6 @@ interface RefreshRun {
   attention: PlatformId[];
 }
 
-const refreshDayKey = "last-refresh-day";
-
-const localDay = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-};
-
 export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [items, setItems] = useState(listFeedItems);
   const [connected, setConnected] = useState(listConnectedPlatforms);
@@ -60,7 +53,6 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   }, []);
 
   const begin = (platforms: PlatformId[]) => {
-    Storage.setItemSync(refreshDayKey, localDay());
     const known = Object.fromEntries(
       platforms.map((id) => {
         // Preserve an existing boundary; a first import can resume from rows it already saved.
@@ -91,8 +83,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     // Remove deleted posts without publishing a refresh that is still staged.
     const savedIds = new Set(listFeedItems().map((item) => item.id));
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
-    const refreshedToday = Storage.getItemSync(refreshDayKey) === localDay();
-    if (added || (!running.current && !refreshedToday)) begin(platforms);
+    if (added || !running.current) begin(platforms);
   });
 
   useEffect(() => {

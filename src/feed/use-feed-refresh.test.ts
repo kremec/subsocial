@@ -37,14 +37,8 @@ function feedHarness(initial: FeedItem[], storage = new Map<string, string>()) {
   let dirty = true;
   let focused = false;
   let now = 0;
-  let calendarTime = new Date(2026, 8, 7, 12).getTime();
   let current: Refresh;
   let appState: (state: string) => void = () => {};
-  class ClockDate extends Date {
-    constructor() {
-      super(calendarTime);
-    }
-  }
   const react = {
     useState<T>(initialValue: T | (() => T)) {
       const index = cursor++;
@@ -124,7 +118,6 @@ function feedHarness(initial: FeedItem[], storage = new Map<string, string>()) {
   runInNewContext(hookSource, {
     exports,
     __DEV__: false,
-    Date: ClockDate,
     performance: { now: () => ++now },
     require(name: string) {
       switch (name) {
@@ -193,11 +186,6 @@ function feedHarness(initial: FeedItem[], storage = new Map<string, string>()) {
     render,
     get current() {
       return current;
-    },
-    nextDay() {
-      const next = new Date(calendarTime);
-      next.setDate(next.getDate() + 1);
-      calendarTime = next.getTime();
     },
     async focus(value: boolean) {
       focused = value;
@@ -285,25 +273,22 @@ test("a quick foreground return resumes the current refresh", async () => {
   assert.deepEqual(ids(app.current.items), ["x:partial", "x:old"]);
 });
 
-test("quick focus returns do not refresh, while manual refresh remains available", async () => {
+test("returning to the feed starts another refresh", async () => {
   const app = feedHarness(initial);
   complete(await app.focus(true));
   app.render();
   await app.focus(false);
   const returned = await app.focus(true);
-  assert.equal(returned.collection.length, 0);
-  assert.equal(app.storage.has(collectionKnownKey("x")), false);
-  returned.refresh();
-  assert.equal(app.render().collection.length, 2);
+  assert.equal(returned.collection.length, 2);
+  assert.deepEqual(Array.from(returned.known.x ?? []), ["old"]);
 });
 
-test("the first foreground return on a new local day refreshes automatically", async () => {
+test("every foreground return after completion refreshes automatically", async () => {
   const app = feedHarness(initial);
   const first = await app.focus(true);
   complete(first);
   app.render();
   await app.appState("background");
-  app.nextDay();
   const resumed = await app.appState("active");
   assert.equal(resumed.collection.length, 2);
   assert.notEqual(resumed.runId, first.runId);
@@ -326,7 +311,7 @@ test("manual refresh includes hidden platforms without changing visibility", () 
   assert.deepEqual(ids(app.current.items), ids(incoming));
 });
 
-test("automatic refresh includes saved hidden platforms on opening and a new day", async () => {
+test("automatic refresh includes saved hidden platforms on every opening", async () => {
   const storage = new Map([["hidden-platforms", JSON.stringify(["x"])]]);
   const app = feedHarness(initial, storage);
   const opened = await app.focus(true);
@@ -335,13 +320,12 @@ test("automatic refresh includes saved hidden platforms on opening and a new day
   complete(opened);
   app.render();
   await app.appState("background");
-  app.nextDay();
   const resumed = await app.appState("active");
   assert.deepEqual(Array.from(resumed.collectors), ["x", "youtube"]);
   assert.equal(resumed.active.includes("x"), false);
 });
 
-test("connecting a platform refreshes immediately and marks the day", async () => {
+test("connecting a platform refreshes immediately", async () => {
   const app = feedHarness(initial);
   app.database.connected = ["x", "youtube", "instagram"];
   const returned = await app.focus(true);
@@ -350,34 +334,36 @@ test("connecting a platform refreshes immediately and marks the day", async () =
     "youtube",
     "instagram",
   ]);
-  assert.equal(app.storage.has("last-refresh-day"), true);
 });
 
-test("the first opening without today's marker refreshes immediately", async () => {
+test("the first opening refreshes immediately", async () => {
   const app = feedHarness(initial);
   const opened = await app.focus(true);
   assert.deepEqual(Array.from(opened.collection), ["x", "youtube"]);
   assert.deepEqual(Array.from(opened.known.x ?? []), ["old"]);
 });
 
-test("a new JS process does not refresh twice on the same local day", async () => {
-  const storage = new Map<string, string>();
+test("a new JS process refreshes even with the old daily marker", async () => {
+  const storage = new Map([["last-refresh-day", "2026-9-7"]]);
   const app = feedHarness(initial, storage);
   complete(await app.focus(true));
   app.render();
   const restarted = feedHarness(initial, storage);
-  assert.equal((await restarted.focus(true)).collection.length, 0);
+  assert.equal((await restarted.focus(true)).collection.length, 2);
 });
 
-test("a manual refresh counts as the current day's refresh", async () => {
+test("a failed refresh retries all connected platforms on the next opening", async () => {
   const storage = new Map<string, string>();
   const app = feedHarness(initial, storage);
-  app.current.refresh();
-  assert.equal(storage.has("last-refresh-day"), true);
-  complete(app.render());
+  const first = await app.focus(true);
+  first.finish(first.runId!, { ...result("x"), error: "Offline" });
+  first.finish(first.runId!, result("youtube"));
   app.render();
-  const restarted = feedHarness(initial, storage);
-  assert.equal((await restarted.focus(true)).collection.length, 0);
+  await app.appState("background");
+  assert.deepEqual(Array.from((await app.appState("active")).collectors), [
+    "x",
+    "youtube",
+  ]);
 });
 
 test("an interrupted first import resumes from posts it already saved", () => {
