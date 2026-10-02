@@ -268,10 +268,7 @@ it("stops only on a fully known page of original tweets, including conversation 
     });
     assert.deepEqual(page.boundarySourceIds, scenario.boundary);
     const progress = new CollectionProgress(new Set(["known"]));
-    const accepted = progress.accept(
-      { type: "items", items: page.items },
-      page.boundarySourceIds,
-    );
+    const accepted = progress.accept(page);
     assert.equal(accepted.stop, scenario.stop);
     if (scenario.entries[0] === conversation) {
       assert.equal(page.items[0].sourceId, "known");

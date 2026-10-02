@@ -8,8 +8,9 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
-import { extractionMessageSchema } from "@/feed/schemas";
+import { extractedItemSchema } from "@/feed/schemas";
 import { type ExtractedItem } from "@/feed/types";
+import { type FeedPage } from "@/platforms/types";
 
 // Exercise the production SQL against SQLite without requiring a native app.
 function openStore(db = new DatabaseSync(":memory:")) {
@@ -305,42 +306,38 @@ test("migration merges overlapping old groups without losing loaded standalone m
   store.db.close();
 });
 
-test("the extraction boundary keeps good posts and removes unusable media and extra fields", () => {
-  const message = extractionMessageSchema.parse({
-    type: "items",
-    items: [
-      {
-        ...post("good"),
-        media: [
-          { type: "video", url: "blob:temporary" },
-          {
-            type: "image",
-            url: "https://example.com/photo.jpg",
-            aspectRatio: 0,
-            internalData: "discard",
-          },
-        ],
-        internalData: "discard",
-      },
-      { ...post("bad"), url: "javascript:alert(1)" },
-      { sourceId: "text", url: "https://example.com/text", publishedAt: null },
-    ],
-  });
-  assert.equal(message.type, "items");
-  if (message.type !== "items") return;
-  assert.equal(message.items.length, 2);
-  assert.equal(message.items[0].media.length, 1);
-  assert.equal(message.items[0].media[0].aspectRatio, undefined);
-  assert.ok(!("internalData" in message.items[0]));
-  assert.ok(!("internalData" in message.items[0].media[0]));
-  assert.deepEqual(message.items[1].media, []);
-  assert.equal(message.items[1].publishedAt, undefined);
+test("the API extraction boundary removes unusable media and extra fields", () => {
+  const items = extractedItemSchema.array().parse([
+    {
+      ...post("good"),
+      media: [
+        { type: "video", url: "blob:temporary" },
+        {
+          type: "image",
+          url: "https://example.com/photo.jpg",
+          aspectRatio: 0,
+          internalData: "discard",
+        },
+      ],
+      internalData: "discard",
+    },
+    { sourceId: "text", url: "https://example.com/text", publishedAt: null },
+  ]);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].media.length, 1);
+  assert.equal(items[0].media[0].aspectRatio, undefined);
+  assert.ok(!("internalData" in items[0]));
+  assert.ok(!("internalData" in items[0].media[0]));
+  assert.deepEqual(items[1].media, []);
+  assert.equal(items[1].publishedAt, undefined);
 });
 
-test("the bridge rejects malformed envelopes", () => {
+test("the API extraction boundary rejects malformed pages and unsafe post URLs", () => {
+  assert.equal(extractedItemSchema.array().safeParse("invalid").success, false);
   assert.equal(
-    extractionMessageSchema.safeParse({ type: "items", items: "invalid" })
-      .success,
+    extractedItemSchema
+      .array()
+      .safeParse([{ ...post("bad"), url: "javascript:alert(1)" }]).success,
     false,
   );
 });
@@ -537,28 +534,26 @@ test("publication timestamps determine order regardless of collection discovery"
   store.db.close();
 });
 
-const batch = (...ids: string[]) => ({
-  type: "items" as const,
+const batch = (...ids: string[]): FeedPage => ({
   items: ids.map((id) => post(id)),
-  complete: true,
+  end: false,
 });
 
-test("saves each virtualized viewport, deduplicating overlap within this run", () => {
+test("deduplicates overlapping API pages and stops only at an all-known boundary", () => {
   const progress = new CollectionProgress(new Set(["old"]));
   const first = progress.accept(batch("one", "two", "two"));
   assert.deepEqual(
     first.items.map((item) => item.sourceId),
     ["one", "two"],
   );
-  assert.equal(first.added, true);
   const next = progress.accept(batch("two", "three"));
   assert.deepEqual(
     next.items.map((item) => item.sourceId),
     ["three"],
   );
-  assert.equal(next.added, true);
   assert.equal(next.stop, false);
-  assert.equal(progress.accept(batch("two", "three")).added, false);
+  assert.deepEqual(progress.accept(batch("two", "three")).items, []);
+  assert.equal(first.fetchedAt - next.fetchedAt, 1);
   const end = progress.accept(batch("three", "old", "four"));
   assert.equal(end.stop, false);
   assert.deepEqual(
@@ -568,20 +563,18 @@ test("saves each virtualized viewport, deduplicating overlap within this run", (
   assert.equal(progress.accept(batch("old")).stop, true);
 });
 
-test("waits for completed enrichment before stopping at a previous-session post", () => {
+test("saves changed enrichment without counting a repeated post twice", () => {
   const progress = new CollectionProgress(new Set(["old"]));
-  assert.equal(
-    progress.accept({ ...batch("new", "old"), complete: false }).stop,
-    false,
-  );
+  assert.equal(progress.accept(batch("new", "old")).stop, false);
   const dated = { ...post("new"), publishedAt: 123 };
   const end = progress.accept({ ...batch("old"), items: [dated, post("old")] });
   assert.equal(end.stop, false);
   assert.deepEqual(end.items, [dated]);
+  assert.equal(progress.seen.size, 2);
   assert.equal(progress.accept(batch("old")).stop, true);
 });
 
-test("enforces the unique item cap even on an oversized partial batch", () => {
+test("caps oversized API pages while allowing updates and exclusions at the limit", () => {
   const progress = new CollectionProgress(new Set());
   const result = progress.accept({
     ...batch(
@@ -589,11 +582,10 @@ test("enforces the unique item cap even on an oversized partial batch", () => {
         String(index),
       ),
     ),
-    complete: false,
   });
   assert.equal(result.items.length, feedItemLimit);
   assert.equal(progress.seen.size, feedItemLimit);
-  assert.equal(result.stop, false);
+  assert.equal(result.stop, true);
   const finished = progress.accept({
     ...batch(),
     items: [{ ...post("0"), publishedAt: 123 }],
@@ -604,35 +596,26 @@ test("enforces the unique item cap even on an oversized partial batch", () => {
   assert.deepEqual(finished.excludedSourceIds, ["1"]);
 });
 
-test("does not mistake a long already-rendered page for the end of a feed", () => {
+test("continues through duplicate, empty, excluded, and failed pages until API end", () => {
   const progress = new CollectionProgress(new Set());
   progress.accept(batch("one"));
   for (let index = 0; index < 10; index += 1)
     assert.equal(progress.accept(batch("one")).stop, false);
-  assert.equal(progress.accept({ ...batch("one"), atEnd: true }).stop, false);
-  assert.equal(progress.accept({ ...batch("one"), atEnd: true }).stop, false);
-  assert.equal(progress.accept({ ...batch("one"), atEnd: true }).stop, true);
+  assert.equal(progress.accept(batch()).stop, false);
+  assert.equal(
+    progress.accept({ ...batch(), excludedSourceIds: ["excluded"] }).stop,
+    false,
+  );
+  assert.equal(
+    progress.accept({ ...batch(), failedSourceIds: ["failed"] }).stop,
+    false,
+  );
+  assert.equal(progress.accept({ ...batch("one"), end: true }).stop, true);
 });
 
 test("stops when a platform confirms the end of its feed", () => {
   const progress = new CollectionProgress(new Set());
-  assert.equal(progress.accept({ ...batch(), endConfirmed: true }).stop, true);
-});
-
-test("advances after a non-terminal viewport remains unchanged", () => {
-  const progress = new CollectionProgress(new Set());
-  assert.equal(progress.accept(batch()).advance, false);
-  assert.equal(progress.accept(batch()).advance, true);
-});
-
-test("new partial items reset the end-of-feed retry count", () => {
-  const progress = new CollectionProgress(new Set());
-  const empty = { ...batch(), atEnd: true };
-  progress.accept(empty);
-  progress.accept(empty);
-  progress.accept({ ...batch("late"), complete: false });
-  assert.equal(progress.accept(empty).stop, false);
-  assert.equal(progress.accept(empty).stop, false);
+  assert.equal(progress.accept({ ...batch(), end: true }).stop, true);
 });
 
 test("continues while any member of a thread is unseen", () => {

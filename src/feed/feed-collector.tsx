@@ -99,17 +99,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
         )) {
           if (controller.signal.aborted) return;
           const items = extractedItemSchema.array().parse(page.items);
-          const batch = progress.accept(
-            {
-              type: "items",
-              items,
-              excludedSourceIds: page.excludedSourceIds,
-              failedSourceIds: page.failedSourceIds,
-              complete: true,
-              endConfirmed: page.end,
-            },
-            page.boundarySourceIds,
-          );
+          const batch = progress.accept({ ...page, items });
           const dated = datedExtraction(batch.items, dates);
           for (const id of [
             ...(page.failedSourceIds ?? []),

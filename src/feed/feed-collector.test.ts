@@ -253,6 +253,40 @@ test("continues past reposts and mixed pages until the platform boundary is know
   assert.equal(app.results.length, 1);
 });
 
+test("continues through empty API pages and reports failed dates at the final page", async () => {
+  const app = collectorHarness();
+  await app.send({ items: [], excludedSourceIds: ["live"], end: false });
+  await app.send({ items: [], failedSourceIds: ["undated"], end: false });
+  await app.send({ items: [], end: false });
+  assert.equal(app.results.length, 0);
+  assert.equal(app.saved.length, 1);
+  await app.send({ items: [item], end: true });
+  assert.equal(app.results.length, 1);
+  assert.equal(app.results[0].items, 1);
+  assert.match(
+    app.results[0].error!,
+    /Publication dates unavailable for 1 posts/,
+  );
+  assert.partialDeepStrictEqual(app.saved.at(-1), [item]);
+});
+
+test("saves the capped API page before finishing without requesting another page", async () => {
+  const app = collectorHarness();
+  await app.send({
+    items: Array.from({ length: collection.feedItemLimit + 1 }, (_, index) => ({
+      ...item,
+      sourceId: String(index),
+    })),
+    end: false,
+  });
+  assert.equal(app.saved.length, 1);
+  assert.equal(app.saved[0].length, collection.feedItemLimit);
+  assert.equal(app.results.length, 1);
+  assert.equal(app.results[0].items, collection.feedItemLimit);
+  assert.equal(app.signals.length, 1);
+  assert.equal(app.timers.size, 0);
+});
+
 test("aborts on pause and unmount and discards late API pages", async () => {
   for (const unmount of [false, true]) {
     const app = collectorHarness();

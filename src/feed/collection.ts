@@ -1,5 +1,5 @@
-import { type ExtractionMessage } from "@/feed/schemas";
 import { type ExtractedItem, type ExtractedPost } from "@/feed/types";
+import { type FeedPage } from "@/platforms/types";
 
 export const feedItemLimit = 500;
 export const collectionTimeout = 120_000;
@@ -8,27 +8,18 @@ export const collectorConcurrency = 5;
 export const collectionKnownKey = (platform: string) =>
   `collection-known:${platform}`;
 
-export type { ExtractionMessage } from "@/feed/schemas";
-
 // Keep the previous session separate from posts found during this collection.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();
-  private batchAdded = false;
-  private idleBatches = 0;
-  private stalledBatches = 0;
-  private batches = 0;
-  private readonly startedAt = Date.now();
+  private fetchedAt = Date.now();
 
   constructor(private readonly known: Set<string>) {}
 
-  accept(
-    message: Extract<ExtractionMessage, { type: "items" }>,
-    boundarySourceIds?: string[],
-  ) {
-    const excluded = new Set(message.excludedSourceIds ?? []);
+  accept(page: FeedPage) {
+    const excluded = new Set(page.excludedSourceIds ?? []);
     const boundary = (
-      boundarySourceIds ??
-      message.items
+      page.boundarySourceIds ??
+      page.items
         .filter((item) => !excluded.has(item.sourceId))
         .flatMap((item) => [
           item.sourceId,
@@ -38,46 +29,20 @@ export class CollectionProgress {
     const reachedKnown =
       boundary.length > 0 && boundary.every((id) => this.known.has(id));
     const items: ExtractedItem[] = [];
-    for (const item of message.items) {
+    for (const item of page.items) {
       if (excluded.has(item.sourceId)) continue;
       const previous = this.seen.get(item.sourceId);
-      if (previous === undefined) {
-        if (this.seen.size >= feedItemLimit) continue;
-        this.batchAdded = true;
-      }
+      if (previous === undefined && this.seen.size >= feedItemLimit) continue;
       const json = JSON.stringify(item);
       if (previous !== json) items.push(item);
       this.seen.set(item.sourceId, json);
     }
 
-    const complete = message.complete !== false;
-    const fetchedAt = this.startedAt - this.batches;
-    const added = this.batchAdded;
-    const progressed =
-      added || excluded.size > 0 || (message.failedSourceIds?.length ?? 0) > 0;
-    if (complete) {
-      this.idleBatches =
-        this.batchAdded || !message.atEnd ? 0 : this.idleBatches + 1;
-      this.stalledBatches =
-        progressed || message.atEnd ? 0 : this.stalledBatches + 1;
-      this.batchAdded = false;
-      this.batches += 1;
-    }
-    const advance = progressed || (!message.atEnd && this.stalledBatches >= 2);
-    if (advance) this.stalledBatches = 0;
     return {
-      fetchedAt,
+      fetchedAt: this.fetchedAt--,
       items,
       excludedSourceIds: [...excluded],
-      complete,
-      added,
-      advance,
-      stop:
-        complete &&
-        (this.seen.size >= feedItemLimit ||
-          reachedKnown ||
-          message.endConfirmed ||
-          this.idleBatches >= 3),
+      stop: this.seen.size >= feedItemLimit || reachedKnown || page.end,
     };
   }
 }

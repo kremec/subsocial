@@ -64,23 +64,6 @@ export const feedItemSchema = extractedItemSchema.extend({
   fetchedAt: z.number(),
 });
 
-export const extractionMessageSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("items"),
-    items: z
-      .array(extractedItemSchema.nullable().catch(null))
-      .transform((items) => items.filter((item) => item !== null)),
-    excludedSourceIds: z.array(z.string()).optional(),
-    failedSourceIds: z.array(z.string()).optional(),
-    complete: z.boolean().optional(),
-    atEnd: z.boolean().optional(),
-    endConfirmed: z.boolean().optional(),
-  }),
-  z.object({ type: z.literal("error") }),
-  z.object({ type: z.literal("attention") }),
-  z.object({ type: z.literal("ready") }),
-]);
-
 export type PlatformId = z.infer<typeof platformIdSchema>;
 export type FeedMedia = z.infer<typeof feedMediaSchema>;
 export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
@@ -88,4 +71,3 @@ export type FeedPost = z.infer<typeof feedPostSchema>;
 export type ExtractedPost = z.infer<typeof extractedPostSchema>;
 export type ExtractedItem = z.infer<typeof extractedItemSchema>;
 export type FeedItem = z.infer<typeof feedItemSchema>;
-export type ExtractionMessage = z.infer<typeof extractionMessageSchema>;
