@@ -29,6 +29,7 @@ export const FeedVideoPreview: FC<FeedVideoPreviewProps> = (props) => {
         <Image
           source={{ uri: media.posterUrl }}
           recyclingKey={media.posterUrl}
+          cachePolicy="memory-disk"
           contentFit="cover"
           style={{ position: "absolute", inset: 0 }}
         />

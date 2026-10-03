@@ -22,7 +22,7 @@ interface FeedCardProps {
   threadGapBefore?: boolean;
   activePostUrl?: string;
   resolution?: YouTubeResolution;
-  onActivate: (postUrl: string) => void;
+  onActivate: (rowId: string, postUrl: string) => void;
   onVideoView: (rowId: string, postUrl: string, view: View | null) => void;
   onRetry: () => void;
   onPlaybackError: (id: string) => void;
@@ -43,6 +43,10 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
     onRetry,
     onPlaybackError,
   } = props;
+  const activatePost = useCallback(
+    (postUrl: string) => onActivate(rowId, postUrl),
+    [rowId, onActivate],
+  );
   const playableItem = withYouTubeStream(item, resolution);
   const setVideoView = useCallback(
     (postUrl: string, view: View | null) => onVideoView(rowId, postUrl, view),
@@ -60,7 +64,7 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
           end={!!threadEnd}
           gapBefore={!!threadGapBefore}
           activePostUrl={activePostUrl}
-          onActivate={onActivate}
+          onActivate={activatePost}
         />
       ) : (
         <View
@@ -75,7 +79,7 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
             platform={item.platform}
             variant="feed"
             activePostUrl={activePostUrl}
-            onActivate={onActivate}
+            onActivate={activatePost}
             playbackStatus={youtubePlaybackStatus(item, resolution)}
             onRetry={item.platform === "youtube" ? onRetry : undefined}
             onPlaybackError={

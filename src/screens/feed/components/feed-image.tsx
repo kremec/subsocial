@@ -1,4 +1,4 @@
-import { type FC } from "react";
+import { type FC, createContext, useContext } from "react";
 import { Pressable, View } from "react-native";
 
 import { Image } from "expo-image";
@@ -13,6 +13,8 @@ interface FeedImageProps {
   media: FeedMedia;
 }
 
+export const FeedImageTransitionContext = createContext(150);
+
 const originalXImageUrl = (value: string) => {
   if (!value.startsWith("https://pbs.twimg.com/media/")) return value;
   const url = new URL(value);
@@ -22,6 +24,7 @@ const originalXImageUrl = (value: string) => {
 
 export const FeedImage: FC<FeedImageProps> = (props) => {
   const { media } = props;
+  const transition = useContext(FeedImageTransitionContext);
   const url = originalXImageUrl(media.url);
   const [failedUrl, setFailedUrl] = useRecyclingState<string | undefined>(
     undefined,
@@ -39,10 +42,11 @@ export const FeedImage: FC<FeedImageProps> = (props) => {
         <Image
           source={{ uri: url }}
           recyclingKey={url}
+          cachePolicy="memory-disk"
           onLoad={() => setFailedUrl(undefined)}
           onError={() => setFailedUrl(url)}
           contentFit="contain"
-          transition={150}
+          transition={transition}
           style={{ flex: 1 }}
         />
         {failedUrl === url && (

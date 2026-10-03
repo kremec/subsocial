@@ -1,6 +1,8 @@
 import { type FC, useEffect, useState } from "react";
 import { AccessibilityInfo, View } from "react-native";
 
+import { router } from "expo-router";
+
 import Animated, { useReducedMotion } from "react-native-reanimated";
 
 import { Icon } from "@/components/ui/icon";
@@ -62,47 +64,54 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         variant="title"
         numberOfLines={1}
         style={{
-          flex: 1,
+          flexShrink: 1,
           fontFamily: theme.fonts.rounded,
         }}
       >
         subsocial
       </Typography>
-      <Animated.View
-        style={{
-          height: 36,
-          flexShrink: 0,
-          width:
-            36 +
-            pendingPlatforms.length * 26 +
-            (pendingPlatforms.length ? 8 : 0),
-          transition: reducedMotion
-            ? "none"
-            : "width 300ms cubic-bezier(0.33, 1, 0.68, 1)",
-        }}
-      >
-        {platforms.map((platform) => (
-          <RefreshPlatformIcon
-            key={platform.id}
-            platform={platform}
-            reducedMotion={reducedMotion}
-            position={pendingPlatforms.findIndex(
-              (item) => item.id === platform.id,
-            )}
-          />
-        ))}
-        <IconButton
-          onPress={() => setMenuVisible(true)}
+      <View style={{ flex: 1, alignItems: "center", overflow: "hidden" }}>
+        <Animated.View
           style={{
-            position: "absolute",
-            right: 0,
-            width: 36,
             height: 36,
+            maxWidth: "100%",
+            width: pendingPlatforms.length
+              ? pendingPlatforms.length * 26 + 10
+              : 0,
+            transition: reducedMotion
+              ? "none"
+              : "width 300ms cubic-bezier(0.33, 1, 0.68, 1)",
           }}
         >
-          <Icon name="dots" color={theme.colors.text} size={22} />
-        </IconButton>
-      </Animated.View>
+          {platforms.map((platform) => (
+            <RefreshPlatformIcon
+              key={platform.id}
+              platform={platform}
+              reducedMotion={reducedMotion}
+              count={pendingPlatforms.length}
+              position={pendingPlatforms.findIndex(
+                (item) => item.id === platform.id,
+              )}
+            />
+          ))}
+        </Animated.View>
+      </View>
+      <IconButton
+        accessibilityLabel="Search feed"
+        onPress={() => router.push("/search")}
+        style={{ width: 36, height: 36 }}
+      >
+        <Icon name="search" color={theme.colors.text} size={22} />
+      </IconButton>
+      <IconButton
+        onPress={() => setMenuVisible(true)}
+        style={{
+          width: 36,
+          height: 36,
+        }}
+      >
+        <Icon name="dots" color={theme.colors.text} size={22} />
+      </IconButton>
 
       <FeedMenu
         visible={menuVisible}

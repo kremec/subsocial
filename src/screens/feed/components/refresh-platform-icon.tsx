@@ -8,11 +8,12 @@ import { type PlatformDefinition } from "@/platforms/platforms";
 interface RefreshPlatformIconProps {
   platform: PlatformDefinition;
   position: number;
+  count: number;
   reducedMotion: boolean;
 }
 
 export const RefreshPlatformIcon: FC<RefreshPlatformIconProps> = (props) => {
-  const { platform, position, reducedMotion } = props;
+  const { platform, position, count, reducedMotion } = props;
   const visible = position >= 0;
 
   return (
@@ -22,18 +23,18 @@ export const RefreshPlatformIcon: FC<RefreshPlatformIconProps> = (props) => {
       accessibilityLabel={`Refreshing ${platform.label}`}
       style={{
         position: "absolute",
-        right: 0,
+        left: visible ? `${((position + 0.5) / count) * 100}%` : "50%",
         width: 36,
         height: 36,
         alignItems: "center",
         justifyContent: "center",
         opacity: visible ? 1 : 0,
-        transform: [{ translateX: visible ? -(position + 1) * 26 - 8 : 0 }],
+        transform: [{ translateX: -18 }],
         transition: reducedMotion
           ? "none"
           : visible
-            ? "opacity 220ms ease-in-out, transform 300ms cubic-bezier(0.33, 1, 0.68, 1)"
-            : "opacity 160ms ease-in-out, transform 0ms 160ms",
+            ? "opacity 220ms ease-in-out, left 300ms cubic-bezier(0.33, 1, 0.68, 1)"
+            : "opacity 160ms ease-in-out, left 0ms 160ms",
       }}
     >
       <Icon name={`brand-${platform.id}`} color={platform.color} size={18} />

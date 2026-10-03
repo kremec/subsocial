@@ -4,7 +4,11 @@ import { View } from "react-native";
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
 
-export const EmptyFeed: FC = () => {
+interface EmptyFeedProps {
+  message?: string;
+}
+
+export const EmptyFeed: FC<EmptyFeedProps> = (props) => {
   const theme = useTheme();
 
   return (
@@ -23,7 +27,7 @@ export const EmptyFeed: FC = () => {
           textAlign: "center",
         }}
       >
-        No active posts
+        {props.message ?? "No active posts"}
       </Typography>
     </View>
   );
