@@ -51,7 +51,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     setVideoView?.(postUrl, view.current);
     return () => setVideoView?.(postUrl, null);
   }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
-  const aspectRatio = selectedMedia?.aspectRatio || 1;
+  const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
   const counter = media.length > 1 && (
     <View
