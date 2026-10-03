@@ -57,19 +57,21 @@ export async function importDatabase(): Promise<boolean> {
     z.array(z.object({ platform: platformIdSchema })).parse(
       imported.getAllSync("SELECT platform FROM connections"),
     );
-    for (const row of rows) {
-      if (
-        row.id !== `${row.platform}:${row.source_id}` ||
-        !row.thread_id.startsWith(`${row.platform}:`)
-      )
-        throw new Error("Invalid imported post identity");
-      const post = feedPostSchema.parse(JSON.parse(row.item_json));
-      imported.runSync(
-        "UPDATE feed_items SET item_json = ? WHERE id = ?",
-        JSON.stringify(post),
-        row.id,
-      );
-    }
+    imported.withTransactionSync(() => {
+      for (const row of rows) {
+        if (
+          row.id !== `${row.platform}:${row.source_id}` ||
+          !row.thread_id.startsWith(`${row.platform}:`)
+        )
+          throw new Error("Invalid imported post identity");
+        const post = feedPostSchema.parse(JSON.parse(row.item_json));
+        imported.runSync(
+          "UPDATE feed_items SET item_json = ? WHERE id = ?",
+          JSON.stringify(post),
+          row.id,
+        );
+      }
+    });
     migrateDatabase(imported);
     await backupDatabaseAsync({
       sourceDatabase: imported,
