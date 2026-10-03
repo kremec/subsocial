@@ -7,15 +7,15 @@ import { useRecyclingState } from "@legendapp/list/react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia } from "@/feed/types";
-import { openMedia } from "@/screens/media/open-media";
 
 interface FeedImageProps {
   media: FeedMedia;
+  onPress: () => void;
 }
 
 export const FeedImageTransitionContext = createContext(150);
 
-const originalXImageUrl = (value: string) => {
+export const originalXImageUrl = (value: string) => {
   if (!value.startsWith("https://pbs.twimg.com/media/")) return value;
   const url = new URL(value);
   url.searchParams.set("name", "orig");
@@ -23,7 +23,7 @@ const originalXImageUrl = (value: string) => {
 };
 
 export const FeedImage: FC<FeedImageProps> = (props) => {
-  const { media } = props;
+  const { media, onPress } = props;
   const transition = useContext(FeedImageTransitionContext);
   const url = originalXImageUrl(media.url);
   const [failedUrl, setFailedUrl] = useRecyclingState<string | undefined>(
@@ -35,7 +35,7 @@ export const FeedImage: FC<FeedImageProps> = (props) => {
       <Pressable
         onPress={(event) => {
           event.stopPropagation();
-          openMedia({ ...media, url });
+          onPress();
         }}
         style={{ flex: 1 }}
       >

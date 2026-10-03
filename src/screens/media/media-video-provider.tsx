@@ -1,6 +1,8 @@
 import {
   type FC,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
   createContext,
   useCallback,
   useEffect,
@@ -31,6 +33,16 @@ interface RegisteredVideo {
   active: boolean;
 }
 
+interface AlbumSelection {
+  postUrl: string;
+  index: number;
+}
+
+export const MediaAlbumContext = createContext<{
+  selection?: AlbumSelection;
+  setSelection: Dispatch<SetStateAction<AlbumSelection | undefined>>;
+} | null>(null);
+
 export const MediaVideoContext = createContext<{
   registerVideo: (session: MediaVideoSession) => () => void;
   loadedVideo?: { playbackKey: string; url: string };
@@ -40,6 +52,8 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   const player = useFeedVideoPlayer();
   const [result, setResult] = useState<PlaybackResult>();
   const youtube = useMemo(() => ({ result, setResult }), [result]);
+  const [selection, setSelection] = useState<AlbumSelection>();
+  const album = useMemo(() => ({ selection, setSelection }), [selection]);
   const [video, setVideo] = useState<RegisteredVideo>();
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
@@ -77,9 +91,11 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   return (
     <FeedVideoPlayerContext value={player}>
       <YouTubeMediaContext value={youtube}>
-        <MediaVideoContext value={{ registerVideo, loadedVideo }}>
-          {props.children}
-        </MediaVideoContext>
+        <MediaAlbumContext value={album}>
+          <MediaVideoContext value={{ registerVideo, loadedVideo }}>
+            {props.children}
+          </MediaVideoContext>
+        </MediaAlbumContext>
       </YouTubeMediaContext>
     </FeedVideoPlayerContext>
   );

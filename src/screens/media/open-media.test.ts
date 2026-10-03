@@ -23,7 +23,7 @@ interface RouteProviderProps {
   children?: ReactNode;
 }
 
-test("media routes preserve escaped URLs, signed queries, and playback keys", async () => {
+test("album routes preserve escaped URLs, signed queries, and the selected index", async () => {
   let href = "";
   const openExports = {} as { openMedia: typeof openMedia };
   runInNewContext(
@@ -64,15 +64,23 @@ test("media routes preserve escaped URLs, signed queries, and playback keys", as
       },
     },
   );
-  const playbackKey = "https://example.com/posts/a%2Fb?ref=x%26y:0";
+  const postUrl = "https://example.com/posts/a%2Fb?ref=x%26y:0";
   const media: FeedMedia = {
     type: "video",
     url: "https://example.com/a%2Fb.mp4?sig=a%2Bb%3D&token=x%26y%25z",
     posterUrl: "https://example.com/image%20one.jpg?token=a%2Fb",
     contentType: "progressive",
   };
-  for (const key of [playbackKey, undefined]) {
-    openExports.openMedia(media, key);
+  for (const index of [0, 1]) {
+    const album: FeedMedia[] = [{ type: "image", url: "first.jpg" }, media];
+    openExports.openMedia(
+      album,
+      "youtube",
+      postUrl,
+      index,
+      undefined,
+      "video-source-id",
+    );
     const url = new URL(href, "https://example.com");
     const RouteProvider: FC<RouteProviderProps> = (props) =>
       createElement(
@@ -84,13 +92,19 @@ test("media routes preserve escaped URLs, signed queries, and playback keys", as
       () =>
         hookExports.useLocalSearchParams<{
           media: string;
-          playbackKey?: string;
+          postUrl: string;
+          platform: string;
+          index: string;
+          sourceId: string;
         }>(),
       { wrapper: RouteProvider },
     );
     assert.equal(url.pathname, "/media");
-    assert.deepEqual(JSON.parse(route.result.current.media), media);
-    assert.equal(route.result.current.playbackKey, key);
+    assert.deepEqual(JSON.parse(route.result.current.media), album);
+    assert.equal(route.result.current.postUrl, postUrl);
+    assert.equal(route.result.current.index, String(index));
+    assert.equal(route.result.current.platform, "youtube");
+    assert.equal(route.result.current.sourceId, "video-source-id");
     await route.unmount();
   }
 });

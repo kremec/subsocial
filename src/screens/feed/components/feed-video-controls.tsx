@@ -13,7 +13,11 @@ import { useEvent } from "expo";
 import { type VideoPlayer, VideoView } from "expo-video";
 
 import { MenuView } from "@expo/ui/community/menu";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  type GestureType,
+} from "react-native-gesture-handler";
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
@@ -28,6 +32,7 @@ interface FeedVideoControlsProps {
   counter?: ReactNode;
   fullscreen: boolean;
   onFullscreen: () => void;
+  navigationGestures?: GestureType[];
 }
 
 const timeText = (seconds: number) => {
@@ -36,8 +41,15 @@ const timeText = (seconds: number) => {
 };
 
 export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
-  const { player, media, counter, fullscreen, onFullscreen } = props;
-  const downloadable = canDownloadMedia(media);
+  const {
+    player,
+    media,
+    counter,
+    fullscreen,
+    onFullscreen,
+    navigationGestures,
+  } = props;
+  const downloadable = !fullscreen && canDownloadMedia(media);
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -142,8 +154,12 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       .onEnd((event, success) => {
         if (success) seekAt(event.x);
       });
+    if (navigationGestures) {
+      drag.blocksExternalGesture(...navigationGestures);
+      tap.blocksExternalGesture(...navigationGestures);
+    }
     return Gesture.Race(drag, tap);
-  }, [player, duration, trackWidth, seekTo]);
+  }, [player, duration, trackWidth, seekTo, navigationGestures]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "black" }}>

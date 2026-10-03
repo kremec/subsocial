@@ -1,5 +1,7 @@
 import { type FC, type ReactNode, useContext, useLayoutEffect } from "react";
 
+import { type GestureType } from "react-native-gesture-handler";
+
 import { type FeedMedia } from "@/feed/types";
 import { FeedVideoPlayerView } from "@/screens/feed/components/feed-video-player-view";
 import { FeedVideoPlayerContext } from "@/screens/feed/feed-video-player";
@@ -10,6 +12,8 @@ interface NativeFeedVideoProps {
   media: FeedMedia;
   counter?: ReactNode;
   fullscreen?: boolean;
+  onFullscreen?: () => void;
+  navigationGestures?: GestureType[];
   onError: () => void;
 }
 

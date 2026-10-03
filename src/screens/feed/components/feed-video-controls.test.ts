@@ -29,6 +29,11 @@ interface Touch {
 
 class GestureMock {
   taps = 1;
+  blocked: object[] = [];
+  blocksExternalGesture(...gestures: object[]) {
+    this.blocked = gestures;
+    return this;
+  }
   start?: (event: Touch) => void;
   update?: (event: Touch) => void;
   end?: (event: Touch, success: boolean) => void;
@@ -93,7 +98,15 @@ function elements(node: Node): Element[] {
   return [node, ...elements(node.props.children)];
 }
 
-function harness(playing = true, contentType?: "hls" | "progressive") {
+function harness(
+  playing = true,
+  contentType?: "hls" | "progressive",
+  navigation = false,
+  fullscreen = false,
+) {
+  const navigationGestures = navigation
+    ? [new GestureMock(), new GestureMock()]
+    : undefined;
   const states: (boolean | number)[] = [];
   const refs: { current: boolean }[] = [];
   let stateIndex = 0;
@@ -213,8 +226,11 @@ function harness(playing = true, contentType?: "hls" | "progressive") {
         contentType,
       },
       counter: { type: "MediaCounter", props: {}, key: null },
-      fullscreen: false,
+      fullscreen,
       onFullscreen() {},
+      navigationGestures: navigationGestures as Parameters<
+        typeof FeedVideoControls
+      >[0]["navigationGestures"],
     });
     mounted = true;
     return elements(tree as Element);
@@ -226,6 +242,7 @@ function harness(playing = true, contentType?: "hls" | "progressive") {
   return {
     player,
     render,
+    navigationGestures,
     backgroundTap() {
       gestures()[1]!.end?.({ x: 0 }, true);
     },
@@ -319,6 +336,14 @@ test("streaming videos have no download button when the overlay is shown", () =>
   );
 });
 
+test("fullscreen video controls leave downloads to the fixed screen toolbar", () => {
+  const app = harness(true, undefined, false, true);
+  assert.equal(
+    app.render().some((element) => element.type === "MediaDownloadButton"),
+    false,
+  );
+});
+
 test("the middle play/pause button toggles playback while retaining the controls", () => {
   const app = harness();
   app.backgroundTap();
@@ -401,5 +426,14 @@ test("dragging progress pauses temporarily and preserves the previous playing st
     assert.equal(app.player.currentTime, 0);
     drag.finalize?.();
     assert.equal(app.player.playing, playing);
+  }
+});
+
+test("scrubbing blocks both album paging and downward dismissal", () => {
+  const app = harness(true, undefined, true);
+  app.backgroundTap();
+  const progress = app.progress();
+  for (const gesture of progress.gestures) {
+    assert.deepEqual(gesture.blocked, app.navigationGestures);
   }
 });

@@ -11,12 +11,21 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
-import { type FeedMedia } from "@/feed/types";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { type FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
+import { type MediaAlbumContext } from "@/screens/media/media-video-provider";
 import { act, cleanup, render } from "@/test/react-native";
 
 afterEach(cleanup);
 
+const albumContext =
+  createContext<react.ContextType<typeof MediaAlbumContext>>(null);
+const openedAlbums: {
+  media: FeedMedia[];
+  postUrl: string;
+  index: number;
+  sourceId?: string;
+}[] = [];
 const exports = {} as { FeedMediaCarousel: typeof FeedMediaCarousel };
 runInNewContext(
   transpileModule(
@@ -34,17 +43,43 @@ runInNewContext(
         case "react-native":
           return { View: "View", Pressable: "Pressable" };
         case "react-native-gesture-handler":
-          return { ScrollView: "ScrollView" };
+          return {
+            ScrollView: react.forwardRef<
+              { scrollTo: () => void },
+              react.PropsWithChildren
+            >((props, ref) => {
+              react.useImperativeHandle(ref, () => ({ scrollTo() {} }));
+              return createElement("ScrollView", props);
+            }),
+          };
         case "@/components/ui/typography":
           return { Typography: "Text" };
         case "@/screens/feed/components/feed-image":
-          return { FeedImage: "FeedImage" };
+          return {
+            FeedImage: "FeedImage",
+            originalXImageUrl: (url: string) => url,
+          };
         case "@/screens/feed/components/feed-video":
           return { FeedVideo: "FeedVideo" };
         case "@/screens/feed/components/feed-video-preview":
           return { FeedVideoPreview: "FeedVideoPreview" };
         case "@/screens/feed/feed-video-player":
           return { FeedVideoLayoutContext: createContext(null) };
+        case "@/screens/media/media-video-provider":
+          return { MediaAlbumContext: albumContext };
+        case "@/screens/media/open-media":
+          return {
+            openMedia(
+              media: FeedMedia[],
+              _platform: PlatformId,
+              postUrl: string,
+              index: number,
+              _androidUrl?: string,
+              sourceId?: string,
+            ) {
+              openedAlbums.push({ media, postUrl, index, sourceId });
+            },
+          };
         case "@/theme/use-theme":
           return {
             useTheme: () => ({
@@ -61,15 +96,26 @@ runInNewContext(
 );
 
 async function mount(media: FeedMedia[]) {
-  const screen = await render(
-    createElement(exports.FeedMediaCarousel, {
-      postUrl: "post",
-      media,
-      active: true,
-      onActivate() {},
-      onPress() {},
-    }),
-  );
+  let selection: NonNullable<
+    react.ContextType<typeof MediaAlbumContext>
+  >["selection"];
+  const tree = () =>
+    createElement(
+      albumContext,
+      {
+        value: { selection, setSelection() {} },
+      },
+      createElement(exports.FeedMediaCarousel, {
+        postUrl: "post",
+        platform: "facebook",
+        sourceId: "video-source-id",
+        media,
+        active: true,
+        onActivate() {},
+        onPress() {},
+      }),
+    );
+  const screen = await render(tree());
   await act(() =>
     screen.root!.props.onLayout({ nativeEvent: { layout: { width: 300 } } }),
   );
@@ -77,6 +123,10 @@ async function mount(media: FeedMedia[]) {
     ...screen,
     get aspectRatio(): number {
       return screen.root!.props.style.aspectRatio;
+    },
+    async selectFullscreen(index: number) {
+      selection = { postUrl: "post", index };
+      await screen.rerender(tree());
     },
     async swipe(index: number) {
       const carousel = screen.root!.queryAll(
@@ -137,4 +187,34 @@ test("single media retains its own aspect ratio or the square default", async ()
       await screen.unmount();
     }
   }
+});
+
+test("opening an image passes the full mixed album and keeps its selected index on return", async () => {
+  const media: FeedMedia[] = [
+    { type: "image", url: "first.jpg" },
+    { type: "video", url: "video.mp4", playable: true },
+    { type: "image", url: "last.jpg" },
+  ];
+  const screen = await mount(media);
+  const image = screen.root!.queryAll(
+    (element) => element.type === "FeedImage",
+  )[0]!;
+  await act(() => image.props.onPress());
+  const opened = openedAlbums.at(-1)!;
+  assert.equal(opened.postUrl, "post");
+  assert.equal(opened.index, 0);
+  assert.equal(opened.sourceId, "video-source-id");
+  assert.deepEqual(
+    opened.media.map((item) => item.url).join(","),
+    media.map((item) => item.url).join(","),
+  );
+  await screen.selectFullscreen(2);
+  assert.ok(screen.getByText("3/3"));
+  await screen.swipe(1);
+  const video = screen.root!.queryAll(
+    (element) => element.type === "FeedVideo",
+  )[0]!;
+  await act(() => video.props.onFullscreen());
+  assert.equal(openedAlbums.at(-1)!.index, 1);
+  assert.equal(openedAlbums.at(-1)!.media.length, 3);
 });

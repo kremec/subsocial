@@ -4,18 +4,26 @@ import { Pressable, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
-import { FeedImage } from "@/screens/feed/components/feed-image";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
+import {
+  FeedImage,
+  originalXImageUrl,
+} from "@/screens/feed/components/feed-image";
 import {
   FeedVideo,
   type PlaybackStatus,
 } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
+import { MediaAlbumContext } from "@/screens/media/media-video-provider";
+import { openMedia } from "@/screens/media/open-media";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedMediaCarouselProps {
   postUrl: string;
+  platform: PlatformId;
+  androidUrl?: string;
+  sourceId?: string;
   media: FeedMedia[];
   active: boolean;
   playbackStatus?: PlaybackStatus;
@@ -29,6 +37,9 @@ interface FeedMediaCarouselProps {
 export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const {
     postUrl,
+    platform,
+    androidUrl,
+    sourceId,
     media,
     active,
     playbackStatus,
@@ -44,6 +55,33 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
   const setVideoView = useContext(FeedVideoLayoutContext);
+  const album = useContext(MediaAlbumContext);
+  const selection = album?.selection;
+  useLayoutEffect(() => {
+    if (selection?.postUrl !== postUrl) return;
+    // Fullscreen and inline views keep the same album position.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setMediaIndex(selection.index);
+    carousel.current?.scrollTo({
+      x: selection.index * mediaWidth,
+      animated: false,
+    });
+  }, [selection, postUrl, mediaWidth]);
+  const openAlbum = (index: number) => {
+    album?.setSelection({ postUrl, index });
+    openMedia(
+      media.map((item) =>
+        item.type === "image"
+          ? { ...item, url: originalXImageUrl(item.url) }
+          : item,
+      ),
+      platform,
+      postUrl,
+      index,
+      androidUrl,
+      sourceId,
+    );
+  };
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
   useLayoutEffect(() => {
@@ -100,12 +138,13 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               onRetry={onRetry}
               onError={onPlaybackError}
               onVerification={onVerification}
+              onFullscreen={() => openAlbum(index)}
             />
           </Pressable>
         )}
       </View>
     ) : (
-      <FeedImage media={media} />
+      <FeedImage media={media} onPress={() => openAlbum(index)} />
     );
 
   return (

@@ -18,6 +18,7 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
+import { type FeedVideo } from "@/screens/feed/components/feed-video";
 import { type NativeFeedVideo } from "@/screens/feed/components/native-feed-video";
 import {
   type MediaVideoContext,
@@ -36,6 +37,7 @@ function compiled(path: string) {
 
 const hookSource = compiled("../../media/use-media-video-playback.ts");
 const providerSource = compiled("../../media/media-video-provider.tsx");
+const wrapperSource = compiled("./feed-video.tsx");
 const videoSource = compiled("./native-feed-video.tsx");
 
 type PlaybackContext = NonNullable<react.ContextType<typeof MediaVideoContext>>;
@@ -86,8 +88,10 @@ function harness() {
   };
   const providerExports = {} as {
     MediaVideoContext: typeof MediaVideoContext;
+    MediaAlbumContext: typeof import("@/screens/media/media-video-provider").MediaAlbumContext;
     MediaVideoProvider: typeof MediaVideoProvider;
   };
+  const wrapperExports = {} as { FeedVideo: typeof FeedVideo };
   const videoExports = {} as { NativeFeedVideo: typeof NativeFeedVideo };
   function require(name: string) {
     switch (name) {
@@ -97,6 +101,9 @@ function harness() {
         return jsxRuntime;
       case "react-native":
         return {
+          View: "View",
+          Pressable: "Pressable",
+          ActivityIndicator: "ActivityIndicator",
           AppState: {
             currentState: "active",
             addEventListener(
@@ -120,6 +127,10 @@ function harness() {
         return { YouTubeMediaContext: createContext(null) };
       case "@/screens/media/media-video-provider":
         return providerExports;
+      case "@/components/ui/typography":
+        return { Typography: "Text" };
+      case "@/screens/feed/components/native-feed-video":
+        return videoExports;
       case "@/screens/feed/components/feed-video-player-view":
         return { FeedVideoPlayerView: "FeedVideoPlayerView" };
       default:
@@ -130,6 +141,7 @@ function harness() {
     [hookSource, hookExports],
     [providerSource, providerExports],
     [videoSource, videoExports],
+    [wrapperSource, wrapperExports],
   ] as const)
     runInNewContext(source, { exports, require });
 
@@ -142,9 +154,25 @@ function harness() {
     return props.children;
   };
   const onError = () => errors++;
+  let albumRenders = 0;
+  const AlbumVideo: FC = () => {
+    useContext(providerExports.MediaAlbumContext);
+    assert.ok(
+      ++albumRenders < 30,
+      "album context must not repeatedly register the video",
+    );
+    return createElement(wrapperExports.FeedVideo, {
+      playbackKey: "post:0",
+      media: { type: "video", url: "first.mp4", playable: true },
+    });
+  };
   return {
     player,
     replacements,
+    albumVideo: () => createElement(AlbumVideo),
+    get albumRenders() {
+      return albumRenders;
+    },
     get counts() {
       return { plays, pauses, errors, listeners: listeners.size };
     },
@@ -312,4 +340,18 @@ test("rejected loads retry even when native status does not report an error", as
     assert.equal(app.counts.errors, 1);
     await screen.unmount();
   }
+});
+
+test("an album consumer mounts the actual video wrapper without a registration loop", async () => {
+  const app = harness();
+  const screen = await app.mount(app.albumVideo());
+  assert.equal(app.albumRenders, 1);
+  assert.equal(app.replacements.length, 1);
+  await act(() => app.replacements[0]!.resolve());
+  assert.equal(app.albumRenders, 1);
+  assert.equal(app.player.playing, true);
+  await screen.show(app.albumVideo());
+  assert.equal(app.albumRenders, 2);
+  assert.equal(app.replacements.length, 1);
+  assert.equal(app.player.playing, true);
 });

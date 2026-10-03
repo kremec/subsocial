@@ -60,6 +60,9 @@ export const PostContent: FC<PostContentProps> = (props) => {
       <FeedMediaCarousel
         key={post.url}
         postUrl={post.url}
+        platform={platform}
+        androidUrl={post.androidUrl}
+        sourceId={post.sourceId}
         media={post.media}
         active={activePostUrl === post.url}
         playbackStatus={playbackStatus}
