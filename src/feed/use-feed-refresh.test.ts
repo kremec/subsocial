@@ -433,18 +433,34 @@ test("an interrupted initial collection retains its empty boundary", () => {
   assert.deepEqual(Array.from(app.render().known.x ?? []), []);
 });
 
-test("explicit logout removes deleted posts from the published snapshot", async () => {
+test("explicit logout removes deleted posts and clears the platform failure", async () => {
   const app = feedHarness(initial);
   await app.focus(true);
   const run = app.render();
   app.database.items = incoming;
-  complete(run);
-  app.render();
+  run.finish(run.runId!, result("x"));
+  run.finish(run.runId!, { ...result("youtube"), error: "Offline" });
+  assert.deepEqual(Array.from(app.render().failed), ["youtube"]);
   await app.focus(false);
   app.database.connected = ["x"];
   app.database.items = incoming.filter((item) => item.platform === "x");
+  app.storage.delete(collectionKnownKey("youtube"));
   await app.focus(true);
   assert.deepEqual(ids(app.render().items), ["x:new", "x:old"]);
+  assert.deepEqual(Array.from(app.current.failed), []);
+});
+
+test("an expired session keeps its failure marker on feed return", async () => {
+  const app = feedHarness(initial);
+  const run = await app.focus(true);
+  run.finish(run.runId!, { ...result("x"), error: "Sign in again" });
+  run.finish(run.runId!, result("youtube"));
+  app.render();
+  await app.focus(false);
+  app.database.connected = ["youtube"];
+  const returned = await app.focus(true);
+  assert.deepEqual(Array.from(returned.failed), ["x"]);
+  assert.equal(returned.collectors.length, 0);
 });
 
 test("attention retains its collector while other platforms finish and publish", () => {

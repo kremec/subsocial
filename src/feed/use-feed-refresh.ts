@@ -84,6 +84,14 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const sync = useEffectEvent((platforms: PlatformId[]) => {
     const added = platforms.some((id) => !connected.includes(id));
     setConnected(platforms);
+    // Logout removes the collection boundary; expired sessions keep it.
+    setFailed((current) =>
+      current.filter(
+        (id) =>
+          platforms.includes(id) ||
+          !!Storage.getItemSync(collectionKnownKey(id)),
+      ),
+    );
     // Remove deleted posts without publishing a refresh that is still staged.
     const savedIds = new Set(listFeedItems().map((item) => item.id));
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
