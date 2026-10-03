@@ -273,14 +273,39 @@ test("a quick foreground return resumes the current refresh", async () => {
   assert.deepEqual(ids(app.current.items), ["x:partial", "x:old"]);
 });
 
-test("returning to the feed starts another refresh", async () => {
+test("returning from media or search does not start another refresh", async () => {
   const app = feedHarness(initial);
   complete(await app.focus(true));
   app.render();
+  for (let visits = 0; visits < 2; visits++) {
+    await app.focus(false);
+    const returned = await app.focus(true);
+    assert.equal(returned.collection.length, 0);
+    assert.equal(returned.runId, undefined);
+  }
+});
+
+test("returning to the feed resumes an unfinished refresh", async () => {
+  const app = feedHarness(initial);
+  const first = await app.focus(true);
   await app.focus(false);
   const returned = await app.focus(true);
-  assert.equal(returned.collection.length, 2);
-  assert.deepEqual(Array.from(returned.known.x ?? []), ["old"]);
+  assert.equal(returned.runId, first.runId);
+  assert.deepEqual(Array.from(returned.collectors), ["x", "youtube"]);
+});
+
+test("an app foreground return while viewing media refreshes on returning to the feed", async () => {
+  const app = feedHarness(initial);
+  const first = await app.focus(true);
+  complete(first);
+  app.render();
+  await app.focus(false);
+  await app.appState("background");
+  const unfocused = await app.appState("active");
+  assert.equal(unfocused.collection.length, 0);
+  const returned = await app.focus(true);
+  assert.deepEqual(Array.from(returned.collectors), ["x", "youtube"]);
+  assert.notEqual(returned.runId, first.runId);
 });
 
 test("every foreground return after completion refreshes automatically", async () => {
@@ -327,6 +352,9 @@ test("automatic refresh includes saved hidden platforms on every opening", async
 
 test("connecting a platform refreshes immediately", async () => {
   const app = feedHarness(initial);
+  complete(await app.focus(true));
+  app.render();
+  await app.focus(false);
   app.database.connected = ["x", "youtube", "instagram"];
   const returned = await app.focus(true);
   assert.deepEqual(Array.from(returned.collection), [

@@ -38,6 +38,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   );
   const [run, setRun] = useState<RefreshRun>();
   const running = useRef<RefreshRun>(undefined);
+  const refreshOnForeground = useRef(true);
   const active = useMemo(
     () => platformIdSchema.options.filter((id) => !hidden.includes(id)),
     [hidden],
@@ -47,8 +48,10 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
-      if (state === "background") setForeground(false);
-      else if (state === "active") setForeground(true);
+      if (state === "background") {
+        refreshOnForeground.current = true;
+        setForeground(false);
+      } else if (state === "active") setForeground(true);
     });
     return () => listener.remove();
   }, []);
@@ -84,7 +87,9 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     // Remove deleted posts without publishing a refresh that is still staged.
     const savedIds = new Set(listFeedItems().map((item) => item.id));
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
-    if (added || !running.current) begin(platforms);
+    if (added || (refreshOnForeground.current && !running.current))
+      begin(platforms);
+    refreshOnForeground.current = false;
   });
 
   useEffect(() => {
