@@ -19,7 +19,7 @@ interface FeedItemRow {
   thread_id: string;
 }
 
-const databaseVersion = 1;
+const databaseVersion = 2;
 export let database: SQLiteDatabase;
 
 export function initializeDatabase(): void {
@@ -111,13 +111,21 @@ function savePosts(
       for (const post of [root, ...(thread ?? [])])
         if (!excluded.has(post.sourceId))
           posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
+      const relatedIds = new Set(posts.keys());
+      for (const post of posts.values())
+        if (post.replyToSourceId) relatedIds.add(post.replyToSourceId);
       const previous = connection.getAllSync<FeedItemRow>(
-        "SELECT * FROM feed_items WHERE id IN (SELECT value FROM json_each(?))",
-        JSON.stringify([...posts.keys()].map((id) => `${platform}:${id}`)),
+        `SELECT * FROM feed_items
+         WHERE id IN (SELECT value FROM json_each(?))
+           OR (platform = ? AND json_extract(item_json, '$.replyToSourceId')
+             IN (SELECT value FROM json_each(?)))`,
+        JSON.stringify([...relatedIds].map((id) => `${platform}:${id}`)),
+        platform,
+        JSON.stringify([...posts.keys()]),
       );
       const groups = [...new Set(previous.map((row) => row.thread_id))];
       const threadId = groups.sort()[0] ?? `${platform}:${item.sourceId}`;
-      // Overlap connects entire existing groups, including offscreen replies.
+      // Connect overlaps and reply relationships, including replies saved first.
       if (groups.length > 1)
         connection.runSync(
           "UPDATE feed_items SET thread_id = ? WHERE thread_id IN (SELECT value FROM json_each(?))",
@@ -154,6 +162,10 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
   if (version === databaseVersion) return;
 
   connection.withTransactionSync(() => {
+    if (version === 1) {
+      migrateReplyRelationships(connection);
+      return;
+    }
     connection.execSync(`
       CREATE TABLE IF NOT EXISTS feed_items (
         id TEXT PRIMARY KEY NOT NULL,
@@ -224,9 +236,30 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
           OR json_extract(item_json, '$.media[0].contentType') IS NOT NULL)
         AND json_extract(item_json, '$.media[0].posterUrl') IS NOT NULL;
       CREATE INDEX IF NOT EXISTS feed_items_thread ON feed_items (thread_id);
-      PRAGMA user_version = ${databaseVersion};
     `);
+    migrateReplyRelationships(connection);
   });
+}
+
+function migrateReplyRelationships(connection: SQLiteDatabase): void {
+  connection.execSync(`
+    CREATE INDEX IF NOT EXISTS feed_items_reply
+      ON feed_items (platform, json_extract(item_json, '$.replyToSourceId'));
+  `);
+  for (const row of connection.getAllSync<FeedItemRow>(
+    "SELECT * FROM feed_items WHERE platform = 'x' AND json_extract(item_json, '$.replyToSourceId') IS NOT NULL",
+  )) {
+    const post = postFromRow(row);
+    savePosts(
+      connection,
+      row.platform,
+      [{ ...post, media: post.media ?? [] }],
+      [],
+      row.fetched_at,
+      true,
+    );
+  }
+  connection.execSync(`PRAGMA user_version = ${databaseVersion}`);
 }
 
 const cachedItems = new Map<string, { key: string; items: FeedItem[] }>();

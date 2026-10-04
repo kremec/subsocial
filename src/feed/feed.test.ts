@@ -103,7 +103,7 @@ test("database imports do not open or migrate until explicit initialization", ()
   );
   store.initializeDatabase();
   assert.equal(store.opens, 1);
-  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 1);
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 2);
   assert.deepEqual(Array.from(store.listFeedItems()), []);
   store.db.close();
 });
@@ -178,22 +178,71 @@ test("failed migrations roll back schema, data, indexes, and version before retr
   );
   store.initializeDatabase();
   assert.equal(store.opens, 1);
-  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 1);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
   assert.equal(store.listFeedItems().length, 2);
   db.close();
 });
 
 test("startup rejects a newer database without changing its schema or version", () => {
   const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA user_version = 2");
+  db.exec("PRAGMA user_version = 3");
   const store = openStore(db, false);
   assert.throws(() => store.initializeDatabase(), /newer version/);
-  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 3);
   assert.equal(
     db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!.count,
     0,
   );
   db.close();
+});
+
+test("upgrading version 1 connects saved replies without losing media or first-seen times", () => {
+  const store = openStore();
+  const video = { type: "video" as const, url: "playback", playable: true };
+  const first = { ...post("first", 1), media: [video] };
+  const reply = { ...post("reply", 2), replyToSourceId: first.sourceId };
+  store.saveExtraction("x", [first, reply], [], 10);
+  store.saveExtraction(
+    "youtube",
+    [{ ...post("video", 3), media: [{ ...video, posterUrl: "poster" }] }],
+    [],
+    20,
+  );
+  // Recreate the disconnected groups and schema from the previous version.
+  store.db.exec(`
+    UPDATE feed_items SET thread_id = id;
+    UPDATE feed_items SET item_json = json_set(item_json, '$.media[0].contentType', 'progressive')
+      WHERE platform = 'youtube';
+    DROP INDEX feed_items_reply;
+    PRAGMA user_version = 1;
+  `);
+  const before = store.db
+    .prepare("SELECT id, fetched_at, item_json FROM feed_items ORDER BY id")
+    .all();
+  store.initializeDatabase();
+
+  const items = store.listFeedItems();
+  assert.deepEqual(
+    Array.from(items, (item) => item.id),
+    ["youtube:video", "x:reply"],
+  );
+  assert.deepEqual(
+    Array.from(items[1].thread ?? [], (post) => post.sourceId),
+    ["first", "reply"],
+  );
+  assert.deepEqual(
+    store.db
+      .prepare("SELECT id, fetched_at, item_json FROM feed_items ORDER BY id")
+      .all(),
+    before,
+  );
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.ok(
+    store.db
+      .prepare("SELECT name FROM sqlite_master WHERE name = 'feed_items_reply'")
+      .get(),
+  );
+  store.db.close();
 });
 
 test("retains 500 per platform so busy platforms cannot evict quieter ones", () => {
@@ -412,7 +461,7 @@ test("the first migration normalizes YouTube media after flattening either legac
     assert.equal(media.url, legacy.media[0].posterUrl);
     assert.equal(media.contentType, undefined);
     assert.ok(!("expiresAt" in media));
-    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 1);
+    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
     db.close();
   }
 });
@@ -785,6 +834,48 @@ test("missing or excluded parents do not pull an older sibling into a new reply"
       ["first", "sibling"],
     );
     assert.equal(items[2].publishedAt, sibling.publishedAt);
+    store.db.close();
+  }
+});
+
+test("separately ingested replies join their parents regardless of arrival order", () => {
+  const first = post("first", 1);
+  const middle = { ...post("middle", 2), replyToSourceId: first.sourceId };
+  const last = { ...post("last", 4), replyToSourceId: middle.sourceId };
+  for (const arrivals of [
+    [first, middle, last],
+    [last, middle, first],
+    [first, last, middle],
+  ]) {
+    const store = openStore();
+    store.saveExtraction("reddit", [first], []);
+    for (const item of arrivals) store.saveExtraction("x", [item], [], 10);
+    const sibling = { ...post("sibling", 3), replyToSourceId: first.sourceId };
+    store.saveExtraction("x", [sibling], [], 20);
+
+    const items = store.listFeedItems();
+    assert.deepEqual(
+      Array.from(items, (item) => item.id),
+      ["x:last", "x:sibling", "reddit:first"],
+    );
+    assert.deepEqual(
+      Array.from(items[0].thread ?? [], (post) => post.sourceId),
+      ["first", "middle", "last"],
+    );
+    assert.deepEqual(
+      Array.from(items[1].thread ?? [], (post) => post.sourceId),
+      ["first", "sibling"],
+    );
+    assert.equal(items[0].fetchedAt, 10);
+    assert.equal(items[2].thread, undefined);
+    assert.equal(
+      store.db
+        .prepare(
+          "SELECT COUNT(DISTINCT thread_id) AS count FROM feed_items WHERE platform = 'x'",
+        )
+        .get()!.count,
+      1,
+    );
     store.db.close();
   }
 });

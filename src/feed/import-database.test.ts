@@ -136,7 +136,7 @@ test("accepts exported posts and pending undated rows with metadata outside JSON
   );
   assert.equal(await app.importDatabase(), true);
   assert.equal(app.state.backups, 1);
-  assert.equal(app.state.version, 1);
+  assert.equal(app.state.version, 2);
   assert.equal(app.state.payloads.length, 2);
   assert.equal(app.state.closed, true);
 });
@@ -150,7 +150,7 @@ test("current-version imports preserve playable YouTube sources without rerunnin
     contentType: "progressive",
     playable: true,
   };
-  app.db.exec("PRAGMA user_version = 1");
+  app.db.exec("PRAGMA user_version = 2");
   app.db.prepare("UPDATE feed_items SET item_json = ?").run(
     JSON.stringify({
       url: "https://youtube.com/watch?v=video",
@@ -158,7 +158,7 @@ test("current-version imports preserve playable YouTube sources without rerunnin
     }),
   );
   assert.equal(await app.importDatabase(), true);
-  assert.equal(app.state.version, 1);
+  assert.equal(app.state.version, 2);
   assert.deepEqual(JSON.parse(app.state.payloads[0]).media, [media]);
 });
 
@@ -175,7 +175,7 @@ test("rejects invalid JSON, platforms, identities, timestamps, and essential pay
     `UPDATE feed_items SET item_json = '{"url":"invalid"}'`,
     `UPDATE feed_items SET item_json = '{"url":"https://example.com","text":{}}'`,
     "ALTER TABLE feed_items RENAME COLUMN thread_id TO obsolete",
-    "PRAGMA user_version = 2",
+    "PRAGMA user_version = 3",
   ]) {
     const app = importHarness();
     app.db.exec(sql);
