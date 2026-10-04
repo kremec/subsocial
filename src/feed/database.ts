@@ -229,7 +229,7 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
   });
 }
 
-const cachedItems = new Map<string, { key: string; item: FeedItem }>();
+const cachedItems = new Map<string, { key: string; items: FeedItem[] }>();
 export function listFeedItems(): FeedItem[] {
   const rows = database.getAllSync<FeedItemRow>(`
     SELECT * FROM feed_items
@@ -245,29 +245,48 @@ export function listFeedItems(): FeedItem[] {
   for (const id of cachedItems.keys())
     if (!groups.has(id)) cachedItems.delete(id);
   return [...groups]
-    .map(([id, rows]) => {
+    .flatMap(([id, rows]) => {
       const ordered = [...rows].sort(
         (left, right) =>
           (left.published_at ?? 0) - (right.published_at ?? 0) ||
           left.source_id.localeCompare(right.source_id),
       );
-      const root = ordered[ordered.length - 1];
       const key = JSON.stringify(rows);
       const cached = cachedItems.get(id);
-      if (cached?.key === key) return cached.item;
-      const posts = ordered.map(postFromRow);
-      const post = posts[posts.length - 1];
-      const item: FeedItem = {
-        ...post,
-        media: post.media ?? [],
-        id: root.id,
-        platform: root.platform,
-        publishedAt: root.published_at!,
-        fetchedAt: root.fetched_at,
-        thread: posts.length > 1 ? posts : undefined,
-      };
-      cachedItems.set(id, { key, item });
-      return item;
+      if (cached?.key === key) return cached.items;
+      let chain: FeedItemRow[] = [];
+      const chains = [chain];
+      const seen = new Map<string, FeedItemRow>();
+      for (const row of ordered) {
+        const post = postFromRow(row);
+        const parent = post.replyToSourceId && seen.get(post.replyToSourceId);
+        if (parent && parent !== chain.at(-1)) {
+          const branch = chains.find(
+            (candidate) => candidate.at(-1) === parent,
+          );
+          chain = branch ?? [parent];
+          if (!branch) chains.push(chain);
+        }
+        chain.push(row);
+        seen.set(row.source_id, row);
+      }
+      // Rank each reply branch by its own latest post, not a sibling's activity.
+      const items = chains.map((chain): FeedItem => {
+        const root = chain[chain.length - 1];
+        const posts = chain.map(postFromRow);
+        const post = posts[posts.length - 1];
+        return {
+          ...post,
+          media: post.media ?? [],
+          id: root.id,
+          platform: root.platform,
+          publishedAt: root.published_at!,
+          fetchedAt: root.fetched_at,
+          thread: posts.length > 1 ? posts : undefined,
+        };
+      });
+      cachedItems.set(id, { key, items });
+      return items;
     })
     .sort(
       (left, right) =>

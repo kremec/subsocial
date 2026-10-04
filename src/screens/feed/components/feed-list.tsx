@@ -55,34 +55,18 @@ interface FeedRow {
 const rowsFor = (item: FeedItem): FeedRow[] => {
   if (!item.thread) return [{ id: item.id, item }];
 
-  let chain: FeedPost[] = [];
-  const chains = [chain];
-  for (const [index, post] of item.thread.entries()) {
-    const parent =
-      post.replyToSourceId &&
-      item.thread
-        .slice(0, index)
-        .find((candidate) => candidate.sourceId === post.replyToSourceId);
-    if (parent && parent !== chain.at(-1)) {
-      chain = [parent];
-      chains.push(chain);
-    }
-    chain.push(post);
-  }
-
-  return chains.flatMap((chain, chainIndex) =>
-    chain.map((post, index) => ({
-      id: `${item.id}:${chainIndex}:${post.sourceId}`,
-      item,
-      post,
-      threadStart: index === 0,
-      threadEnd: index === chain.length - 1,
-      threadGapBefore:
-        index > 0 &&
-        !!post.replyToSourceId &&
-        post.replyToSourceId !== chain[index - 1].sourceId,
-    })),
-  );
+  const chain = item.thread;
+  return chain.map((post, index) => ({
+    id: `${item.id}:0:${post.sourceId}`,
+    item,
+    post,
+    threadStart: index === 0,
+    threadEnd: index === chain.length - 1,
+    threadGapBefore:
+      index > 0 &&
+      !!post.replyToSourceId &&
+      post.replyToSourceId !== chain[index - 1].sourceId,
+  }));
 };
 
 const getItemType = (row: FeedRow) =>

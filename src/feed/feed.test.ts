@@ -689,6 +689,74 @@ test("same-second thread replies keep a stable root and discovery time", () => {
   store.db.close();
 });
 
+test("a new sibling reply does not bump an older branch in the feed", () => {
+  const store = openStore();
+  const first = post("first", 1);
+  const older = { ...post("older", 2), replyToSourceId: first.sourceId };
+  const newer = { ...post("newer", 4), replyToSourceId: first.sourceId };
+  store.saveExtraction("x", [{ ...older, thread: [first, older] }], [], 10);
+  store.saveExtraction("reddit", [post("between", 3)], [], 20);
+  const olderId = store.listFeedItems()[1].id;
+  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], [], 30);
+
+  const items = store.listFeedItems();
+  assert.deepEqual(
+    Array.from(items, (item) => item.sourceId),
+    ["newer", "between", "older"],
+  );
+  assert.deepEqual(
+    Array.from(items[0].thread ?? [], (reply) => reply.sourceId),
+    ["first", "newer"],
+  );
+  assert.deepEqual(
+    Array.from(items[2].thread ?? [], (reply) => reply.sourceId),
+    ["first", "older"],
+  );
+  assert.equal(items[2].id, olderId);
+  assert.equal(items[2].publishedAt, 2);
+  assert.equal(items[2].fetchedAt, 10);
+  assert.equal(store.listFeedItems()[0], items[0]);
+  assert.equal(store.listFeedItems()[2], items[2]);
+  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], [], 40);
+  assert.equal(store.listFeedItems()[0], items[0]);
+  assert.equal(store.listFeedItems()[2], items[2]);
+  assert.equal(store.listSourceIds("x").length, 3);
+  store.db.close();
+});
+
+test("continuing an older branch retains its context without a duplicate shorter branch", () => {
+  const store = openStore();
+  const first = post("first", 1);
+  const older = { ...post("older", 2), replyToSourceId: first.sourceId };
+  const sibling = { ...post("sibling", 3), replyToSourceId: first.sourceId };
+  const continuation = {
+    ...post("continuation", 4),
+    replyToSourceId: older.sourceId,
+  };
+  store.saveExtraction("x", [{ ...older, thread: [first, older] }], []);
+  store.saveExtraction("x", [{ ...sibling, thread: [first, sibling] }], []);
+  store.saveExtraction(
+    "x",
+    [{ ...continuation, thread: [older, continuation] }],
+    [],
+  );
+
+  const items = store.listFeedItems();
+  assert.deepEqual(
+    Array.from(items, (item) => item.sourceId),
+    ["continuation", "sibling"],
+  );
+  assert.deepEqual(
+    Array.from(items[0].thread ?? [], (reply) => reply.sourceId),
+    ["first", "older", "continuation"],
+  );
+  assert.deepEqual(
+    Array.from(items[1].thread ?? [], (reply) => reply.sourceId),
+    ["first", "sibling"],
+  );
+  store.db.close();
+});
+
 test("publication timestamps determine order regardless of collection discovery", () => {
   const store = openStore();
   store.saveExtraction("facebook", [post("older", 1)], [], 100);
