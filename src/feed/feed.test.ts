@@ -757,6 +757,38 @@ test("continuing an older branch retains its context without a duplicate shorter
   store.db.close();
 });
 
+test("missing or excluded parents do not pull an older sibling into a new reply", () => {
+  for (const excludeParent of [false, true]) {
+    const store = openStore();
+    const first = post("first", 1);
+    const parent = { ...post("parent", 2), replyToSourceId: first.sourceId };
+    const sibling = { ...post("sibling", 3), replyToSourceId: first.sourceId };
+    const reply = { ...post("reply", 5), replyToSourceId: parent.sourceId };
+    if (excludeParent)
+      store.saveExtraction("x", [{ ...parent, thread: [first, parent] }], []);
+    store.saveExtraction("x", [{ ...sibling, thread: [first, sibling] }], []);
+    store.saveExtraction("reddit", [post("between", 4)], []);
+    store.saveExtraction(
+      "x",
+      [{ ...reply, thread: [first, reply] }],
+      excludeParent ? [parent.sourceId] : [],
+    );
+
+    const items = store.listFeedItems();
+    assert.deepEqual(
+      Array.from(items, (item) => item.sourceId),
+      ["reply", "between", "sibling"],
+    );
+    assert.equal(items[0].thread, undefined);
+    assert.deepEqual(
+      Array.from(items[2].thread ?? [], (post) => post.sourceId),
+      ["first", "sibling"],
+    );
+    assert.equal(items[2].publishedAt, sibling.publishedAt);
+    store.db.close();
+  }
+});
+
 test("publication timestamps determine order regardless of collection discovery", () => {
   const store = openStore();
   store.saveExtraction("facebook", [post("older", 1)], [], 100);

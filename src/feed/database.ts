@@ -266,6 +266,10 @@ export function listFeedItems(): FeedItem[] {
           );
           chain = branch ?? [parent];
           if (!branch) chains.push(chain);
+        } else if (post.replyToSourceId && !parent && chain.length) {
+          // A missing parent does not connect this reply to the previous branch.
+          chain = [];
+          chains.push(chain);
         }
         chain.push(row);
         seen.set(row.source_id, row);
