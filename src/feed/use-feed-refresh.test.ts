@@ -294,6 +294,31 @@ test("returning to the feed resumes an unfinished refresh", async () => {
   assert.deepEqual(Array.from(returned.collectors), ["x", "youtube"]);
 });
 
+test("returning during collection keeps a thread visible when its staged tip changes", async () => {
+  for (const leaveFor of ["search", "background"]) {
+    const first = post("first", "x");
+    const reply = { ...post("reply", "x"), replyToSourceId: first.sourceId };
+    const previous = { ...reply, thread: [first, reply] };
+    const next = { ...post("next", "x"), replyToSourceId: reply.sourceId };
+    const updated = { ...next, thread: [first, reply, next] };
+    const app = feedHarness([previous]);
+    const run = await app.focus(true);
+    // Collectors save pages before publishing the completed refresh.
+    app.database.items = [updated];
+    if (leaveFor === "search") {
+      await app.focus(false);
+      await app.focus(true);
+    } else {
+      await app.appState("background");
+      await app.appState("active");
+    }
+    assert.equal(app.current.runId, run.runId);
+    assert.deepEqual(ids(app.current.items), [previous.id]);
+    complete(run);
+    assert.deepEqual(ids(app.render().items), [updated.id]);
+  }
+});
+
 test("an app foreground return while viewing media refreshes on returning to the feed", async () => {
   const app = feedHarness(initial);
   const first = await app.focus(true);

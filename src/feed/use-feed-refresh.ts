@@ -93,7 +93,13 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       ),
     );
     // Remove deleted posts without publishing a refresh that is still staged.
-    const savedIds = new Set(listFeedItems().map((item) => item.id));
+    const savedIds = new Set(
+      listFeedItems().flatMap((item) =>
+        (item.thread ?? [item]).map(
+          (post) => `${item.platform}:${post.sourceId}`,
+        ),
+      ),
+    );
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
     if (added || (refreshOnForeground.current && !running.current))
       begin(platforms);
