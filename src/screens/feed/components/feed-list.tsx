@@ -31,17 +31,17 @@ import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
+import {
+  type FeedPosition,
+  findPositionIndex,
+  positionFor,
+} from "@/screens/feed/feed-position";
 import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 const positionKey = "feed-position";
-
-interface FeedPosition {
-  id: string;
-  viewOffset: number;
-}
 
 interface FeedRow {
   id: string;
@@ -128,7 +128,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     const saved = Storage.getItemSync(positionKey);
     if (!saved) return undefined;
     const position: FeedPosition = JSON.parse(saved);
-    const index = rows.findIndex((row) => row.id === position.id);
+    const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
   });
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -152,10 +152,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
       viewport.current?.measureInWindow((_left, viewportY) => {
         Storage.setItemSync(
           positionKey,
-          JSON.stringify({
-            id: row.id,
-            viewOffset: rowY - viewportY,
-          } satisfies FeedPosition),
+          JSON.stringify(positionFor(row, rowY - viewportY)),
         );
       });
     });
