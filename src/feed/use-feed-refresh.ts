@@ -56,9 +56,17 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     return () => listener.remove();
   }, []);
 
-  const begin = (platforms: PlatformId[]) => {
+  const begin = (platforms: PlatformId[], restart = false) => {
+    const current = running.current;
+    const collecting = current?.queue.some(
+      (id) => !current.attention.includes(id),
+    );
+    if (collecting && !restart) return;
+    const waiting = collecting ? undefined : current;
+    const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
     const known = Object.fromEntries(
-      platforms.map((id) => {
+      queue.map((id) => {
+        if (waiting?.queue.includes(id)) return [id, waiting.known[id]];
         // Preserve even an empty boundary so interrupted initial collections can finish.
         const key = collectionKnownKey(id);
         const previous = Storage.getItemSync(key);
@@ -69,13 +77,14 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
         return [id, value];
       }),
     );
-    running.current = platforms.length
+    running.current = queue.length
       ? {
-          startedAt: performance.now(),
-          queue: platforms,
+          // Keep login collectors mounted while healthy platforms refresh again.
+          startedAt: waiting?.startedAt ?? performance.now(),
+          queue,
           known,
           results: [],
-          attention: [],
+          attention: waiting?.attention ?? [],
         }
       : undefined;
     setRun(running.current);
@@ -101,8 +110,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       ),
     );
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
-    if (added || (refreshOnForeground.current && !running.current))
-      begin(platforms);
+    if (added || refreshOnForeground.current) begin(platforms, added);
     refreshOnForeground.current = false;
   });
 
@@ -230,8 +238,6 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       setConnected(listConnectedPlatforms());
       setItems(listFeedItems());
     },
-    refresh: () => {
-      if (!run) begin(connected);
-    },
+    refresh: () => begin(connected),
   };
 }

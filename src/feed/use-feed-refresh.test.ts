@@ -510,6 +510,69 @@ test("attention retains its collector while other platforms finish and publish",
   assert.equal(app.current.attention.length, 0);
 });
 
+test("healthy platforms can refresh again while another platform waits for login", async () => {
+  for (const trigger of ["manual", "foreground"]) {
+    const app = feedHarness(initial);
+    const run = await app.focus(true);
+    run.needsAttention(run.runId!, "x", true);
+    run.finish(run.runId!, result("youtube"));
+    app.render();
+    const waitingKnown = app.current.known.x;
+
+    if (trigger === "manual") {
+      app.current.refresh();
+      app.render();
+    } else {
+      await app.appState("background");
+      await app.appState("active");
+    }
+    assert.deepEqual(Array.from(app.current.collection), ["youtube"]);
+    assert.deepEqual(Array.from(app.current.attention), ["x"]);
+    assert.equal(
+      app.current.runId,
+      run.runId,
+      "keep the login collector mounted",
+    );
+    assert.equal(app.current.known.x, waitingKnown);
+    app.database.items = incoming;
+    app.current.finish(run.runId!, result("youtube"));
+    assert.deepEqual(ids(app.render().items), ids(incoming));
+    app.current.needsAttention(run.runId!, "x", false);
+    app.render().finish(run.runId!, result("x"));
+    assert.equal(app.render().collectors.length, 0);
+  }
+});
+
+test("retrying healthy platforms retains login progress and replaces stale errors", async () => {
+  const app = feedHarness(initial);
+  const run = await app.focus(true);
+  run.needsAttention(run.runId!, "x", true);
+  run.finish(run.runId!, { ...result("youtube"), error: "Offline" });
+  app.render();
+  // Expired cookies can remove X from connected platforms while its login stays open.
+  app.database.connected = ["youtube"];
+  await app.appState("background");
+  const retry = await app.appState("active");
+  assert.deepEqual(Array.from(retry.attention), ["x"]);
+  assert.deepEqual(Array.from(retry.collection), ["youtube"]);
+  app.current.refresh();
+  assert.equal(
+    app.render().known,
+    retry.known,
+    "do not restart an active retry",
+  );
+  app.database.items = incoming;
+  retry.finish(retry.runId!, result("youtube"));
+  app.render().refresh();
+  const next = app.render();
+  assert.deepEqual(Array.from(next.known.youtube ?? []), ["new"]);
+  next.finish(next.runId!, result("youtube"));
+  next.needsAttention(next.runId!, "x", false);
+  app.render().finish(next.runId!, result("x"));
+  assert.deepEqual(Array.from(app.render().failed), []);
+  assert.deepEqual(app.errors, []);
+});
+
 test("multiple attention notices resolve independently", () => {
   const app = feedHarness(initial);
   app.current.refresh();
