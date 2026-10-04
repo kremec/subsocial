@@ -26,7 +26,7 @@ import Animated, {
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type FeedItem, type FeedPost } from "@/feed/types";
+import { type FeedItem } from "@/feed/types";
 import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedCard } from "@/screens/feed/components/feed-card";
@@ -36,38 +36,13 @@ import {
   findPositionIndex,
   positionFor,
 } from "@/screens/feed/feed-position";
+import { type FeedRow, rowsForItems } from "@/screens/feed/feed-rows";
 import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 const positionKey = "feed-position";
-
-interface FeedRow {
-  id: string;
-  item: FeedItem;
-  post?: FeedPost;
-  threadStart?: boolean;
-  threadEnd?: boolean;
-  threadGapBefore?: boolean;
-}
-
-const rowsFor = (item: FeedItem): FeedRow[] => {
-  if (!item.thread) return [{ id: item.id, item }];
-
-  const chain = item.thread;
-  return chain.map((post, index) => ({
-    id: `${item.id}:0:${post.sourceId}`,
-    item,
-    post,
-    threadStart: index === 0,
-    threadEnd: index === chain.length - 1,
-    threadGapBefore:
-      index > 0 &&
-      !!post.replyToSourceId &&
-      post.replyToSourceId !== chain[index - 1].sourceId,
-  }));
-};
 
 const getItemType = (row: FeedRow) =>
   row.post ? "thread" : row.item.media.length ? "media" : "text";
@@ -105,10 +80,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
         : items,
     [items, searchIndex, query],
   );
-  const itemRows = useMemo(
-    () => new Map(items.map((item) => [item, rowsFor(item)])),
-    [items],
-  );
+  const itemRows = useMemo(() => rowsForItems(items), [items]);
   const rows = useMemo(
     () => filteredItems.flatMap((item) => itemRows.get(item)!),
     [filteredItems, itemRows],

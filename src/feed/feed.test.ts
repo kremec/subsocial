@@ -11,6 +11,7 @@ import { CollectionProgress, feedItemLimit } from "@/feed/collection";
 import { extractedItemSchema } from "@/feed/schemas";
 import { type ExtractedItem } from "@/feed/types";
 import { type FeedPage } from "@/platforms/types";
+import { rowsForItems } from "@/screens/feed/feed-rows";
 
 // Exercise the production SQL against SQLite without requiring a native app.
 function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
@@ -878,6 +879,31 @@ test("separately ingested replies join their parents regardless of arrival order
     );
     store.db.close();
   }
+});
+
+test("ingesting new replies preserves visible row keys as their thread moves up the feed", () => {
+  const store = openStore();
+  const first = post("first", 1);
+  const reply = { ...post("reply", 2), replyToSourceId: first.sourceId };
+  const next = { ...post("next", 4), replyToSourceId: reply.sourceId };
+  store.saveExtraction("x", [first], []);
+  const standaloneKey = [...rowsForItems(store.listFeedItems()).values()][0][0]
+    .id;
+  store.saveExtraction("x", [reply], []);
+  store.saveExtraction("reddit", [post("between", 3)], []);
+  const beforeItems = store.listFeedItems();
+  const beforeRows = rowsForItems(beforeItems).get(beforeItems[1])!;
+  assert.equal(beforeRows[0].id, standaloneKey);
+
+  store.saveExtraction("x", [next], []);
+  const afterItems = store.listFeedItems();
+  const afterRows = rowsForItems(afterItems).get(afterItems[0])!;
+  assert.deepEqual(
+    afterRows.slice(0, 2).map((row) => row.id),
+    beforeRows.map((row) => row.id),
+  );
+  assert.equal(afterRows[2].post?.sourceId, next.sourceId);
+  store.db.close();
 });
 
 test("publication timestamps determine order regardless of collection discovery", () => {
