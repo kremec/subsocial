@@ -194,7 +194,11 @@ it("preserves retweet context and media while excluding live broadcasts", () => 
     },
   };
   const retweet = tweet("retweet");
-  retweet.legacy = { retweeted_status_result: { result: original } };
+  retweet.legacy = {
+    retweeted_status_result: {
+      result: { __typename: "TweetWithVisibilityResults", tweet: original },
+    },
+  };
   const broadcast = tweet("broadcast");
   broadcast.legacy = {
     entities: { urls: [{ expanded_url: "https://x.com/i/broadcasts/live" }] },
@@ -220,6 +224,35 @@ it("preserves retweet context and media while excluding live broadcasts", () => 
   assert.equal(page.items[0].media[1].aspectRatio, 16 / 9);
   assert.deepEqual(page.excludedSourceIds, ["broadcast"]);
   assert.deepEqual(page.boundarySourceIds, []);
+});
+
+it("excludes broadcast and Spaces reposts inside visibility wrappers", () => {
+  for (const path of ["broadcasts", "spaces"]) {
+    const original = tweet("live");
+    original.legacy = {
+      ...(original.legacy as JsonObject),
+      entities: { urls: [{ expanded_url: `https://x.com/i/${path}/live` }] },
+    };
+    const repost = tweet("repost");
+    repost.legacy = {
+      ...(repost.legacy as JsonObject),
+      retweeted_status_result: {
+        result: { __typename: "TweetWithVisibilityResults", tweet: original },
+      },
+    };
+    const page = xPage({
+      data: {
+        home: {
+          home_timeline_urt: {
+            instructions: [{ entries: [entry(repost)] }],
+          },
+        },
+      },
+    });
+    assert.deepEqual(page.items, []);
+    assert.deepEqual(page.excludedSourceIds, ["live"]);
+    assert.deepEqual(page.boundarySourceIds, []);
+  }
 });
 
 it("stops only on a fully known page of original tweets, including conversation members", () => {

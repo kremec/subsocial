@@ -88,7 +88,7 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         const result = candidate.tweet_results.result;
         const tweet = result?.tweet || result;
         const retweet = tweet?.legacy?.retweeted_status_result?.result;
-        const original = retweet || tweet;
+        const original = retweet?.tweet || retweet || tweet;
         const post = postFor(original);
         if (!post) continue;
         if (
