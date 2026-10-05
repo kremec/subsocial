@@ -116,6 +116,15 @@ test("Reddit maps gallery images and omits external link preview images", async 
                 },
               },
             },
+            {
+              kind: "t3",
+              data: {
+                ...post,
+                name: "t3_image",
+                url: "https://i.redd.it/image.jpg",
+                selftext: "https://preview.redd.it/another.jpg?width=100",
+              },
+            },
           ],
         },
       }),
@@ -123,6 +132,14 @@ test("Reddit maps gallery images and omits external link preview images", async 
   const page = await feed.next();
   assert.equal(page.value?.items[0].media[0].aspectRatio, 2);
   assert.deepEqual(page.value?.items[1].media, []);
+  assert.equal(
+    page.value?.items[2].media[0].url,
+    "https://i.redd.it/image.jpg",
+  );
+  assert.equal(
+    page.value?.items[2].text,
+    "https://preview.redd.it/another.jpg?width=100",
+  );
   await feed.return(undefined);
 });
 
@@ -134,4 +151,72 @@ test("Reddit rejects non-listing responses instead of reporting an empty feed", 
     fetch: async () => Response.json({ error: 403 }),
   });
   await assert.rejects(feed.next(), /Could not read Reddit feed/);
+});
+
+test("Reddit extracts embedded self-post images in text order without leaving their URLs in the body", async () => {
+  // Reduced from /r/Slovenia/comments/1wy616x: no gallery_data, metadata in reverse order.
+  const first =
+    "https://preview.redd.it/z80b21frumth1.png?width=1915&format=png&auto=webp&s=ac70a716b1b3aa3685250bee008b65ff72f1234e";
+  const second =
+    "https://preview.redd.it/pb7wm772xmth1.png?width=1708&format=png&auto=webp&s=bdf724ebe7980dcd95c0161bd1a0e6d9a43a6b45";
+  const body = "Konkretno: parkirišče Leclerc Maribor.\n\nMore text.";
+  const missing = "https://preview.redd.it/missing.png?width=100";
+  const external = "https://example.com/article";
+  const feed = redditFeed({
+    cookies: {},
+    dates: new Map(),
+    signal: new AbortController().signal,
+    fetch: async () =>
+      Response.json({
+        kind: "Listing",
+        data: {
+          after: null,
+          children: [
+            {
+              kind: "t3",
+              data: {
+                ...post,
+                selftext: `${first}\n\n${second}\n\n${body}`,
+                url: `https://www.reddit.com${post.permalink}`,
+                media_metadata: {
+                  pb7wm772xmth1: {
+                    status: "valid",
+                    s: { u: second, x: 1708, y: 1194 },
+                  },
+                  z80b21frumth1: {
+                    status: "valid",
+                    s: { u: first, x: 1915, y: 1255 },
+                  },
+                  unused: {
+                    status: "valid",
+                    s: { u: "https://i.redd.it/unused.png" },
+                  },
+                },
+              },
+            },
+            {
+              kind: "t3",
+              data: {
+                ...post,
+                name: "t3_links",
+                selftext: `${missing}\n\n${external}`,
+                media_metadata: { missing: { status: "failed" } },
+              },
+            },
+          ],
+        },
+      }),
+  });
+  const page = await feed.next();
+  assert.ok(!page.done);
+  assert.deepEqual(
+    page.value?.items[0].media.map((media) => media.url),
+    [first, second],
+  );
+  assert.equal(page.value?.items[0].media[0].aspectRatio, 1915 / 1255);
+  assert.equal(page.value?.items[0].media[1].aspectRatio, 1708 / 1194);
+  assert.equal(page.value?.items[0].text, body);
+  assert.deepEqual(page.value?.items[1].media, []);
+  assert.equal(page.value?.items[1].text, `${missing}\n\n${external}`);
+  await feed.return(undefined);
 });

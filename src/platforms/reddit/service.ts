@@ -32,23 +32,31 @@ function mediaFor(post: RedditPost): FeedMedia[] {
         aspectRatio: aspectRatio(video?.width, video?.height),
       },
     ];
-  const gallery = post.gallery_data?.items || [];
-  if (gallery.length)
-    return gallery.flatMap((entry): FeedMedia[] => {
-      const metadata = post.media_metadata?.[entry.media_id];
-      if (metadata?.status !== "valid" || !metadata.s) return [];
-      const source = metadata.s;
-      const url = source.mp4 || source.u || source.gif;
-      if (!url) return [];
-      return [
-        {
-          type: source.mp4 ? "video" : "image",
-          url,
-          playable: source.mp4 ? true : undefined,
-          aspectRatio: aspectRatio(source.x, source.y),
-        },
-      ];
-    });
+  // Text posts keep embedded media in metadata without gallery_data.
+  const gallery =
+    post.gallery_data?.items ??
+    Array.from(
+      (post.selftext ?? "").matchAll(
+        /^https:\/\/(?:i|preview)\.redd\.it\/([a-z0-9]+)\.\S+$/gm,
+      ),
+      (match) => ({ media_id: match[1] }),
+    );
+  const galleryMedia = gallery.flatMap((entry): FeedMedia[] => {
+    const metadata = post.media_metadata?.[entry.media_id];
+    if (metadata?.status !== "valid" || !metadata.s) return [];
+    const source = metadata.s;
+    const url = source.mp4 || source.u || source.gif;
+    if (!url) return [];
+    return [
+      {
+        type: source.mp4 ? "video" : "image",
+        url,
+        playable: source.mp4 ? true : undefined,
+        aspectRatio: aspectRatio(source.x, source.y),
+      },
+    ];
+  });
+  if (galleryMedia.length) return galleryMedia;
   const imageUrl = post.url_overridden_by_dest || post.url || "";
   // External link previews belong to the linked page, not the post's media.
   if (!/^https:\/\/(?:i|preview)\.redd\.it\//.test(imageUrl)) return [];
@@ -67,18 +75,26 @@ function postFor(post: RedditPost): ExtractedPost | undefined {
   if (!sourceId || !permalink.startsWith("/")) return;
   const crosspost = post.crosspost_parent_list?.[0];
   const quote = crosspost ? postFor(crosspost) : undefined;
+  const media = quote ? [] : mediaFor(post);
+  const text = media.length
+    ? post.selftext
+        ?.split("\n")
+        .filter((line) => !media.some((item) => item.url === line.trim()))
+        .join("\n")
+        .trim()
+    : post.selftext;
   return {
     sourceId,
     url: `https://www.reddit.com${permalink}`,
     authorName: post.author,
     authorHandle: post.subreddit_name_prefixed,
     title: post.title,
-    text: post.selftext || undefined,
+    text: text || undefined,
     publishedAt:
       typeof post.created_utc === "number"
         ? post.created_utc * 1000
         : undefined,
-    media: quote ? [] : mediaFor(post),
+    media,
     quote,
   };
 }
