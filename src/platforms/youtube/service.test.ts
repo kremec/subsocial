@@ -3,32 +3,63 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
+import { CollectionProgress } from "@/feed/collection";
 import { FeedAccessError } from "@/platforms/types";
 import { youtubeFeed } from "@/platforms/youtube/service";
 
+const initialData = (items: object[], mobile = false) => ({
+  contents: {
+    [mobile
+      ? "singleColumnBrowseResultsRenderer"
+      : "twoColumnBrowseResultsRenderer"]: {
+      tabs: [
+        {
+          tabRenderer: {
+            selected: true,
+            content: { richGridRenderer: { contents: items } },
+          },
+        },
+      ],
+    },
+  },
+});
 const video = (id: string) => ({
-  lockupViewModel: {
-    contentId: id,
-    contentType: "LOCKUP_CONTENT_TYPE_VIDEO",
-    metadata: {
-      lockupMetadataViewModel: {
-        title: { content: 'Video with "quotes" and } braces' },
+  richItemRenderer: {
+    content: {
+      lockupViewModel: {
+        contentId: id,
+        contentType: "LOCKUP_CONTENT_TYPE_VIDEO",
         metadata: {
-          contentMetadataViewModel: {
-            metadataRows: [
-              { metadataParts: [{ text: { content: "Channel" } }] },
-            ],
+          lockupMetadataViewModel: {
+            title: { content: 'Video with "quotes" and } braces' },
+            metadata: {
+              contentMetadataViewModel: {
+                metadataRows: [
+                  { metadataParts: [{ text: { content: "Channel" } }] },
+                ],
+              },
+            },
           },
         },
       },
     },
   },
 });
+const continuation = (token: string) => ({
+  continuationItemRenderer: {
+    continuationEndpoint: { continuationCommand: { token } },
+  },
+});
+const shelf = (items: object[]) => ({
+  richSectionRenderer: {
+    content: { richShelfRenderer: { contents: items } },
+  },
+});
 const html = (items: object[]) =>
   Object.defineProperty(
     new Response(
       '<script>ytcfg.set({"LOGGED_IN":true,"INNERTUBE_CONTEXT":{"client":{"clientName":"WEB"}}});</script>' +
-        `<script>var ytInitialData = ${JSON.stringify({ contents: items })};</script>`,
+        `<script>var ytInitialData = ${JSON.stringify(initialData(items))};</script>`,
     ),
     "url",
     { value: "https://www.youtube.com/feed/subscriptions" },
@@ -65,6 +96,46 @@ test("YouTube yields cached dates without fetching older video metadata after th
   assert.equal(calls.length, 1);
 });
 
+test("YouTube skips shelves and stops at the first known chronological video", async () => {
+  const calls: string[] = [];
+  const progress = new CollectionProgress(new Set(["known"]));
+  const feed = youtubeFeed({
+    signal: new AbortController().signal,
+    cookies: { SAPISID: "session" },
+    dates: new Map([["known", 1000]]),
+    fetch: async (url, init) => {
+      calls.push(url);
+      if (!init?.method)
+        return html([
+          shelf([video("known"), video("featured"), continuation("shelf")]),
+          { reelShelfRenderer: { items: [video("short")] } },
+          video("new"),
+          video("known"),
+          video("older"),
+        ]);
+      assert.equal(JSON.parse(String(init.body)).videoId, "new");
+      return Response.json({
+        microformat: {
+          playerMicroformatRenderer: { publishDate: "2026-10-06T09:30:00Z" },
+        },
+      });
+    },
+  });
+  const ids: string[] = [];
+  let stopped = false;
+  for await (const page of feed) {
+    const batch = progress.accept(page);
+    ids.push(...batch.items.map((item) => item.sourceId));
+    if (batch.stop) {
+      stopped = true;
+      break;
+    }
+  }
+  assert.deepEqual(ids, ["new", "known"]);
+  assert.equal(stopped, true);
+  assert.equal(calls.length, 2);
+});
+
 test("YouTube yields exclusions before a known video can stop collection", async () => {
   const upcoming = video("upcoming");
   const live = {
@@ -98,7 +169,7 @@ test("YouTube yields exclusions before a known video can stop collection", async
 
 test("YouTube reads publication metadata and follows the returned continuation once", async () => {
   const endpoints: string[] = [];
-  const dates = new Map<string, number>();
+  const dates = new Map([["continued", 1000]]);
   const feed = youtubeFeed({
     signal: new AbortController().signal,
     cookies: { SAPISID: "session" },
@@ -108,11 +179,8 @@ test("YouTube reads publication metadata and follows the returned continuation o
       if (!init?.method)
         return html([
           video("new"),
-          {
-            continuationItemRenderer: {
-              continuationEndpoint: { continuationCommand: { token: "next" } },
-            },
-          },
+          continuation("next"),
+          shelf([video("featured"), continuation("shelf")]),
         ]);
       if (url.includes("/player?"))
         return Response.json({
@@ -123,12 +191,23 @@ test("YouTube reads publication metadata and follows the returned continuation o
           },
         });
       assert.equal(JSON.parse(String(init.body)).continuation, "next");
-      return Response.json({ onResponseReceivedActions: [] });
+      return Response.json({
+        onResponseReceivedActions: [
+          {
+            appendContinuationItemsAction: {
+              continuationItems: [video("continued")],
+            },
+          },
+        ],
+      });
     },
   });
   const pages = [];
   for await (const page of feed) pages.push(page);
-  assert.equal(pages.flatMap((page) => page.items).length, 1);
+  assert.deepEqual(
+    pages.flatMap((page) => page.items.map((item) => item.sourceId)),
+    ["new", "continued"],
+  );
   assert.equal(dates.get("new"), Date.parse("2026-09-11T09:30:00Z"));
   assert.equal(pages.at(-1)?.end, true);
   assert.equal(endpoints.length, 3);
@@ -141,17 +220,7 @@ test("YouTube reports malformed continuation responses instead of completing the
       cookies: { SAPISID: "session" },
       dates: new Map(),
       fetch: async (_url, init) =>
-        init?.method
-          ? Response.json(body)
-          : html([
-              {
-                continuationItemRenderer: {
-                  continuationEndpoint: {
-                    continuationCommand: { token: "next" },
-                  },
-                },
-              },
-            ]),
+        init?.method ? Response.json(body) : html([continuation("next")]),
     });
     await assert.rejects(async () => {
       for await (const _page of feed) {
@@ -194,7 +263,7 @@ test("YouTube recovers stored undated posts even when absent from the subscripti
 });
 
 test("YouTube reads hex-escaped initial data from mobile pages", async () => {
-  const data = JSON.stringify({ contents: [video("known")] });
+  const data = JSON.stringify(initialData([video("known")], true));
   const encoded = [...data]
     .map(
       (character) =>
@@ -249,15 +318,11 @@ test("YouTube reads mobile videos and authenticates metadata and pagination for 
               shortBylineText: { runs: [{ text: "Mobile channel" }] },
             },
           },
-          {
-            continuationItemRenderer: {
-              continuationEndpoint: { continuationCommand: { token: "next" } },
-            },
-          },
+          continuation("next"),
         ];
         return Object.defineProperty(
           new Response(
-            `<script>ytcfg.set(${JSON.stringify(config)});var ytInitialData = ${JSON.stringify({ contents })};</script>`,
+            `<script>ytcfg.set(${JSON.stringify(config)});var ytInitialData = ${JSON.stringify(initialData(contents, true))};</script>`,
           ),
           "url",
           { value: "https://m.youtube.com/feed/subscriptions" },

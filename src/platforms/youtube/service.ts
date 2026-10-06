@@ -27,7 +27,13 @@ import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-
 function videos(data: Json) {
   const found = new Map<string, JsonObject>();
   let continuation = "";
-  for (const node of objects(data)) {
+  const visit = (value: Json | undefined) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    const node = object(value);
     const lockup = object(node.lockupViewModel);
     const renderer = object(
       node.videoRenderer || node.videoWithContextRenderer,
@@ -35,10 +41,50 @@ function videos(data: Json) {
     const video =
       lockup.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" ? lockup : renderer;
     const id = string(video.contentId) || string(video.videoId);
-    if (id) found.set(id, video);
-    const token = string(object(node.continuationCommand).token);
+    if (id) {
+      found.set(id, video);
+      return;
+    }
+    const token = string(
+      object(
+        object(object(node.continuationItemRenderer).continuationEndpoint)
+          .continuationCommand,
+      ).token,
+    );
     if (token) continuation = token;
-  }
+    const browse = object(
+      node.twoColumnBrowseResultsRenderer ||
+        node.singleColumnBrowseResultsRenderer,
+    );
+    if (Array.isArray(browse.tabs)) {
+      for (const tab of browse.tabs) {
+        const renderer = object(object(tab).tabRenderer);
+        if (renderer.selected === true) visit(renderer.content);
+      }
+    }
+    visit(object(node.richItemRenderer).content);
+    // Follow feed containers only. Featured and Shorts shelves are not chronological.
+    for (const key of [
+      "richGridRenderer",
+      "richGridContinuation",
+      "sectionListRenderer",
+      "sectionListContinuation",
+      "itemSectionRenderer",
+      "itemSectionContinuation",
+      "gridRenderer",
+      "gridContinuation",
+      "appendContinuationItemsAction",
+      "reloadContinuationItemsCommand",
+    ]) {
+      const renderer = object(node[key]);
+      visit(renderer.contents || renderer.items || renderer.continuationItems);
+    }
+  };
+  const response = object(data);
+  visit(response.contents);
+  visit(response.onResponseReceivedActions);
+  visit(response.onResponseReceivedEndpoints);
+  visit(response.continuationContents);
   return { found, continuation };
 }
 
