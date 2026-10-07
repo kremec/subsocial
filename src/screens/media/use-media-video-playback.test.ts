@@ -183,6 +183,41 @@ test("route focus preserves a manually paused video", async () => {
   assert.equal(app.counts.plays, 1);
 });
 
+test("Android replacement waits for readiness and retains autoplay across focus changes", async () => {
+  const app = harness();
+  app.player.status = "loading";
+  app.positions.set("first.mp4", 12);
+  const hook = await app.mount();
+  await act(() => app.replacements[0]!.resolve());
+  assert.equal(hook.result.current?.url, undefined);
+  assert.equal(app.counts.plays, 0);
+  assert.equal(app.player.currentTime, 0);
+
+  await hook.update({ active: false });
+  app.player.status = "readyToPlay";
+  await act(() => app.emit("statusChange"));
+  assert.equal(hook.result.current?.url, "first.mp4");
+  assert.equal(app.player.currentTime, 12);
+  assert.equal(app.counts.plays, 0);
+
+  await hook.update({ active: true });
+  assert.equal(app.counts.plays, 1);
+  await act(() => app.emit("statusChange"));
+  assert.equal(app.counts.plays, 1);
+});
+
+test("Android load errors after replacement are reported before readiness", async () => {
+  const app = harness();
+  app.player.status = "loading";
+  const hook = await app.mount();
+  await act(() => app.replacements[0]!.resolve());
+  app.player.status = "error";
+  await act(() => app.emit("statusChange"));
+  assert.equal(app.counts.errors, 1);
+  assert.equal(hook.result.current, undefined);
+  assert.equal(app.counts.plays, 0);
+});
+
 test("a load completed while inactive waits for route focus", async () => {
   const app = harness();
   const hook = await app.mount();

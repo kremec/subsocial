@@ -42,7 +42,7 @@ export function useMediaVideoPlayback(
       previous.current?.playbackKey !== playbackKey ||
       previous.current?.shouldPlay;
     const positions = playbackPositionsFor(player);
-    let phase: "loading" | "ready" | "disposed" = "loading";
+    let phase: "replacing" | "loading" | "ready" | "disposed" = "replacing";
     let selectedAudioTrack: AudioTrack | undefined;
     const selectAudioTrack = () => {
       if (!preferredAudioTrack) return;
@@ -63,22 +63,31 @@ export function useMediaVideoPlayback(
         if (phase === "ready") selectAudioTrack();
       },
     );
-    const listener = player.addListener("statusChange", ({ status }) => {
-      if (phase === "ready" && status === "error") reportError();
-    });
-    void player.replaceAsync({ uri: url, contentType }).then(
-      () => {
-        if (phase === "disposed") return;
+    const finishLoading = () => {
+      if (phase === "loading") {
         if (player.status === "error") {
           reportError();
           return;
         }
+        if (player.status !== "readyToPlay") return;
         phase = "ready";
         selectAudioTrack();
         const position = positions.get(playbackKey);
         if (position !== undefined) player.currentTime = position;
         setLoaded({ playbackKey, url });
         if (shouldPlay) startPlayback();
+      }
+    };
+    const listener = player.addListener("statusChange", ({ status }) => {
+      if (phase === "ready" && status === "error") reportError();
+      else finishLoading();
+    });
+    void player.replaceAsync({ uri: url, contentType }).then(
+      () => {
+        if (phase === "disposed") return;
+        // Android resolves replacement after prepare(), before buffering ends.
+        phase = "loading";
+        finishLoading();
       },
       () => {
         if (phase !== "disposed") reportError();
