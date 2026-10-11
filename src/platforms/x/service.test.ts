@@ -121,6 +121,59 @@ describe("X API feed", () => {
       new RegExp("X feed unavailable"),
     );
   });
+  it("preserves visible conversation context across omitted replies", () => {
+    const reply = tweet("reply");
+    reply.legacy = {
+      ...(reply.legacy as JsonObject),
+      in_reply_to_status_id_str: "omitted",
+    };
+    const last = tweet("last");
+    last.legacy = {
+      ...(last.legacy as JsonObject),
+      in_reply_to_status_id_str: "reply",
+    };
+    const sibling = tweet("sibling");
+    sibling.legacy = {
+      ...(sibling.legacy as JsonObject),
+      in_reply_to_status_id_str: "root",
+    };
+    const page = xPage({
+      data: {
+        home: {
+          home_timeline_urt: {
+            instructions: [
+              {
+                entries: [
+                  {
+                    content: {
+                      items: [tweet("root"), reply, last, sibling].map(
+                        (result) => ({
+                          item: { itemContent: { tweet_results: { result } } },
+                        }),
+                      ),
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+    assert.deepEqual(
+      page.items[0].thread?.map((post) => [
+        post.sourceId,
+        post.replyToSourceId,
+        post.threadContextSourceId,
+      ]),
+      [
+        ["root", undefined, undefined],
+        ["reply", "omitted", "root"],
+        ["last", "reply", undefined],
+        ["sibling", "root", undefined],
+      ],
+    );
+  });
 });
 
 it("stops on alternating continuation cursors", async () => {

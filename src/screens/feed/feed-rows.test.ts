@@ -58,6 +58,22 @@ test("sibling and nested branches keep distinct stable parent keys when extended
   assert.notEqual(before[2].id, before[4].id);
 });
 
+test("three nested sibling branches keep unique keys when their shared ancestors are repeated", () => {
+  const before = rowsFor(branch(1, 2, 5), branch(1, 2, 4), branch(1, 2, 3));
+  const after = rowsFor(
+    branch(1, 2, 3, 8),
+    branch(1, 2, 4, 7),
+    branch(1, 2, 5, 6),
+  );
+  assert.equal(new Set(before.map((row) => row.id)).size, before.length);
+  assert.equal(new Set(after.map((row) => row.id)).size, after.length);
+  for (const row of before) {
+    const index = findPositionIndex(after, positionFor(row, -12));
+    assert.equal(after[index].id, row.id);
+    assert.equal(after[index].post?.sourceId, row.post?.sourceId);
+  }
+});
+
 test("bookmarks made with tip-based row keys recover the same branch occurrence", () => {
   const items = [branch(1, 3), branch(1, 2)];
   const before = items.flatMap((item) =>

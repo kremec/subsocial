@@ -16,6 +16,7 @@ import { rowsForItems } from "@/screens/feed/feed-rows";
 // Exercise the production SQL against SQLite without requiring a native app.
 function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
   const reads: number[] = [];
+  const queries: string[] = [];
   const statements: string[] = [];
   let opens = 0;
   const database = {
@@ -25,6 +26,7 @@ function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
     },
     getFirstSync: (sql: string) => db.prepare(sql).get(),
     getAllSync: (sql: string, ...params: string[]) => {
+      queries.push(sql);
       const rows = db.prepare(sql).all(...params);
       reads.push(rows.length);
       return rows;
@@ -79,6 +81,7 @@ function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
     ...exports,
     db,
     reads,
+    queries,
     statements,
     get opens() {
       return opens;
@@ -104,7 +107,7 @@ test("database imports do not open or migrate until explicit initialization", ()
   );
   store.initializeDatabase();
   assert.equal(store.opens, 1);
-  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 3);
   assert.deepEqual(Array.from(store.listFeedItems()), []);
   store.db.close();
 });
@@ -179,17 +182,17 @@ test("failed migrations roll back schema, data, indexes, and version before retr
   );
   store.initializeDatabase();
   assert.equal(store.opens, 1);
-  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 3);
   assert.equal(store.listFeedItems().length, 2);
   db.close();
 });
 
 test("startup rejects a newer database without changing its schema or version", () => {
   const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA user_version = 3");
+  db.exec("PRAGMA user_version = 4");
   const store = openStore(db, false);
   assert.throws(() => store.initializeDatabase(), /newer version/);
-  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 3);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 4);
   assert.equal(
     db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!.count,
     0,
@@ -237,12 +240,68 @@ test("upgrading version 1 connects saved replies without losing media or first-s
       .all(),
     before,
   );
-  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 2);
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 3);
   assert.ok(
     store.db
       .prepare("SELECT name FROM sqlite_master WHERE name = 'feed_items_reply'")
       .get(),
   );
+  store.db.close();
+});
+
+test("upgrading version 2 adds the context index without rewriting saved posts", () => {
+  const store = openStore();
+  store.saveExtraction(
+    "youtube",
+    [
+      {
+        ...post("video", 1),
+        media: [
+          {
+            type: "video",
+            url: "https://example.com/playback.mp4",
+            posterUrl: "https://example.com/poster.jpg",
+            contentType: "progressive",
+            playable: true,
+          },
+        ],
+      },
+    ],
+    [],
+    10,
+  );
+  const before = store.db.prepare("SELECT * FROM feed_items").all();
+  store.db.exec(
+    "DROP INDEX feed_items_thread_context; PRAGMA user_version = 2;",
+  );
+  store.initializeDatabase();
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 3);
+  assert.deepEqual(store.db.prepare("SELECT * FROM feed_items").all(), before);
+  assert.ok(
+    store.db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE name = 'feed_items_thread_context'",
+      )
+      .get(),
+  );
+  store.db.close();
+});
+
+test("reply and thread context lookups use expression indexes instead of scanning platform posts", () => {
+  const store = openStore();
+  store.saveExtraction("x", [post("first", 1)], []);
+  const query = store.queries.at(-1)!;
+  const plan = store.db
+    .prepare(`EXPLAIN QUERY PLAN ${query}`)
+    .all('["x:first"]', "x", '["first"]', "x", '["first"]');
+  for (const index of ["feed_items_reply", "feed_items_thread_context"])
+    assert.ok(
+      plan.some(
+        (row) =>
+          String(row.detail).includes(index) &&
+          String(row.detail).includes("<expr>=?"),
+      ),
+    );
   store.db.close();
 });
 
@@ -462,7 +521,7 @@ test("the first migration normalizes YouTube media after flattening either legac
     assert.equal(media.url, legacy.media[0].posterUrl);
     assert.equal(media.contentType, undefined);
     assert.ok(!("expiresAt" in media));
-    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 2);
+    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 3);
     db.close();
   }
 });
@@ -807,35 +866,117 @@ test("continuing an older branch retains its context without a duplicate shorter
   store.db.close();
 });
 
-test("missing or excluded parents do not pull an older sibling into a new reply", () => {
-  for (const excludeParent of [false, true]) {
+test("gapped X conversations retain root context through partial refreshes and gap filling", () => {
+  const first = post("first", 1);
+  const middle = { ...post("middle", 2), replyToSourceId: first.sourceId };
+  const reply = {
+    ...post("reply", 3),
+    replyToSourceId: middle.sourceId,
+    threadContextSourceId: first.sourceId,
+  };
+  const last = { ...post("last", 4), replyToSourceId: reply.sourceId };
+  for (const arrivals of [
+    [{ ...last, thread: [first, reply, last] }],
+    [last, reply, first],
+  ]) {
     const store = openStore();
-    const first = post("first", 1);
-    const parent = { ...post("parent", 2), replyToSourceId: first.sourceId };
-    const sibling = { ...post("sibling", 3), replyToSourceId: first.sourceId };
-    const reply = { ...post("reply", 5), replyToSourceId: parent.sourceId };
-    if (excludeParent)
-      store.saveExtraction("x", [{ ...parent, thread: [first, parent] }], []);
-    store.saveExtraction("x", [{ ...sibling, thread: [first, sibling] }], []);
-    store.saveExtraction("reddit", [post("between", 4)], []);
+    for (const item of arrivals) store.saveExtraction("x", [item], []);
     store.saveExtraction(
       "x",
-      [{ ...reply, thread: [first, reply] }],
-      excludeParent ? [parent.sourceId] : [],
+      [{ ...post("reply", 3), replyToSourceId: middle.sourceId }],
+      [],
+    );
+    const items = store.listFeedItems();
+    assert.equal(items.length, 1);
+    assert.deepEqual(
+      Array.from(items[0].thread ?? [], (post) => post.sourceId),
+      ["first", "reply", "last"],
+    );
+    const rows = rowsForItems(items).get(items[0])!;
+    assert.deepEqual(
+      Array.from(rows, (row) => row.threadGapBefore),
+      [false, true, false],
     );
 
-    const items = store.listFeedItems();
+    store.saveExtraction("x", [middle], []);
+    const filled = store.listFeedItems();
+    assert.equal(filled.length, 1);
     assert.deepEqual(
-      Array.from(items, (item) => item.sourceId),
-      ["reply", "between", "sibling"],
+      Array.from(filled[0].thread ?? [], (post) => post.sourceId),
+      ["first", "middle", "reply", "last"],
     );
-    assert.equal(items[0].thread, undefined);
-    assert.deepEqual(
-      Array.from(items[2].thread ?? [], (post) => post.sourceId),
-      ["first", "sibling"],
+    assert.equal(
+      rowsForItems(filled)
+        .get(filled[0])!
+        .some((row) => row.threadGapBefore),
+      false,
     );
-    assert.equal(items[2].publishedAt, sibling.publishedAt);
     store.db.close();
+  }
+});
+
+test("nested sibling replies retain all their ancestors without borrowing another branch", () => {
+  const store = openStore();
+  const first = post("first", 1);
+  const parent = { ...post("parent", 2), replyToSourceId: first.sourceId };
+  const older = { ...post("older", 3), replyToSourceId: parent.sourceId };
+  const newer = { ...post("newer", 4), replyToSourceId: parent.sourceId };
+  store.saveExtraction("x", [{ ...older, thread: [first, parent, older] }], []);
+  store.saveExtraction("x", [newer], []);
+  const items = store.listFeedItems();
+  assert.deepEqual(
+    Array.from(items, (item) =>
+      Array.from(item.thread ?? [], (post) => post.sourceId),
+    ),
+    [
+      ["first", "parent", "newer"],
+      ["first", "parent", "older"],
+    ],
+  );
+  store.db.close();
+});
+
+test("missing or excluded parents preserve explicit context without pulling in an older sibling", () => {
+  for (const suppliedContext of [false, true]) {
+    for (const excludeParent of [false, true]) {
+      const store = openStore();
+      const first = post("first", 1);
+      const parent = { ...post("parent", 2), replyToSourceId: first.sourceId };
+      const sibling = {
+        ...post("sibling", 3),
+        replyToSourceId: first.sourceId,
+      };
+      const reply = {
+        ...post("reply", 5),
+        replyToSourceId: parent.sourceId,
+        threadContextSourceId: suppliedContext ? first.sourceId : undefined,
+      };
+      if (excludeParent)
+        store.saveExtraction("x", [{ ...parent, thread: [first, parent] }], []);
+      store.saveExtraction("x", [{ ...sibling, thread: [first, sibling] }], []);
+      store.saveExtraction("reddit", [post("between", 4)], []);
+      store.saveExtraction(
+        "x",
+        [{ ...reply, thread: [first, reply] }],
+        excludeParent ? [parent.sourceId] : [],
+      );
+
+      const items = store.listFeedItems();
+      assert.deepEqual(
+        Array.from(items, (item) => item.sourceId),
+        ["reply", "between", "sibling"],
+      );
+      assert.deepEqual(
+        items[0].thread && Array.from(items[0].thread, (post) => post.sourceId),
+        suppliedContext ? ["first", "reply"] : undefined,
+      );
+      assert.deepEqual(
+        Array.from(items[2].thread ?? [], (post) => post.sourceId),
+        ["first", "sibling"],
+      );
+      assert.equal(items[2].publishedAt, sibling.publishedAt);
+      store.db.close();
+    }
   }
 });
 

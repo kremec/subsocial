@@ -33,6 +33,8 @@ export const feedAttachmentSchema = z.object({
 export const feedPostSchema = z.object({
   sourceId: z.string().min(1).optional(),
   replyToSourceId: z.string().min(1).optional(),
+  // Visible predecessor supplied by a conversation module across a reply gap.
+  threadContextSourceId: z.string().min(1).optional(),
   authorName: z.string().optional(),
   authorHandle: z.string().optional(),
   title: z.string().optional(),

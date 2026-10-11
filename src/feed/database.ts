@@ -19,7 +19,7 @@ interface FeedItemRow {
   thread_id: string;
 }
 
-const databaseVersion = 2;
+const databaseVersion = 3;
 export let database: SQLiteDatabase;
 
 export function initializeDatabase(): void {
@@ -51,6 +51,8 @@ function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
     ...post,
     publishedAt: post.publishedAt ?? previous.publishedAt,
     replyToSourceId: post.replyToSourceId ?? previous.replyToSourceId,
+    threadContextSourceId:
+      post.threadContextSourceId ?? previous.threadContextSourceId,
     media: media?.map((item, index) => {
       const loaded = previous.media?.[index];
       if (
@@ -112,14 +114,21 @@ function savePosts(
         if (!excluded.has(post.sourceId))
           posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
       const relatedIds = new Set(posts.keys());
-      for (const post of posts.values())
+      for (const post of posts.values()) {
         if (post.replyToSourceId) relatedIds.add(post.replyToSourceId);
+        if (post.threadContextSourceId)
+          relatedIds.add(post.threadContextSourceId);
+      }
       const previous = connection.getAllSync<FeedItemRow>(
         `SELECT * FROM feed_items
          WHERE id IN (SELECT value FROM json_each(?))
            OR (platform = ? AND json_extract(item_json, '$.replyToSourceId')
+             IN (SELECT value FROM json_each(?)))
+           OR (platform = ? AND json_extract(item_json, '$.threadContextSourceId')
              IN (SELECT value FROM json_each(?)))`,
         JSON.stringify([...relatedIds].map((id) => `${platform}:${id}`)),
+        platform,
+        JSON.stringify([...posts.keys()]),
         platform,
         JSON.stringify([...posts.keys()]),
       );
@@ -162,6 +171,10 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
   if (version === databaseVersion) return;
 
   connection.withTransactionSync(() => {
+    if (version === 2) {
+      migrateThreadContext(connection);
+      return;
+    }
     if (version === 1) {
       migrateReplyRelationships(connection);
       return;
@@ -259,7 +272,15 @@ function migrateReplyRelationships(connection: SQLiteDatabase): void {
       true,
     );
   }
-  connection.execSync(`PRAGMA user_version = ${databaseVersion}`);
+  migrateThreadContext(connection);
+}
+
+function migrateThreadContext(connection: SQLiteDatabase): void {
+  connection.execSync(`
+    CREATE INDEX IF NOT EXISTS feed_items_thread_context
+      ON feed_items (platform, json_extract(item_json, '$.threadContextSourceId'));
+    PRAGMA user_version = ${databaseVersion};
+  `);
 }
 
 const cachedItems = new Map<string, { key: string; items: FeedItem[] }>();
@@ -292,12 +313,17 @@ export function listFeedItems(): FeedItem[] {
       const seen = new Map<string, FeedItemRow>();
       for (const row of ordered) {
         const post = postFromRow(row);
-        const parent = post.replyToSourceId && seen.get(post.replyToSourceId);
+        const parent =
+          (post.replyToSourceId && seen.get(post.replyToSourceId)) ||
+          (post.threadContextSourceId && seen.get(post.threadContextSourceId));
         if (parent && parent !== chain.at(-1)) {
           const branch = chains.find(
             (candidate) => candidate.at(-1) === parent,
           );
-          chain = branch ?? [parent];
+          const ancestry = chains.find((candidate) =>
+            candidate.includes(parent),
+          )!;
+          chain = branch ?? ancestry.slice(0, ancestry.indexOf(parent) + 1);
           if (!branch) chains.push(chain);
         } else if (post.replyToSourceId && !parent && chain.length) {
           // A missing parent does not connect this reply to the previous branch.

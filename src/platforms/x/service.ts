@@ -111,6 +111,15 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         group.push({ ...post, media: post.media || [] });
       }
       if (group.length) {
+        for (const [index, post] of group.entries()) {
+          const previous = group[index - 1];
+          if (
+            previous &&
+            post.replyToSourceId &&
+            !seen.has(post.replyToSourceId)
+          )
+            post.threadContextSourceId = previous.sourceId;
+        }
         const latest = group.reduce((left, right) =>
           (right.publishedAt || 0) > (left.publishedAt || 0) ? right : left,
         );
