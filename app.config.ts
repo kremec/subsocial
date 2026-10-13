@@ -3,7 +3,7 @@ const IS_DEV = process.env.APP_VARIANT === "development";
 export default {
   name: IS_DEV ? "subsocial (DEV)" : "subsocial",
   slug: "subsocial",
-  version: "0.1.6",
+  version: "0.1.7",
   runtimeVersion: {
     policy: "fingerprint",
   },
