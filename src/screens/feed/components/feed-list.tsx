@@ -147,6 +147,11 @@ export const FeedList: FC<FeedListProps> = (props) => {
   ) => {
     const visible = info.viewableItems.filter((row) => row.isViewable);
     readingRowId.current = visible[0]?.item.id;
+    const state = list.current?.getState();
+    if (state && state.scroll <= state.scrollLength * 2) {
+      previousScrollY.current = state.scroll;
+      setShowBackToTop(false);
+    }
     updateVideoVisibility();
   };
 
@@ -160,16 +165,17 @@ export const FeedList: FC<FeedListProps> = (props) => {
       <LegendList
         ref={list}
         initialScrollIndex={initialScrollIndex}
-        onScroll={(event) => {
-          const { contentOffset, layoutMeasurement } = event.nativeEvent;
+        onScroll={() => {
           updateVideoVisibility();
-          const delta = contentOffset.y - previousScrollY.current;
-          if (contentOffset.y <= layoutMeasurement.height * 2) {
+          const state = list.current?.getState();
+          if (!state) return;
+          const delta = state.scroll - previousScrollY.current;
+          if (state.scroll <= state.scrollLength * 2) {
             setShowBackToTop(false);
           } else if (Math.abs(delta) > 2) {
             setShowBackToTop(delta < 0);
           }
-          if (Math.abs(delta) > 2) previousScrollY.current = contentOffset.y;
+          if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
         }}
         scrollEventThrottle={16}
         onContentSizeChange={() => updateVideoVisibility()}
@@ -214,7 +220,9 @@ export const FeedList: FC<FeedListProps> = (props) => {
         )}
         viewabilityConfig={viewabilityConfig}
         onViewableItemsChanged={onViewableItemsChanged}
-        maintainVisibleContentPosition={searching ? false : { data: true }}
+        maintainVisibleContentPosition={
+          searching ? false : { data: true, size: false }
+        }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator
