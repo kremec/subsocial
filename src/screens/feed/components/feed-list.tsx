@@ -220,9 +220,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
         )}
         viewabilityConfig={viewabilityConfig}
         onViewableItemsChanged={onViewableItemsChanged}
-        maintainVisibleContentPosition={
-          searching ? false : { data: true, size: false }
-        }
+        maintainVisibleContentPosition={!searching}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator

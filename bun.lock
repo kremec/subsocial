@@ -6,7 +6,7 @@
       "name": "subsocial",
       "dependencies": {
         "@expo/ui": "~57.0.22",
-        "@legendapp/list": "3.3.10",
+        "@legendapp/list": "3.6.0",
         "@noble/hashes": "^2.4.0",
         "@preeternal/react-native-cookie-manager": "^6.4.0",
         "@tabler/icons-react-native": "^3.44.0",
@@ -53,6 +53,7 @@
   },
   "patchedDependencies": {
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
+    "@legendapp/list@3.6.0": "patches/@legendapp%2Flist@3.6.0.patch",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
@@ -297,7 +298,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@legendapp/list": ["@legendapp/list@3.3.10", "", { "dependencies": { "use-sync-external-store": "^1.5.0" }, "peerDependencies": { "react": "*", "react-dom": "*", "react-native": "*" }, "optionalPeers": ["react-dom", "react-native"] }, "sha512-S8cwV11oJJD2m47JoRnCmlgbUrnY/f48TPL1zl1C3wwyrvru53Zf1NtYFlMtAU6lUKh/cU9RIffLI7unbf3kmg=="],
+    "@legendapp/list": ["@legendapp/list@3.6.0", "", { "dependencies": { "use-sync-external-store": "^1.5.0" }, "peerDependencies": { "react": "*", "react-dom": "*", "react-native": "*" }, "optionalPeers": ["react-dom", "react-native"] }, "sha512-ndGQjSYdA32LWErJYbXEm4+eta+4bo0NxQO7eA3Xcvh0rXSb1mTGPbUtUkpea5w4MYciLKaE+0hoPxlMcaMtrw=="],
 
     "@noble/hashes": ["@noble/hashes@2.4.0", "", {}, "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA=="],
 

@@ -55,3 +55,10 @@ The backup includes saved posts and media metadata, but not login cookies or app
 
 The app keeps the newest 500 feed groups per platform, including complete threads.
 Older posts are removed as new ones arrive, so the saved feed is a recent cache rather than an archive.
+
+## Development
+
+Bun patches LegendList 3.6.0 so Fabric updates the content dimensions together with row positions
+and the scroll anchor. Separate animated dimension updates caused a brief jump when platforms
+were shown or hidden. Keep the patch until an upstream release fixes this behavior, and check
+scrolled platform toggles frame by frame before removing it.
