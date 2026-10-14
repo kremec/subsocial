@@ -366,11 +366,15 @@ test("fullscreen YouTube retries resolve a fresh stream and verification opens t
     url: "https://example.com/old.m3u8",
     contentType: "hls",
   };
-  const screen = await mount(0, [{ ...media[1]!, url: initial.url }], {
-    platform: "youtube",
-    sourceId: "video-source-id",
-    resolution: initial,
-  });
+  const screen = await mount(
+    0,
+    [{ ...media[1]!, url: initial.url, aspectRatio: 2 }],
+    {
+      platform: "youtube",
+      sourceId: "video-source-id",
+      resolution: initial,
+    },
+  );
   const video = () => screen.find("FeedVideo")[0]!;
   assert.equal(screen.requests.length, 0);
   assert.equal(video().props.media.url, initial.url);
@@ -392,7 +396,6 @@ test("fullscreen YouTube retries resolve a fresh stream and verification opens t
     url: "https://example.com/new.m3u8",
     contentType: "hls",
     preferredAudioTrack: "English original",
-    aspectRatio: 16 / 9,
   };
   await act(() => screen.requests[1]!.resolve(renewed));
   assert.equal(video().props.media.url, renewed.url);
@@ -400,7 +403,7 @@ test("fullscreen YouTube retries resolve a fresh stream and verification opens t
     video().props.media.preferredAudioTrack,
     renewed.preferredAudioTrack,
   );
-  assert.equal(video().props.media.aspectRatio, renewed.aspectRatio);
+  assert.equal(video().props.media.aspectRatio, 2);
   assert.equal(video().props.playbackKey, "post:0");
   assert.equal(video().props.playbackStatus, undefined);
 });

@@ -86,7 +86,6 @@ test("applies an ephemeral stream only to YouTube's first media item", () => {
     url: "https://rr1.googlevideo.com/videoplayback?id=video",
     contentType: "progressive",
     preferredAudioTrack: "English - original",
-    aspectRatio: 16 / 9,
   });
   assert.equal(
     resolved.media[0].url,
@@ -94,7 +93,7 @@ test("applies an ephemeral stream only to YouTube's first media item", () => {
   );
   assert.equal(resolved.media[0].contentType, "progressive");
   assert.equal(resolved.media[0].preferredAudioTrack, "English - original");
-  assert.equal(resolved.media[0].aspectRatio, 16 / 9);
+  assert.equal(resolved.media[0].aspectRatio, undefined);
   assert.equal(resolved.media[1], video.media[1]);
   assert.equal(withYouTubeStream(video, { status: "error" }), video);
   const instagram = item("instagram", "instagram");
@@ -108,7 +107,7 @@ test("applies an ephemeral stream only to YouTube's first media item", () => {
   );
 });
 
-test("preserves the saved aspect ratio when playback dimensions are absent", () => {
+test("preserves saved media dimensions when applying playback", () => {
   const video = item("video");
   video.media[0].aspectRatio = 16 / 9;
   assert.equal(

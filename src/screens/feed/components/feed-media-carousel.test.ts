@@ -11,8 +11,15 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { JsxEmit, ModuleKind, transpileModule } from "typescript";
 
+import { platformIdSchema } from "@/feed/schemas";
 import { type FeedMedia, type PlatformId } from "@/feed/types";
+import { withYouTubeStream } from "@/platforms/youtube/media";
 import { type FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
+import {
+  type FeedVideo,
+  type PlaybackStatus,
+} from "@/screens/feed/components/feed-video";
+import { type FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { type MediaAlbumContext } from "@/screens/media/media-video-provider";
 import { act, cleanup, render } from "@/test/react-native";
 
@@ -26,76 +33,94 @@ const openedAlbums: {
   index: number;
   sourceId?: string;
 }[] = [];
-const exports = {} as { FeedMediaCarousel: typeof FeedMediaCarousel };
-runInNewContext(
-  transpileModule(
-    readFileSync(new URL("./feed-media-carousel.tsx", import.meta.url), "utf8"),
-    { compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX } },
-  ).outputText,
-  {
-    exports,
-    require(name: string) {
-      switch (name) {
-        case "react":
-          return react;
-        case "react/jsx-runtime":
-          return jsxRuntime;
-        case "react-native":
-          return { View: "View", Pressable: "Pressable" };
-        case "react-native-gesture-handler":
-          return {
-            ScrollView: react.forwardRef<
-              { scrollTo: () => void },
-              react.PropsWithChildren
-            >((props, ref) => {
-              react.useImperativeHandle(ref, () => ({ scrollTo() {} }));
-              return createElement("ScrollView", props);
-            }),
-          };
-        case "@/components/ui/typography":
-          return { Typography: "Text" };
-        case "@/screens/feed/components/feed-image":
-          return {
-            FeedImage: "FeedImage",
-            originalXImageUrl: (url: string) => url,
-          };
-        case "@/screens/feed/components/feed-video":
-          return { FeedVideo: "FeedVideo" };
-        case "@/screens/feed/components/feed-video-preview":
-          return { FeedVideoPreview: "FeedVideoPreview" };
-        case "@/screens/feed/feed-video-player":
-          return { FeedVideoLayoutContext: createContext(null) };
-        case "@/screens/media/media-video-provider":
-          return { MediaAlbumContext: albumContext };
-        case "@/screens/media/open-media":
-          return {
-            openMedia(
-              media: FeedMedia[],
-              _platform: PlatformId,
-              postUrl: string,
-              index: number,
-              _androidUrl?: string,
-              sourceId?: string,
-            ) {
-              openedAlbums.push({ media, postUrl, index, sourceId });
-            },
-          };
-        case "@/theme/use-theme":
-          return {
-            useTheme: () => ({
-              spacing: { xs: 4, sm: 8 },
-              radius: { full: 999 },
-              colors: { backgroundElement: "black" },
-            }),
-          };
-        default:
-          throw new Error(name);
-      }
+const exports = {} as {
+  FeedMediaCarousel: typeof FeedMediaCarousel;
+  FeedVideo: typeof FeedVideo;
+  FeedVideoPreview: typeof FeedVideoPreview;
+};
+for (const file of ["feed-video-preview", "feed-video", "feed-media-carousel"])
+  runInNewContext(
+    transpileModule(
+      readFileSync(new URL(`./${file}.tsx`, import.meta.url), "utf8"),
+      {
+        compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX },
+      },
+    ).outputText,
+    {
+      exports,
+      require(name: string) {
+        switch (name) {
+          case "react":
+            return react;
+          case "react/jsx-runtime":
+            return jsxRuntime;
+          case "react-native":
+            return {
+              View: "View",
+              Pressable: "Pressable",
+              ActivityIndicator: "ActivityIndicator",
+            };
+          case "expo-image":
+            return { Image: "Image" };
+          case "@/components/ui/icon":
+            return { Icon: "Icon" };
+          case "react-native-gesture-handler":
+            return {
+              ScrollView: react.forwardRef<
+                { scrollTo: () => void },
+                react.PropsWithChildren
+              >((props, ref) => {
+                react.useImperativeHandle(ref, () => ({ scrollTo() {} }));
+                return createElement("ScrollView", props);
+              }),
+            };
+          case "@/components/ui/typography":
+            return { Typography: "Text" };
+          case "@/screens/feed/components/feed-image":
+            return {
+              FeedImage: "FeedImage",
+              originalXImageUrl: (url: string) => url,
+            };
+          case "@/screens/feed/components/feed-video":
+          case "@/screens/feed/components/feed-video-preview":
+            return exports;
+          case "@/screens/feed/components/native-feed-video":
+            return { NativeFeedVideo: "FeedVideo" };
+          case "@/screens/feed/feed-video-player":
+            return { FeedVideoLayoutContext: createContext(null) };
+          case "@/screens/media/media-video-provider":
+            return { MediaAlbumContext: albumContext };
+          case "@/screens/media/open-media":
+            return {
+              openMedia(
+                media: FeedMedia[],
+                _platform: PlatformId,
+                postUrl: string,
+                index: number,
+                _androidUrl?: string,
+                sourceId?: string,
+              ) {
+                openedAlbums.push({ media, postUrl, index, sourceId });
+              },
+            };
+          case "@/theme/use-theme":
+            return {
+              useTheme: () => ({
+                spacing: { xs: 4, sm: 8 },
+                radius: { full: 999 },
+                colors: { backgroundElement: "black" },
+              }),
+            };
+          default:
+            throw new Error(name);
+        }
+      },
     },
-  },
-);
+  );
 
-async function mount(media: FeedMedia[]) {
+async function mount(media: FeedMedia[], platform: PlatformId = "facebook") {
+  let active = true;
+  let playbackStatus: PlaybackStatus | undefined;
   let selection: NonNullable<
     react.ContextType<typeof MediaAlbumContext>
   >["selection"];
@@ -107,10 +132,11 @@ async function mount(media: FeedMedia[]) {
       },
       createElement(exports.FeedMediaCarousel, {
         postUrl: "post",
-        platform: "facebook",
+        platform,
         sourceId: "video-source-id",
         media,
-        active: true,
+        active,
+        playbackStatus,
         onActivate() {},
         onPress() {},
       }),
@@ -123,6 +149,15 @@ async function mount(media: FeedMedia[]) {
     ...screen,
     get aspectRatio(): number {
       return screen.root!.props.style.aspectRatio;
+    },
+    async updateMedia(nextMedia: FeedMedia[]) {
+      media = nextMedia;
+      await screen.rerender(tree());
+    },
+    async setPlayback(nextActive: boolean, nextStatus?: PlaybackStatus) {
+      active = nextActive;
+      playbackStatus = nextStatus;
+      await screen.rerender(tree());
     },
     async selectFullscreen(index: number) {
       selection = { postUrl: "post", index };
@@ -188,6 +223,71 @@ test("single media retains its own aspect ratio or the square default", async ()
     }
   }
 });
+
+for (const platform of platformIdSchema.options)
+  test(`${platform} video frames stay stable through playback changes`, async () => {
+    for (const aspectRatio of [16 / 9, 0.5, undefined]) {
+      const item = {
+        platform,
+        media: [
+          {
+            type: "video" as const,
+            url: "poster.jpg",
+            posterUrl: "poster.jpg",
+            playable: true,
+            aspectRatio,
+          },
+        ],
+      };
+      const screen = await mount(item.media, platform);
+      const resolution = {
+        status: "ready" as const,
+        url: "https://rr1.googlevideo.com/videoplayback?id=video",
+        contentType: "progressive" as const,
+        aspectRatio: 2,
+      };
+      await screen.setPlayback(false);
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      const poster = screen.root!.queryAll(
+        (element) => element.type === "Image",
+      )[0]!;
+      assert.equal(poster.props.source.uri, item.media[0]!.posterUrl);
+      assert.equal(poster.props.contentFit, "cover");
+      assert.equal(poster.props.style.position, "absolute");
+      await screen.setPlayback(true, "loading");
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      assert.equal(
+        screen.root!.queryAll((element) => element.type === "ActivityIndicator")
+          .length,
+        1,
+      );
+      await screen.updateMedia(withYouTubeStream(item, resolution).media);
+      await screen.setPlayback(true);
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      const video = screen.root!.queryAll(
+        (element) => element.type === "FeedVideo",
+      )[0]!;
+      assert.equal(
+        video.props.media.url,
+        platform === "youtube" ? resolution.url : item.media[0]!.url,
+      );
+      await screen.updateMedia(
+        withYouTubeStream(item, { status: "error" }).media,
+      );
+      await screen.setPlayback(true, "error");
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      assert.ok(screen.getByText("Couldn't load video. Tap to retry."));
+      await screen.setPlayback(true, "loading");
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      await screen.updateMedia(withYouTubeStream(item, resolution).media);
+      await screen.setPlayback(true);
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      await screen.updateMedia(withYouTubeStream(item, undefined).media);
+      await screen.setPlayback(false);
+      assert.equal(screen.aspectRatio, aspectRatio ?? 1);
+      await screen.unmount();
+    }
+  });
 
 test("opening an image passes the full mixed album and keeps its selected index on return", async () => {
   const media: FeedMedia[] = [

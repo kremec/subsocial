@@ -5,7 +5,6 @@ export type YouTubeResolution =
       status: "ready";
       url: string;
       contentType: "hls" | "progressive";
-      aspectRatio?: number;
       preferredAudioTrack?: string;
     }
   | { status: "error" | "verification" };
@@ -54,7 +53,6 @@ export function withYouTubeStream<
             url: resolution.url,
             contentType: resolution.contentType,
             preferredAudioTrack: resolution.preferredAudioTrack,
-            aspectRatio: resolution.aspectRatio || media.aspectRatio,
           },
     ),
   };

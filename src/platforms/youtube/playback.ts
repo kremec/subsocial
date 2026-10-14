@@ -58,8 +58,7 @@ export function selectYouTubePlaylist(
   playlist: string,
   streamingData: PlaybackResponse["streamingData"],
 ): YouTubeResolution {
-  const master: Extract<YouTubeResolution, { status: "ready" }> =
-    youtubeStream(url);
+  const master = youtubeStream(url);
   if (master.contentType !== "hls")
     throw new Error("Expected a YouTube HLS playlist");
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
@@ -68,13 +67,6 @@ export function selectYouTubePlaylist(
     ...(streamingData?.formats || []),
     ...(streamingData?.adaptiveFormats || []),
   ];
-  const dimensions = formats.find(
-    (format) => (format.width || 0) > 0 && (format.height || 0) > 0,
-  );
-  const resolution = playlist.match(/\bRESOLUTION=(\d+)x(\d+)/);
-  const width = dimensions?.width || Number(resolution?.[1]);
-  const height = dimensions?.height || Number(resolution?.[2]);
-  if (width > 0 && height > 0) master.aspectRatio = width / height;
   const audioTracks = formats.flatMap((format) =>
     format.audioTrack ? [format.audioTrack] : [],
   );
@@ -110,13 +102,10 @@ export function selectYouTubePlaylist(
     if (!uri || uri.startsWith("#")) throw new Error("Invalid video variant");
     const source = youtubeStream(new URL(uri, url).href);
     if (source.contentType !== "hls") throw new Error("Invalid video variant");
-    const [width, height] = (tags.RESOLUTION || "").split("x").map(Number);
+    const height = Number((tags.RESOLUTION || "").split("x")[1]);
     return [
       {
-        source: {
-          ...source,
-          ...(width > 0 && height > 0 && { aspectRatio: width / height }),
-        },
+        source,
         original: isOriginal(tags),
         audioId: tags["YT-EXT-AUDIO-CONTENT-ID"],
         height: height || 0,
