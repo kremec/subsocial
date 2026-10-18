@@ -45,7 +45,7 @@ export const SearchScreen: FC = () => {
   }, []);
 
   return (
-    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
+    <Screen>
       <View
         style={{
           height: 56,

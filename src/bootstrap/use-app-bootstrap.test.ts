@@ -84,6 +84,7 @@ function appRoot(initializeDatabase: () => void) {
           return {
             useTheme: () => ({
               colors: { background: "white", text: "black" },
+              spacing: { lg: 16 },
             }),
           };
         default:

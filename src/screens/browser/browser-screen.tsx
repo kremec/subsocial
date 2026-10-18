@@ -94,7 +94,7 @@ export const BrowserScreen: FC = () => {
   };
 
   return (
-    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
+    <Screen>
       <Stack.Screen options={{ gestureEnabled: !resetting }} />
       <View
         style={{

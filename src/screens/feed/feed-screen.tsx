@@ -39,7 +39,7 @@ export const FeedScreen: FC = () => {
   );
 
   return (
-    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
+    <Screen>
       {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
 
       {feed.collectors.map((platform) => (

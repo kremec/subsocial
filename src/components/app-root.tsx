@@ -13,13 +13,19 @@ import { MediaVideoProvider } from "@/screens/media/media-video-provider";
 import { useTheme } from "@/theme/use-theme";
 
 export const AppRoot: FC = () => {
-  const { colors, themeName } = useTheme();
+  const { colors, spacing, themeName } = useTheme();
   const { error } = useAppBootstrap();
   usePlatformShortcuts();
 
   if (error !== undefined) {
     return (
-      <Screen style={{ justifyContent: "center", alignItems: "center" }}>
+      <Screen
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          padding: spacing.lg,
+        }}
+      >
         <Typography accessibilityRole="alert">
           Could not open the database: {error}
         </Typography>
