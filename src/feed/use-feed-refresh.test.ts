@@ -149,6 +149,14 @@ function feedHarness(initial: FeedItem[], storage = new Map<string, string>()) {
           return {
             listFeedItems: () => database.items,
             listConnectedPlatforms: () => database.connected,
+            listPostIds: () =>
+              new Set(
+                database.items.flatMap((item) =>
+                  (item.thread ?? [item]).map(
+                    (post) => `${item.platform}:${post.sourceId}`,
+                  ),
+                ),
+              ),
             listSourceIds: (platform: PlatformId) =>
               database.items
                 .filter((item) => item.platform === platform)

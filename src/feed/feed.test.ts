@@ -686,8 +686,10 @@ test("withholds new undated posts on every platform and removes explicit exclusi
   assert.equal(store.listFeedItems().length, 0);
   store.saveExtraction("youtube", [post("upcoming", 1)], []);
   assert.equal(store.listFeedItems().length, 1);
+  assert.deepEqual([...store.listPostIds()], ["youtube:upcoming"]);
   store.saveExtraction("youtube", [], ["upcoming"]);
   assert.equal(store.listFeedItems().length, 0);
+  assert.equal(store.listPostIds().size, 0);
   store.db.close();
 });
 
