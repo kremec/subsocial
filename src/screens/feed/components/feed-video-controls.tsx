@@ -12,7 +12,6 @@ import { Pressable, View } from "react-native";
 import { useEvent } from "expo";
 import { type VideoPlayer, VideoView } from "expo-video";
 
-import { MenuView } from "@expo/ui/community/menu";
 import {
   Gesture,
   GestureDetector,
@@ -34,6 +33,8 @@ interface FeedVideoControlsProps {
   onFullscreen: () => void;
   navigationGestures?: GestureType[];
 }
+
+const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 const timeText = (seconds: number) => {
   const time = Math.max(0, Math.floor(seconds));
@@ -314,29 +315,26 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             <Typography variant="caption" color="white" style={{ flex: 1 }}>
               {timeText(currentTime)} / {timeText(duration)}
             </Typography>
-            <MenuView
-              onOpenMenu={() => setInteracting(true)}
-              onCloseMenu={() => setInteracting(false)}
-              actions={[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => ({
-                id: String(rate),
-                title: `${rate}×`,
-                state: rate === playbackRate ? "on" : "off",
-              }))}
-              onPressAction={(event) => {
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Playback speed ${playbackRate} times`}
+              hitSlop={8}
+              onPress={() => {
+                const next = playbackRates.indexOf(playbackRate) + 1;
                 // oxlint-disable-next-line react/immutability
-                player.playbackRate = Number(event.nativeEvent.event);
+                player.playbackRate =
+                  playbackRates[next % playbackRates.length];
               }}
+              style={({ pressed }) => ({
+                paddingHorizontal: 8,
+                paddingVertical: 5,
+                opacity: pressed ? 0.65 : 1,
+              })}
             >
-              <View
-                accessibilityRole="button"
-                accessibilityLabel={`Playback speed ${playbackRate} times`}
-                style={{ paddingHorizontal: 8, paddingVertical: 5 }}
-              >
-                <Typography variant="bodySmall" color="white">
-                  {playbackRate}×
-                </Typography>
-              </View>
-            </MenuView>
+              <Typography variant="bodySmall" color="white">
+                {playbackRate}×
+              </Typography>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
