@@ -3,7 +3,7 @@ import { type FC } from "react";
 import Animated from "react-native-reanimated";
 
 import { Icon } from "@/components/ui/icon";
-import { type PlatformDefinition } from "@/platforms/platforms";
+import { type PlatformDefinition } from "@/platforms/types";
 
 interface RefreshPlatformIconProps {
   platform: PlatformDefinition;

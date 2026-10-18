@@ -9,13 +9,14 @@ import CookieManager, {
 import { type ExtractedItem } from "@/feed/types";
 import { facebookFeed } from "@/platforms/facebook/service";
 import { instagramFeed } from "@/platforms/instagram/service";
-import { type PlatformDefinition } from "@/platforms/platforms";
 import { redditFeed } from "@/platforms/reddit/service";
-import { FeedAccessError, type FeedRequest } from "@/platforms/types";
+import {
+  FeedAccessError,
+  type FeedRequest,
+  type PlatformDefinition,
+} from "@/platforms/types";
 import { xFeed } from "@/platforms/x/service";
 import { youtubeFeed } from "@/platforms/youtube/service";
-
-export { FeedAccessError } from "@/platforms/types";
 
 const retryAt = new Map<string, number>();
 
