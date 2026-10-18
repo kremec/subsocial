@@ -12,7 +12,7 @@ import {
   listConnectedPlatforms,
 } from "@/feed/database";
 import { type PlatformId } from "@/feed/types";
-import { platforms } from "@/platforms/platforms";
+import { hasSession, platforms } from "@/platforms/platforms";
 import { type PlatformDefinition } from "@/platforms/types";
 
 export async function syncPlatformSession(
@@ -20,10 +20,7 @@ export async function syncPlatformSession(
 ): Promise<boolean | undefined> {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
-    const connected = platform.sessionCookieGroups.every((group) =>
-      group.some((name) => !!cookies[name]?.value),
-    );
-
+    const connected = hasSession(platform, cookies);
     if (connected) connectPlatform(platform.id);
     else disconnectPlatform(platform.id);
     return connected;

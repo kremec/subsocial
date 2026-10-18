@@ -6,11 +6,12 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
-import { type PlatformDefinition } from "@/platforms/types";
+import { hasSession, ownsHost } from "@/platforms/platforms";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
+  type PlatformDefinition,
 } from "@/platforms/types";
 
 const source = transpileModule(
@@ -133,6 +134,7 @@ function harness(options: HarnessOptions = {}) {
           },
         };
       if (name === "@/platforms/types") return { FeedAccessError };
+      if (name === "@/platforms/platforms") return { hasSession, ownsHost };
       const id = name.split("/").at(-2);
       if (["facebook", "instagram", "reddit", "x", "youtube"].includes(id!))
         return { [`${id}Feed`]: adapter };
