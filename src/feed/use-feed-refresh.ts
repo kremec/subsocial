@@ -22,9 +22,14 @@ interface RefreshRun {
   id: number;
   queue: PlatformId[];
   known: Partial<Record<PlatformId, string[]>>;
-  results: CollectionResult[];
+  errors: string[];
   attention: PlatformId[];
 }
+
+const withMember = (list: PlatformId[], id: PlatformId, member: boolean) => [
+  ...list.filter((item) => item !== id),
+  ...(member ? [id] : []),
+];
 
 export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [items, setItems] = useState(listFeedItems);
@@ -84,7 +89,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
           id: waiting?.id ?? performance.now(),
           queue,
           known,
-          results: [],
+          errors: [],
           attention: waiting?.attention ?? [],
         }
       : undefined;
@@ -124,26 +129,27 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     };
   }, [focused, foreground, webKitReady]);
 
-  const finish = (runId: number, result: CollectionResult) => {
+  // Ignore late messages from collectors of a replaced or finished run.
+  const currentRun = (runId: number, platform: PlatformId) => {
     const current = running.current;
-    if (
-      !current ||
-      current.id !== runId ||
-      !current.queue.includes(result.platform)
-    )
-      return;
-    setFailed((failed) => {
-      const next = failed.filter((id) => id !== result.platform);
-      if (result.error) next.push(result.platform);
-      return next;
-    });
-    if (!result.error)
-      Storage.removeItemSync(collectionKnownKey(result.platform));
+    return current?.id === runId && current.queue.includes(platform)
+      ? current
+      : undefined;
+  };
+
+  const finish = (runId: number, result: CollectionResult) => {
+    const { platform, error } = result;
+    const current = currentRun(runId, platform);
+    if (!current) return;
+    setFailed((failed) => withMember(failed, platform, !!error));
+    if (!error) Storage.removeItemSync(collectionKnownKey(platform));
     const next = {
       ...current,
-      queue: current.queue.filter((id) => id !== result.platform),
-      results: [...current.results, result],
-      attention: current.attention.filter((id) => id !== result.platform),
+      queue: current.queue.filter((id) => id !== platform),
+      errors: error
+        ? [...current.errors, `${getPlatform(platform).label}: ${error}`]
+        : current.errors,
+      attention: current.attention.filter((id) => id !== platform),
     };
     running.current = next;
     if (next.queue.length) {
@@ -153,18 +159,8 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       return;
     }
     pruneFeedItems();
-    const incoming = listFeedItems();
-    setItems(incoming);
-    const errors = next.results.filter((result) => result.error);
-    if (errors.length)
-      showErrorToast(
-        errors
-          .map(
-            (result) =>
-              `${getPlatform(result.platform).label}: ${result.error}`,
-          )
-          .join("\n"),
-      );
+    setItems(listFeedItems());
+    if (next.errors.length) showErrorToast(next.errors.join("\n"));
     running.current = undefined;
     setRun(undefined);
   };
@@ -174,15 +170,10 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     platform: PlatformId,
     needed: boolean,
   ) => {
-    const current = running.current;
-    if (!current || current.id !== runId || !current.queue.includes(platform))
-      return;
-    if (needed)
-      setFailed((failed) =>
-        failed.includes(platform) ? failed : [...failed, platform],
-      );
-    const attention = current.attention.filter((id) => id !== platform);
-    if (needed) attention.push(platform);
+    const current = currentRun(runId, platform);
+    if (!current) return;
+    if (needed) setFailed((failed) => withMember(failed, platform, true));
+    const attention = withMember(current.attention, platform, needed);
     const next = { ...current, attention };
     running.current = next;
     setRun(next);
@@ -191,9 +182,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   };
 
   const toggle = (platform: PlatformId) => {
-    const next = hidden.includes(platform)
-      ? hidden.filter((id) => id !== platform)
-      : [...hidden, platform];
+    const next = withMember(hidden, platform, !hidden.includes(platform));
     Storage.setItemSync("hidden-platforms", JSON.stringify(next));
     setHidden(next);
   };
