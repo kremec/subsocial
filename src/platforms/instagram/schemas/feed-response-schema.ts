@@ -37,12 +37,10 @@ export const feedResponseSchema = z
         edges: z.array(
           z.object({ node: z.object({ media: postSchema.nullish() }) }),
         ),
-        page_info: z
-          .object({
-            has_next_page: z.boolean(),
-            end_cursor: z.string().nullish(),
-          })
-          .refine((page) => !page.has_next_page || !!page.end_cursor),
+        page_info: z.object({
+          has_next_page: z.boolean(),
+          end_cursor: z.string().nullish(),
+        }),
       }),
     }),
   })

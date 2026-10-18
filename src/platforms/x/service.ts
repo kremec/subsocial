@@ -1,4 +1,4 @@
-import type { ExtractedItem, FeedMedia, ExtractedPost } from "@/feed/types";
+import type { ExtractedItem, FeedMedia } from "@/feed/types";
 import { aspectRatio, type Json } from "@/platforms/json";
 import { paginate } from "@/platforms/paginate";
 import {
@@ -11,7 +11,7 @@ import {
   type Tweet,
 } from "@/platforms/x/schemas/feed-response-schema";
 
-function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
+function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
   const tweet = value?.tweet || value;
   const legacy = tweet?.legacy;
   const sourceId = tweet?.rest_id || legacy?.id_str;
@@ -43,7 +43,7 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
     } else {
       const variant = (item.video_info?.variants || [])
         .filter((entry) => entry.content_type === "video/mp4")
-        .sort((a, b) => Number(b.bitrate || 0) - Number(a.bitrate || 0))[0];
+        .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
       if (variant?.url)
         media.push({
           type: "video",
@@ -97,8 +97,9 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         const original = retweet?.tweet || retweet || tweet;
         const post = postFor(original);
         if (!post) continue;
+        // Live broadcasts and spaces are not posts with lasting content.
         if (
-          (original?.legacy?.entities?.urls || []).some((link) =>
+          original?.legacy?.entities?.urls?.some((link) =>
             /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\//.test(
               link.expanded_url || "",
             ),
@@ -110,11 +111,8 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         if (!retweet) boundarySourceIds.push(post.sourceId);
         if (seen.has(post.sourceId)) continue;
         seen.add(post.sourceId);
-        if (retweet) {
-          const by = postFor(tweet);
-          post.context = by?.authorHandle;
-        }
-        group.push({ ...post, media: post.media || [] });
+        if (retweet) post.context = postFor(tweet)?.authorHandle;
+        group.push(post);
       }
       if (group.length) {
         for (const [index, post] of group.entries()) {

@@ -1,8 +1,4 @@
-import {
-  type ExtractedItem,
-  type ExtractedPost,
-  type FeedMedia,
-} from "@/feed/types";
+import { type ExtractedItem, type FeedMedia } from "@/feed/types";
 import { aspectRatio } from "@/platforms/json";
 import { paginate } from "@/platforms/paginate";
 import {
@@ -63,12 +59,9 @@ function mediaFor(post: RedditPost): FeedMedia[] {
   ];
 }
 
-function postFor(post: RedditPost): ExtractedPost | undefined {
-  const sourceId = post.name;
-  const permalink = post.permalink;
-  if (!sourceId || !permalink.startsWith("/")) return;
+function postFor(post: RedditPost): ExtractedItem {
   const crosspost = post.crosspost_parent_list?.[0];
-  const quote = crosspost ? postFor(crosspost) : undefined;
+  const quote = crosspost && postFor(crosspost);
   const media = quote ? [] : mediaFor(post);
   const text = media.length
     ? post.selftext
@@ -78,16 +71,13 @@ function postFor(post: RedditPost): ExtractedPost | undefined {
         .trim()
     : post.selftext;
   return {
-    sourceId,
-    url: `https://www.reddit.com${permalink}`,
+    sourceId: post.name,
+    url: `https://www.reddit.com${post.permalink}`,
     authorName: post.author,
     authorHandle: post.subreddit_name_prefixed,
     title: post.title,
     text: text || undefined,
-    publishedAt:
-      typeof post.created_utc === "number"
-        ? post.created_utc * 1000
-        : undefined,
+    publishedAt: post.created_utc ? post.created_utc * 1000 : undefined,
     media,
     quote,
   };
@@ -104,16 +94,14 @@ export const redditFeed = (request: FeedRequest) =>
         "Could not read Reddit feed. Open Reddit to check your login.",
       );
     const { data } = listing.data;
-    const items: ExtractedItem[] = [];
-    const excludedSourceIds: string[] = [];
-    for (const post of data.children) {
-      if (post.promoted || post.is_promoted) {
-        if (post.name) excludedSourceIds.push(post.name);
-        continue;
-      }
-      const item = postFor(post);
-      if (item) items.push({ ...item, media: item.media ?? [] });
-    }
+    const promoted = (post: RedditPost) => post.promoted || post.is_promoted;
     const cursor = data.after || "";
-    return { items, excludedSourceIds, end: !cursor, cursor };
+    return {
+      items: data.children.filter((post) => !promoted(post)).map(postFor),
+      excludedSourceIds: data.children
+        .filter(promoted)
+        .map((post) => post.name),
+      end: !cursor,
+      cursor,
+    };
   });
