@@ -9,7 +9,8 @@ interface RepostAttributionProps {
   handle?: string;
 }
 
-export const RepostAttribution: FC<RepostAttributionProps> = ({ handle }) => {
+export const RepostAttribution: FC<RepostAttributionProps> = (props) => {
+  const { handle } = props;
   const theme = useTheme();
   if (!handle) return null;
 

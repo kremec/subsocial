@@ -1,17 +1,16 @@
 import type { ExtractedItem, FeedMedia } from "@/feed/types";
+import {
+  feedResponseSchema,
+  tokenSchema,
+  type Media,
+  type Variant,
+} from "@/platforms/instagram/schemas/feed-response-schema";
 import { bootstrap, type Json } from "@/platforms/json";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
 } from "@/platforms/types";
-
-import {
-  feedResponseSchema,
-  tokenSchema,
-  type Media,
-  type Variant,
-} from "./schemas/feed-response-schema";
 
 const largest = (values: Variant[] | null | undefined) =>
   values
