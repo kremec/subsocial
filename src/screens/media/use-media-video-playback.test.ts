@@ -94,7 +94,7 @@ function harness() {
     require(name: string) {
       if (name === "react") return react;
       if (name === "@/screens/feed/feed-video-player")
-        return { playbackPositionsFor: () => positions };
+        return { playbackPositions: positions };
       throw new Error(name);
     },
   });

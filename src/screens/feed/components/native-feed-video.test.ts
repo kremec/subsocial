@@ -119,7 +119,7 @@ function harness() {
         return {
           FeedVideoPlayerContext: playerContext,
           useFeedVideoPlayer: () => player,
-          playbackPositionsFor: () => positions,
+          playbackPositions: positions,
         };
       case "@/screens/media/use-media-video-playback":
         return hookExports;
@@ -131,8 +131,10 @@ function harness() {
         return { Typography: "Text" };
       case "@/screens/feed/components/native-feed-video":
         return videoExports;
-      case "@/screens/feed/components/feed-video-player-view":
-        return { FeedVideoPlayerView: "FeedVideoPlayerView" };
+      case "expo-router":
+        return { router: {} };
+      case "@/screens/feed/components/feed-video-controls":
+        return { FeedVideoControls: "FeedVideoControls" };
       default:
         throw new Error(name);
     }
