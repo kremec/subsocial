@@ -1,11 +1,21 @@
-import { type FC, type ReactNode, useCallback, useState } from "react";
+import {
+  type FC,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
+
+import { router } from "expo-router";
 
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia } from "@/feed/types";
-import { NativeFeedVideo } from "@/screens/feed/components/native-feed-video";
+import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
+import { MediaVideoContext } from "@/screens/media/media-video-provider";
 
 export type PlaybackStatus = "loading" | "error" | "verification";
 
@@ -23,7 +33,20 @@ interface FeedVideoProps {
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
-  const { counter, playbackStatus, onRetry, onError, onVerification } = props;
+  const {
+    playbackKey,
+    media,
+    fullscreen = false,
+    onFullscreen,
+    navigationGestures,
+    counter,
+    playbackStatus,
+    onRetry,
+    onError,
+    onVerification,
+  } = props;
+  const playback = useContext(MediaVideoContext);
+  const registerVideo = playback?.registerVideo;
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => {
     setFailed(true);
@@ -31,7 +54,30 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   }, [onError]);
   const status = playbackStatus || (failed ? "error" : undefined);
 
-  if (!status) return <NativeFeedVideo {...props} onError={fail} />;
+  // Load this video into the shared player while it can play.
+  useLayoutEffect(() => {
+    if (!status) return registerVideo?.({ playbackKey, media, onError: fail });
+  }, [status, registerVideo, playbackKey, media, fail]);
+
+  if (!status) {
+    const loaded = playback?.loadedVideo;
+    if (
+      !playback ||
+      loaded?.playbackKey !== playbackKey ||
+      loaded.url !== media.url
+    )
+      return counter || null;
+    return (
+      <FeedVideoControls
+        player={playback.player}
+        media={media}
+        counter={counter}
+        fullscreen={fullscreen}
+        onFullscreen={onFullscreen ?? (() => router.back())}
+        navigationGestures={navigationGestures}
+      />
+    );
+  }
 
   return (
     <View
