@@ -1,5 +1,4 @@
 import { type FC } from "react";
-import { ActivityIndicator } from "react-native";
 
 import { Stack } from "expo-router";
 
@@ -15,19 +14,15 @@ import { useTheme } from "@/theme/use-theme";
 
 export const AppRoot: FC = () => {
   const { colors, themeName } = useTheme();
-  const { ready, error } = useAppBootstrap();
+  const { error } = useAppBootstrap();
   usePlatformShortcuts();
 
-  if (!ready) {
+  if (error !== undefined) {
     return (
       <Screen style={{ justifyContent: "center", alignItems: "center" }}>
-        {error !== undefined ? (
-          <Typography accessibilityRole="alert">
-            Could not open the database: {error}
-          </Typography>
-        ) : (
-          <ActivityIndicator color={colors.text} accessibilityLabel="Loading" />
-        )}
+        <Typography accessibilityRole="alert">
+          Could not open the database: {error}
+        </Typography>
       </Screen>
     );
   }

@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { initializeDatabase } from "@/feed/database";
 
+// Opening the database is synchronous, so routes can mount on the first render.
 export function useAppBootstrap() {
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error] = useState(() => {
+    try {
+      initializeDatabase();
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  });
 
-  useEffect(() => {
-    void Promise.resolve()
-      .then(initializeDatabase)
-      .then(() => setReady(true))
-      .catch((error) =>
-        setError(error instanceof Error ? error.message : String(error)),
-      );
-  }, []);
-
-  return { ready, error };
+  return { error };
 }

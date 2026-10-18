@@ -64,8 +64,6 @@ function appRoot(initializeDatabase: () => void) {
       switch (name) {
         case "react/jsx-runtime":
           return jsxRuntime;
-        case "react-native":
-          return { ActivityIndicator: "ActivityIndicator" };
         case "expo-router":
           return { Stack };
         case "react-native-gesture-handler":
@@ -96,31 +94,23 @@ function appRoot(initializeDatabase: () => void) {
   return { calls, AppRoot: exports.AppRoot };
 }
 
-test("bootstrap stays unready until database initialization finishes and only runs once per mount", async () => {
-  const states: boolean[] = [];
+test("bootstrap initializes the database once per mount before the first render completes", async () => {
   let calls = 0;
   const hook = bootstrap(() => {
     calls++;
-    assert.deepEqual(states, [false]);
   });
-  const app = await renderHook(() => {
-    const state = hook.useAppBootstrap();
-    states.push(state.ready);
-    return state;
-  });
-  assert.equal(app.result.current.ready, true);
+  const app = await renderHook(() => hook.useAppBootstrap());
   assert.equal(app.result.current.error, undefined);
-  assert.deepEqual(states, [false, true]);
   await app.rerender(undefined);
   assert.equal(calls, 1);
 });
 
 test("app routes mount only after successful database initialization", async () => {
   const app = appRoot(() => {
-    assert.deepEqual(app.calls, ["startup", "initialize"]);
+    assert.deepEqual(app.calls, ["initialize"]);
   });
   await render(createElement(app.AppRoot));
-  assert.deepEqual(app.calls, ["startup", "initialize", "routes"]);
+  assert.deepEqual(app.calls, ["initialize", "routes"]);
 });
 
 test("database initialization failure shows an error and keeps app routes unmounted", async () => {
@@ -128,7 +118,7 @@ test("database initialization failure shows an error and keeps app routes unmoun
     throw new Error("migration failed");
   });
   const screen = await render(createElement(app.AppRoot));
-  assert.deepEqual(app.calls, ["startup", "initialize", "startup"]);
+  assert.deepEqual(app.calls, ["initialize", "startup"]);
   assert.match(JSON.stringify(screen.toJSON()), /Could not open the database/);
   assert.match(JSON.stringify(screen.toJSON()), /migration failed/);
   await screen.rerender(createElement(app.AppRoot));
