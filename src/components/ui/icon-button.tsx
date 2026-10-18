@@ -6,20 +6,18 @@ import { useTheme } from "@/theme/use-theme";
 interface IconButtonProps {
   accessibilityLabel?: string;
   onPress?: () => void;
-  onLongPress?: () => void;
   disabled?: boolean;
   style?: PressableProps["style"];
 }
 
 export const IconButton: FC<PropsWithChildren<IconButtonProps>> = (props) => {
-  const { children, onPress, onLongPress, disabled, style } = props;
+  const { children, onPress, disabled, style } = props;
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel}
       onPress={onPress}
-      onLongPress={onLongPress}
       disabled={disabled}
       style={(state) => [
         {

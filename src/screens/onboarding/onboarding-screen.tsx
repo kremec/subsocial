@@ -50,7 +50,13 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
     focused && webKitReady && !checking && connected.length > 0;
 
   return (
-    <Screen style={{ gap: 0, paddingBottom: theme.spacing.lg }}>
+    <Screen
+      style={{
+        paddingHorizontal: theme.spacing.lg,
+        paddingTop: theme.spacing.md,
+        paddingBottom: theme.spacing.lg,
+      }}
+    >
       {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
       <View
         style={{

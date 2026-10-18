@@ -28,22 +28,10 @@ export const typography = {
   caption: 12,
 } as const;
 
-export const fonts = Platform.select({
-  ios: {
-    sans: "system-ui",
-    serif: "ui-serif",
-    rounded: "ui-rounded",
-    mono: "ui-monospace",
-  },
-  default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
-    mono: "monospace",
-  },
-});
+export const fonts = {
+  rounded: Platform.select({ ios: "ui-rounded", default: "normal" }),
+};
 
 export const layout = {
   screenMaxWidth: 820,
-  bottomInset: 0,
 } as const;
