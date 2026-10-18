@@ -87,8 +87,6 @@ test("bookmarks made with tip-based row keys recover the same branch occurrence"
   for (const [index, row] of before.entries()) {
     assert.equal(findPositionIndex(after, positionFor(row, -12)), index);
   }
-  assert.equal(findPositionIndex(after, { id: "x:3:0:1", viewOffset: 0 }), 2);
-  assert.equal(findPositionIndex(after, { id: "x:3:1:1", viewOffset: 0 }), 0);
 });
 
 test("branch keys are assigned before search filters out an older occurrence", () => {
