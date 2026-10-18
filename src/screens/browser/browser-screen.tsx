@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
-import { WebView, type WebViewNavigation } from "react-native-webview";
+import { type WebView } from "react-native-webview";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -12,6 +12,7 @@ import { Screen } from "@/components/ui/screen";
 import { listConnectedPlatforms } from "@/feed/database";
 import { type PlatformId } from "@/feed/types";
 import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
+import { PlatformWebView } from "@/platforms/platform-web-view";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
@@ -83,16 +84,6 @@ export const BrowserScreen: FC = () => {
     router.back();
   };
 
-  const stayInWebView = (request: WebViewNavigation) => {
-    const url = request.url.replace(/^x-safari-(https?):/, "$1:");
-    if (url === request.url) return /^(https?:|about:)/.test(url);
-
-    webView.current?.injectJavaScript(
-      `window.location.replace(${JSON.stringify(url)}); true;`,
-    );
-    return false;
-  };
-
   return (
     <Screen>
       <Stack.Screen options={{ gestureEnabled: !resetting }} />
@@ -139,25 +130,11 @@ export const BrowserScreen: FC = () => {
         </View>
       )}
       {!resetting && (
-        <WebView
-          ref={webView}
-          source={{ uri: url }}
-          // Handle every scheme here so WebView cannot launch an external browser.
-          originWhitelist={["*"]}
-          javaScriptEnabled
-          domStorageEnabled
-          thirdPartyCookiesEnabled
-          setSupportMultipleWindows={false}
-          webviewDebuggingEnabled={__DEV__}
-          allowsBackForwardNavigationGestures
-          startInLoadingState
-          onShouldStartLoadWithRequest={stayInWebView}
-          onLoadEnd={() => {
-            void syncPlatformSession(platform).then((value) => {
-              if (value !== undefined) setConnected(value);
-            });
-          }}
-          style={{ flex: 1, backgroundColor: theme.colors.background }}
+        <PlatformWebView
+          platform={platform}
+          uri={url}
+          webViewRef={webView}
+          onSessionChange={setConnected}
         />
       )}
     </Screen>

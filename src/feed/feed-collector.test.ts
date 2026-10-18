@@ -136,8 +136,8 @@ function collectorHarness(known: string[] = []) {
             View: "View",
             BackHandler: { addEventListener: () => ({ remove() {} }) },
           };
-        case "react-native-webview":
-          return { WebView: "WebView" };
+        case "@/platforms/platform-web-view":
+          return { PlatformWebView: "WebView" };
         case "@/components/ui/modal-header":
           return { ModalHeader: "ModalHeader" };
         case "@/feed/collection":
@@ -160,8 +160,6 @@ function collectorHarness(known: string[] = []) {
               }
             },
           };
-        case "@/platforms/session":
-          return { syncPlatformSession: async () => {} };
         case "@/feed/database":
           return {
             listPublicationDates: () => [],

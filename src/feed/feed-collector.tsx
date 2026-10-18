@@ -1,8 +1,6 @@
 import { type FC, useEffectEvent, useEffect, useRef, useState } from "react";
 import { BackHandler, View } from "react-native";
 
-import { WebView } from "react-native-webview";
-
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   CollectionProgress,
@@ -15,8 +13,8 @@ import {
   saveExtraction,
 } from "@/feed/database";
 import { extractedItemSchema } from "@/feed/schemas";
+import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
-import { syncPlatformSession } from "@/platforms/session";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
 import { useTheme } from "@/theme/use-theme";
 
@@ -155,23 +153,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       }}
     >
       <ModalHeader title={platform.label} onClose={close} />
-      <WebView
-        source={{ uri: platform.startUrl }}
-        originWhitelist={["*"]}
-        javaScriptEnabled
-        domStorageEnabled
-        thirdPartyCookiesEnabled
-        allowsInlineMediaPlayback
-        setSupportMultipleWindows={false}
-        webviewDebuggingEnabled={__DEV__}
-        onShouldStartLoadWithRequest={(request) =>
-          /^(https?:|about:)/.test(request.url)
-        }
-        onLoadEnd={() => {
-          void syncPlatformSession(platform);
-        }}
-        style={{ flex: 1 }}
-      />
+      <PlatformWebView platform={platform} uri={platform.startUrl} />
     </View>
   );
 };
