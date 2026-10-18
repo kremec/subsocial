@@ -2,13 +2,12 @@ import { createContext, useEffect } from "react";
 import { type View } from "react-native";
 
 import Storage from "expo-sqlite/kv-store";
-import { type VideoPlayer, useVideoPlayer } from "expo-video";
+import { useVideoPlayer } from "expo-video";
 
 const mutedKey = "feed-video-muted";
 // Resume positions of the shared player, keyed by playback identity.
 export const playbackPositions = new Map<string, number>();
 
-export const FeedVideoPlayerContext = createContext<VideoPlayer | null>(null);
 export const FeedVideoLayoutContext = createContext<
   ((postUrl: string, view: View | null) => void) | null
 >(null);
