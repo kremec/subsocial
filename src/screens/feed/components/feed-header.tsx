@@ -97,18 +97,16 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         </Animated.View>
       </View>
       <IconButton
+        size={36}
         accessibilityLabel="Search feed"
         onPress={() => router.push("/search")}
-        style={{ width: 36, height: 36 }}
       >
         <Icon name="search" color={theme.colors.text} size={22} />
       </IconButton>
       <IconButton
+        size={36}
+        accessibilityLabel="Open menu"
         onPress={() => setMenuVisible(true)}
-        style={{
-          width: 36,
-          height: 36,
-        }}
       >
         <Icon name="dots" color={theme.colors.text} size={22} />
       </IconButton>

@@ -7,11 +7,13 @@ interface IconButtonProps {
   accessibilityLabel?: string;
   onPress?: () => void;
   disabled?: boolean;
+  plain?: boolean;
+  size?: number;
   style?: PressableProps["style"];
 }
 
 export const IconButton: FC<PropsWithChildren<IconButtonProps>> = (props) => {
-  const { children, onPress, disabled, style } = props;
+  const { children, onPress, disabled, plain, size = 42, style } = props;
   const theme = useTheme();
   return (
     <Pressable
@@ -24,11 +26,11 @@ export const IconButton: FC<PropsWithChildren<IconButtonProps>> = (props) => {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: theme.radius.full,
-          borderWidth: 1,
+          borderWidth: plain ? 0 : 1,
           borderColor: theme.colors.border,
-          width: 42,
-          height: 42,
-          backgroundColor: theme.colors.surface,
+          width: size,
+          height: size,
+          backgroundColor: plain ? "transparent" : theme.colors.surface,
           opacity: state.pressed ? 0.55 : 1,
         },
         typeof style === "function" ? style(state) : style,

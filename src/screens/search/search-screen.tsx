@@ -7,6 +7,7 @@ import { type LegendListRef } from "@legendapp/list/react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
+import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
 import { listFeedItems } from "@/feed/database";
 import { FeedList } from "@/screens/feed/components/feed-list";
@@ -46,17 +47,7 @@ export const SearchScreen: FC = () => {
 
   return (
     <Screen>
-      <View
-        style={{
-          height: 56,
-          paddingHorizontal: theme.spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.spacing.sm,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
-      >
+      <ModalHeader closeLabel="Close search" onClose={() => router.back()}>
         <View
           style={{
             flex: 1,
@@ -86,14 +77,10 @@ export const SearchScreen: FC = () => {
           />
           {!!query && (
             <IconButton
+              plain
+              size={36}
               accessibilityLabel="Clear search"
               onPress={() => changeQuery("")}
-              style={{
-                borderWidth: 0,
-                backgroundColor: "transparent",
-                width: 36,
-                height: 36,
-              }}
             >
               <Icon
                 name="circle-x"
@@ -103,23 +90,7 @@ export const SearchScreen: FC = () => {
             </IconButton>
           )}
         </View>
-        <IconButton
-          accessibilityLabel="Close search"
-          onPress={() => router.back()}
-          style={({ pressed }) => ({
-            borderWidth: 0,
-            backgroundColor: "transparent",
-            opacity: pressed ? 0.45 : 1,
-          })}
-        >
-          <Icon
-            name="x"
-            color={theme.colors.text}
-            size={24}
-            strokeWidth={1.8}
-          />
-        </IconButton>
-      </View>
+      </ModalHeader>
       <FeedList
         items={items}
         visible={focused && foreground}

@@ -138,12 +138,8 @@ function collectorHarness(known: string[] = []) {
           };
         case "react-native-webview":
           return { WebView: "WebView" };
-        case "@/components/ui/icon":
-          return { Icon: "Icon" };
-        case "@/components/ui/icon-button":
-          return { IconButton: "IconButton" };
-        case "@/components/ui/typography":
-          return { Typography: "Typography" };
+        case "@/components/ui/modal-header":
+          return { ModalHeader: "ModalHeader" };
         case "@/feed/collection":
           return collection;
         case "@/feed/schemas":
