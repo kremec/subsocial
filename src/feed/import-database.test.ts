@@ -59,9 +59,18 @@ function importHarness() {
         throw error;
       }
     },
-    getAllSync: (sql: string) => db.prepare(sql).all(),
+    getAllSync: (sql: string, ...params: string[]) =>
+      db.prepare(sql).all(...params),
     runSync: (sql: string, ...params: string[]) =>
       db.prepare(sql).run(...params),
+    prepareSync: (sql: string) => {
+      const statement = db.prepare(sql);
+      return {
+        executeSync: (...params: (string | number | null)[]) =>
+          statement.run(...params),
+        finalizeSync() {},
+      };
+    },
     closeSync() {
       state.closed = true;
       db.close();
@@ -141,6 +150,36 @@ test("accepts exported posts and pending undated rows with metadata outside JSON
   assert.equal(app.state.closed, true);
 });
 
+test("unversioned exports are migrated before validation", async () => {
+  const app = importHarness();
+  app.db.exec("ALTER TABLE feed_items DROP COLUMN thread_id");
+  app.db.prepare("UPDATE feed_items SET item_json = ?").run(
+    JSON.stringify({
+      thread: [
+        {
+          sourceId: "video",
+          url: "https://youtube.com/watch?v=video",
+          media: [],
+        },
+      ],
+    }),
+  );
+  assert.equal(await app.importDatabase(), true);
+  assert.equal(app.state.version, 3);
+  assert.equal(
+    JSON.parse(app.state.payloads[0]).url,
+    "https://youtube.com/watch?v=video",
+  );
+});
+
+test("rejects databases without saved posts before backup", async () => {
+  const app = importHarness();
+  app.db.exec("DROP TABLE feed_items");
+  await assert.rejects(app.importDatabase(), /Not a subsocial database/);
+  assert.equal(app.state.backups, 0);
+  assert.equal(app.state.closed, true);
+});
+
 test("current-version imports preserve playable YouTube sources without rerunning migration SQL", async () => {
   const app = importHarness();
   const media = {
@@ -174,7 +213,7 @@ test("rejects invalid JSON, platforms, identities, timestamps, and essential pay
     "UPDATE feed_items SET fetched_at = 'invalid'",
     `UPDATE feed_items SET item_json = '{"url":"invalid"}'`,
     `UPDATE feed_items SET item_json = '{"url":"https://example.com","text":{}}'`,
-    "ALTER TABLE feed_items RENAME COLUMN thread_id TO obsolete",
+    "ALTER TABLE feed_items RENAME COLUMN thread_id TO obsolete; PRAGMA user_version = 3",
     "PRAGMA user_version = 4",
   ]) {
     const app = importHarness();

@@ -46,7 +46,14 @@ export async function importDatabase(): Promise<boolean> {
   );
 
   try {
-    // Reject unrelated or incompatible databases before replacing local data.
+    // Reject unrelated databases, then upgrade older exports before validating them.
+    if (
+      !imported.getFirstSync(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'feed_items'",
+      )
+    )
+      throw new Error("Not a subsocial database");
+    migrateDatabase(imported);
     const rows = z
       .array(importedRowSchema)
       .parse(
@@ -72,7 +79,6 @@ export async function importDatabase(): Promise<boolean> {
         );
       }
     });
-    migrateDatabase(imported);
     await backupDatabaseAsync({
       sourceDatabase: imported,
       destDatabase: database,
