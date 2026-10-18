@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
-import { type PlatformDefinition } from "@/platforms/platforms";
+import { type PlatformDefinition } from "@/platforms/types";
 import {
   FeedAccessError,
   type FeedPage,

@@ -12,7 +12,8 @@ import {
   listConnectedPlatforms,
 } from "@/feed/database";
 import { type PlatformId } from "@/feed/types";
-import { type PlatformDefinition, platforms } from "@/platforms/platforms";
+import { platforms } from "@/platforms/platforms";
+import { type PlatformDefinition } from "@/platforms/types";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,

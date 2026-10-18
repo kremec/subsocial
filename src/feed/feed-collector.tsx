@@ -17,9 +17,9 @@ import {
   saveExtraction,
 } from "@/feed/database";
 import { extractedItemSchema } from "@/feed/schemas";
-import { type PlatformDefinition } from "@/platforms/platforms";
-import { FeedAccessError, platformFeed } from "@/platforms/service";
+import { platformFeed } from "@/platforms/service";
 import { syncPlatformSession } from "@/platforms/session";
+import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
 import { useTheme } from "@/theme/use-theme";
 
 export interface CollectionResult {
