@@ -9,10 +9,7 @@ import {
   setItems,
 } from "expo-quick-actions";
 
-import {
-  getInstalledPlatformIds,
-  openPlatformApp,
-} from "@/platforms/open-post";
+import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 
 const shortcutId = (platformId: string) => `platform:${platformId}`;
@@ -24,14 +21,15 @@ function openShortcut(action: Action) {
 }
 
 async function updatePlatformShortcuts() {
-  const installedPlatformIds =
-    Platform.OS === "android" ? undefined : await getInstalledPlatformIds();
-  const shortcutPlatforms = platforms.filter(
-    ({ id }) => !installedPlatformIds || installedPlatformIds.includes(id),
-  );
+  // iOS shows only a few shortcuts, so offer just the installed apps there.
+  const installed =
+    Platform.OS === "android"
+      ? platforms.map(() => true)
+      : await Promise.all(platforms.map(({ id }) => canOpenPlatformApp(id)));
 
   await setItems(
-    shortcutPlatforms
+    platforms
+      .filter((_platform, index) => installed[index])
       .slice(0, Platform.OS === "android" ? undefined : maxCount)
       .map((platform) => ({
         id: shortcutId(platform.id),
