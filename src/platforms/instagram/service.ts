@@ -27,31 +27,24 @@ const mediaFor = (record: Media): FeedMedia[] => {
   const video = largest(record.video_versions);
   const url = video?.url || image?.url;
   if (!url) return [];
-  const width = video?.width || image?.width || record.original_width;
-  const height = video?.height || image?.height || record.original_height;
+  const isVideo = record.media_type === 2 || !!video;
   return [
     {
-      type: record.media_type === 2 || video ? "video" : "image",
+      type: isVideo ? "video" : "image",
       url,
       posterUrl: video ? image?.url : undefined,
-      playable: record.media_type === 2 || video ? !!video : undefined,
-      aspectRatio: aspectRatio(width, height),
+      playable: isVideo ? !!video : undefined,
+      aspectRatio: aspectRatio(
+        video?.width || image?.width || record.original_width,
+        video?.height || image?.height || record.original_height,
+      ),
     },
   ];
 };
 
 export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
   const parsed = feedResponseSchema.safeParse(value);
-  if (!parsed.success) {
-    const pagination = parsed.error.issues.some((issue) =>
-      issue.path.includes("page_info"),
-    );
-    throw new Error(
-      pagination
-        ? "Instagram feed pagination unavailable."
-        : "Instagram feed unavailable.",
-    );
-  }
+  if (!parsed.success) throw new Error("Instagram feed unavailable.");
   const connection = parsed.data;
   const items: ExtractedItem[] = [];
   for (const edge of connection.edges) {
@@ -92,15 +85,14 @@ export async function* instagramFeed(
   const html = await (await request.fetch("https://www.instagram.com/")).text();
   if (!request.cookies.csrftoken)
     throw new FeedAccessError("Open Instagram to renew your login.");
-  const fbDtsg = tokenSchema.parse(
-    bootstrap(
-      html.slice(html.lastIndexOf('"DTSGInitData",[],')),
-      '"DTSGInitData",[],',
-    ),
-  ).token;
-  const lsd = tokenSchema.parse(
-    bootstrap(html.slice(html.lastIndexOf('"LSD",[],')), '"LSD",[],'),
-  ).token;
+  const token = (name: string) => {
+    const marker = `"${name}",[],`;
+    return tokenSchema.parse(
+      bootstrap(html.slice(html.lastIndexOf(marker)), marker),
+    ).token;
+  };
+  const fbDtsg = token("DTSGInitData");
+  const lsd = token("LSD");
   yield* paginate(request, "Instagram", async (cursor) => {
     const body = new URLSearchParams({
       fb_dtsg: fbDtsg,
