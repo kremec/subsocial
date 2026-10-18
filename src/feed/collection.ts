@@ -3,7 +3,6 @@ import { type FeedPage } from "@/platforms/types";
 
 export const feedItemLimit = 500;
 export const collectionTimeout = 120_000;
-export const collectorConcurrency = 5;
 
 export const collectionKnownKey = (platform: string) =>
   `collection-known:${platform}`;

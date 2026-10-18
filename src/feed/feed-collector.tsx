@@ -24,10 +24,6 @@ import { useTheme } from "@/theme/use-theme";
 
 export interface CollectionResult {
   platform: PlatformDefinition["id"];
-  durationMs: number;
-  finishedAt: number;
-  firstItemsMs?: number;
-  items: number;
   error?: string;
 }
 
@@ -58,21 +54,14 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const [pendingItems] = useState(() =>
     platform.id === "youtube" ? listPendingYouTubeItems() : [],
   );
-  const [startedAt] = useState(() => performance.now());
   const [progress] = useState(() => new CollectionProgress(new Set(known)));
-  const firstItemsMs = useRef<number>(undefined);
   const failures = useRef(new Set<string>());
   const finished = useRef(false);
   const finish = useEffectEvent((error?: string) => {
     if (finished.current) return;
     finished.current = true;
-    const finishedAt = performance.now();
     onFinish({
       platform: platform.id,
-      durationMs: Math.round(finishedAt - startedAt),
-      finishedAt,
-      firstItemsMs: firstItemsMs.current,
-      items: progress.seen.size,
       error:
         error ||
         (failures.current.size
@@ -111,8 +100,6 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
             for (const post of item.thread ?? [])
               failures.current.delete(post.sourceId);
           }
-          if (dated.items.length && firstItemsMs.current === undefined)
-            firstItemsMs.current = Math.round(performance.now() - startedAt);
           if (dated.items.length || batch.excludedSourceIds.length)
             saveExtraction(
               platform.id,
@@ -140,16 +127,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [
-    active,
-    attention,
-    open,
-    platform,
-    dates,
-    pendingItems,
-    progress,
-    startedAt,
-  ]);
+  }, [active, attention, open, platform, dates, pendingItems, progress]);
 
   const close = () => {
     onClose();
