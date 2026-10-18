@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 import Storage from "expo-sqlite/kv-store";
 
 import { showErrorToast } from "@/components/ui/toast";
-import { collectionKnownKey, collectorConcurrency } from "@/feed/collection";
+import { collectionKnownKey } from "@/feed/collection";
 import {
   listConnectedPlatforms,
   listFeedItems,
@@ -18,7 +18,7 @@ import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 
 interface RefreshRun {
-  startedAt: number;
+  id: number;
   queue: PlatformId[];
   known: Partial<Record<PlatformId, string[]>>;
   results: CollectionResult[];
@@ -80,7 +80,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     running.current = queue.length
       ? {
           // Keep login collectors mounted while healthy platforms refresh again.
-          startedAt: waiting?.startedAt ?? performance.now(),
+          id: waiting?.id ?? performance.now(),
           queue,
           known,
           results: [],
@@ -133,7 +133,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     const current = running.current;
     if (
       !current ||
-      current.startedAt !== runId ||
+      current.id !== runId ||
       !current.queue.includes(result.platform)
     )
       return;
@@ -170,16 +170,6 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
           )
           .join("\n"),
       );
-    if (__DEV__) {
-      console.info(
-        "[refresh]",
-        JSON.stringify({
-          totalMs: Math.round(result.finishedAt - next.startedAt),
-          concurrency: collectorConcurrency,
-          platforms: next.results,
-        }),
-      );
-    }
     running.current = undefined;
     setRun(undefined);
   };
@@ -190,11 +180,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     needed: boolean,
   ) => {
     const current = running.current;
-    if (
-      !current ||
-      current.startedAt !== runId ||
-      !current.queue.includes(platform)
-    )
+    if (!current || current.id !== runId || !current.queue.includes(platform))
       return;
     if (needed)
       setFailed((failed) =>
@@ -227,7 +213,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     attention,
     needsAttention,
     foreground,
-    runId: run?.startedAt,
+    runId: run?.id,
     known: run?.known ?? {},
     finish,
     toggle,

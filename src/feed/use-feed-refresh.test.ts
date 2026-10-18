@@ -212,12 +212,7 @@ const post = (sourceId: string, platform: PlatformId): FeedItem => ({
   fetchedAt: 1,
   publishedAt: 1,
 });
-const result = (platform: PlatformId): CollectionResult => ({
-  platform,
-  durationMs: 1,
-  finishedAt: 10,
-  items: 1,
-});
+const result = (platform: PlatformId): CollectionResult => ({ platform });
 const ids = (items: FeedItem[]) => Array.from(items, (item) => item.id);
 const initial = [post("old", "x")];
 const incoming = [

@@ -222,7 +222,6 @@ test("collects without a WebView and saves the final API page", async () => {
   await app.send({ items: [item], end: true });
   assert.equal(app.saved.length, 1);
   assert.equal(app.results.length, 1);
-  assert.equal(app.results[0].items, 1);
   assert.equal(app.timers.size, 0);
 });
 
@@ -262,7 +261,6 @@ test("continues through empty API pages and reports failed dates at the final pa
   assert.equal(app.saved.length, 1);
   await app.send({ items: [item], end: true });
   assert.equal(app.results.length, 1);
-  assert.equal(app.results[0].items, 1);
   assert.match(
     app.results[0].error!,
     /Publication dates unavailable for 1 posts/,
@@ -282,7 +280,6 @@ test("saves the capped API page before finishing without requesting another page
   assert.equal(app.saved.length, 1);
   assert.equal(app.saved[0].length, collection.feedItemLimit);
   assert.equal(app.results.length, 1);
-  assert.equal(app.results[0].items, collection.feedItemLimit);
   assert.equal(app.signals.length, 1);
   assert.equal(app.timers.size, 0);
 });

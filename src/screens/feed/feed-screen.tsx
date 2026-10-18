@@ -5,7 +5,6 @@ import { useIsFocused } from "expo-router";
 
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
-import { collectorConcurrency } from "@/feed/collection";
 import { exportDatabase } from "@/feed/export-database";
 import { FeedCollector } from "@/feed/feed-collector";
 import { importDatabase } from "@/feed/import-database";
@@ -43,7 +42,7 @@ export const FeedScreen: FC = () => {
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
       {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
 
-      {feed.collectors.slice(0, collectorConcurrency).map((platform) => (
+      {feed.collectors.map((platform) => (
         <FeedCollector
           key={`${feed.runId}:${platform}`}
           platform={getPlatform(platform)}
