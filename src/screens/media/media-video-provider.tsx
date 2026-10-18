@@ -11,14 +11,13 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
+import { type VideoPlayer } from "expo-video";
+
 import {
   type PlaybackResult,
   YouTubeMediaContext,
 } from "@/platforms/youtube/media-resolver";
-import {
-  FeedVideoPlayerContext,
-  useFeedVideoPlayer,
-} from "@/screens/feed/feed-video-player";
+import { useFeedVideoPlayer } from "@/screens/feed/feed-video-player";
 import {
   type MediaVideoSession,
   useMediaVideoPlayback,
@@ -44,6 +43,7 @@ export const MediaAlbumContext = createContext<{
 } | null>(null);
 
 export const MediaVideoContext = createContext<{
+  player: VideoPlayer;
   registerVideo: (session: MediaVideoSession) => () => void;
   loadedVideo?: { playbackKey: string; url: string };
 } | null>(null);
@@ -89,14 +89,12 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   );
 
   return (
-    <FeedVideoPlayerContext value={player}>
-      <YouTubeMediaContext value={youtube}>
-        <MediaAlbumContext value={album}>
-          <MediaVideoContext value={{ registerVideo, loadedVideo }}>
-            {props.children}
-          </MediaVideoContext>
-        </MediaAlbumContext>
-      </YouTubeMediaContext>
-    </FeedVideoPlayerContext>
+    <YouTubeMediaContext value={youtube}>
+      <MediaAlbumContext value={album}>
+        <MediaVideoContext value={{ player, registerVideo, loadedVideo }}>
+          {props.children}
+        </MediaVideoContext>
+      </MediaAlbumContext>
+    </YouTubeMediaContext>
   );
 };
