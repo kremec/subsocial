@@ -5,7 +5,8 @@ import {
   type Media,
   type Variant,
 } from "@/platforms/instagram/schemas/feed-response-schema";
-import { bootstrap, type Json } from "@/platforms/json";
+import { aspectRatio, bootstrap, type Json } from "@/platforms/json";
+import { paginate } from "@/platforms/paginate";
 import {
   FeedAccessError,
   type FeedPage,
@@ -34,7 +35,7 @@ const mediaFor = (record: Media): FeedMedia[] => {
       url,
       posterUrl: video ? image?.url : undefined,
       playable: record.media_type === 2 || video ? !!video : undefined,
-      aspectRatio: width && height ? width / height : undefined,
+      aspectRatio: aspectRatio(width, height),
     },
   ];
 };
@@ -88,11 +89,7 @@ export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
 export async function* instagramFeed(
   request: FeedRequest,
 ): AsyncGenerator<FeedPage> {
-  const html = await (
-    await request.fetch("https://www.instagram.com/", {
-      signal: request.signal,
-    })
-  ).text();
+  const html = await (await request.fetch("https://www.instagram.com/")).text();
   if (!request.cookies.csrftoken)
     throw new FeedAccessError("Open Instagram to renew your login.");
   const fbDtsg = tokenSchema.parse(
@@ -104,16 +101,14 @@ export async function* instagramFeed(
   const lsd = tokenSchema.parse(
     bootstrap(html.slice(html.lastIndexOf('"LSD",[],')), '"LSD",[],'),
   ).token;
-  let cursor: string | null = null;
-  const cursors = new Set<string>();
-  do {
+  yield* paginate(request, "Instagram", async (cursor) => {
     const body = new URLSearchParams({
       fb_dtsg: fbDtsg,
       lsd,
       // Observed in Instagram's following-feed web request. No device or analytics fields are needed.
       doc_id: "29018433597758912",
       variables: JSON.stringify({
-        after: cursor,
+        after: cursor || null,
         before: null,
         first: 12,
         last: null,
@@ -129,7 +124,6 @@ export async function* instagramFeed(
       "https://www.instagram.com/graphql/query",
       {
         method: "POST",
-        signal: request.signal,
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "X-CSRFToken": request.cookies.csrftoken,
@@ -137,12 +131,6 @@ export async function* instagramFeed(
         body: body.toString(),
       },
     );
-    const page = instagramPage(await response.json());
-    yield page;
-    if (page.end) return;
-    if (cursors.has(page.cursor))
-      throw new Error("Instagram did not advance the feed.");
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return instagramPage(await response.json());
+  });
 }

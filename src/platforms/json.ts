@@ -14,6 +14,11 @@ export function* objects(value: Json): Generator<JsonObject> {
   for (const child of Object.values(value)) yield* objects(child);
 }
 
+export const aspectRatio = (
+  width: number | null | undefined,
+  height: number | null | undefined,
+) => (width && height ? width / height : undefined);
+
 export function bootstrap(html: string, marker: string): JsonObject {
   const offset = html.indexOf(marker);
   if (offset < 0) throw new Error("Web API configuration unavailable.");

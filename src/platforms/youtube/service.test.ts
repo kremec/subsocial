@@ -330,7 +330,6 @@ test("YouTube reads mobile videos and authenticates metadata and pagination for 
       }
       endpoints.push(url);
       assert.equal(new URL(url).origin, "https://m.youtube.com");
-      assert.equal(init.signal, controller.signal);
       const headers = new Headers(init.headers);
       assert.equal(headers.get("X-Origin"), "https://m.youtube.com");
       assert.equal(headers.get("X-Goog-AuthUser"), "1");

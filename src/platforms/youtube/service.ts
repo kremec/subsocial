@@ -93,9 +93,6 @@ export async function* youtubeFeed(
 ): AsyncGenerator<FeedPage> {
   const response = await request.fetch(
     "https://www.youtube.com/feed/subscriptions",
-    {
-      signal: request.signal,
-    },
   );
   const html = await response.text();
   const config = configSchema.parse(bootstrap(html, "ytcfg.set({"));
@@ -149,7 +146,6 @@ export async function* youtubeFeed(
         method: "POST",
         headers,
         body: JSON.stringify({ context, ...body }),
-        signal: request.signal,
       },
     );
     const data = z.record(z.string(), z.json()).parse(await response.json());
