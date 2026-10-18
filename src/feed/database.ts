@@ -380,6 +380,16 @@ export function listSourceIds(platform: PlatformId): string[] {
     .map((row) => row.source_id);
 }
 
+export function listPostIds(): Set<string> {
+  return new Set(
+    database
+      .getAllSync<{ id: string }>(
+        "SELECT id FROM feed_items WHERE published_at IS NOT NULL",
+      )
+      .map((row) => row.id),
+  );
+}
+
 export function listPendingYouTubeItems(): ExtractedItem[] {
   return database
     .getAllSync<FeedItemRow>(
