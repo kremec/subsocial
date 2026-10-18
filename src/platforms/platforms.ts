@@ -1,3 +1,5 @@
+import { type Cookies } from "@preeternal/react-native-cookie-manager";
+
 import { type PlatformId } from "@/feed/types";
 import { facebookPlatform } from "@/platforms/facebook/config";
 import { instagramPlatform } from "@/platforms/instagram/config";
@@ -19,3 +21,13 @@ export function getPlatform(id: PlatformId): PlatformDefinition {
   if (!platform) throw new Error(`Unknown platform: ${id}`);
   return platform;
 }
+
+export const hasSession = (platform: PlatformDefinition, cookies: Cookies) =>
+  platform.sessionCookieGroups.every((group) =>
+    group.some((name) => !!cookies[name]?.value),
+  );
+
+export const ownsHost = (platform: PlatformDefinition, host: string) =>
+  platform.dataDomains.some(
+    (domain) => host === domain || host.endsWith(`.${domain}`),
+  );

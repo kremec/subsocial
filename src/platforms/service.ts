@@ -4,11 +4,13 @@ import Constants from "expo-constants";
 
 import CookieManager, {
   type Cookie,
+  type Cookies,
 } from "@preeternal/react-native-cookie-manager";
 
 import { type ExtractedItem } from "@/feed/types";
 import { facebookFeed } from "@/platforms/facebook/service";
 import { instagramFeed } from "@/platforms/instagram/service";
+import { hasSession, ownsHost } from "@/platforms/platforms";
 import { redditFeed } from "@/platforms/reddit/service";
 import {
   FeedAccessError,
@@ -28,43 +30,42 @@ const collectors = {
   youtube: youtubeFeed,
 };
 
+const cookieHost = (cookie: Cookie) => cookie.domain?.replace(/^\./, "") || "";
+const cookieValues = (cookies: Cookies) =>
+  Object.fromEntries(
+    Object.entries(cookies).map(([name, cookie]) => [name, cookie.value]),
+  );
+
 // iOS keeps WebView and URLSession cookies in separate native stores.
 async function syncCookies(platform: PlatformDefinition, fromWebKit: boolean) {
   if (Platform.OS !== "ios") return;
-  const [source, target] = await Promise.all([
-    CookieManager.getAllAsArray(fromWebKit),
-    CookieManager.getAllAsArray(!fromWebKit),
-  ]);
-  const belongs = (cookie: Cookie) => {
-    const host = cookie.domain?.replace(/^\./, "") || "";
-    return platform.dataDomains.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`),
-    );
-  };
-  const key = (cookie: Cookie) =>
-    `${cookie.name}:${cookie.domain}:${cookie.path}`;
-  const incoming = new Map(
-    source.filter(belongs).map((cookie) => [key(cookie), cookie]),
+  const [incoming, previous] = await Promise.all(
+    [fromWebKit, !fromWebKit].map(
+      async (useWebKit) =>
+        new Map(
+          (await CookieManager.getAllAsArray(useWebKit))
+            .filter((cookie) => ownsHost(platform, cookieHost(cookie)))
+            .map((cookie) => [
+              `${cookie.name}:${cookie.domain}:${cookie.path}`,
+              cookie,
+            ]),
+        ),
+    ),
   );
-  const previous = new Map(
-    target.filter(belongs).map((cookie) => [key(cookie), cookie]),
-  );
-  for (const [id, cookie] of previous) {
+  for (const [id, cookie] of previous)
     if (!incoming.has(id))
       await CookieManager.set(
-        `https://${cookie.domain!.replace(/^\./, "")}`,
+        `https://${cookieHost(cookie)}`,
         { ...cookie, maxAge: 0 },
         !fromWebKit,
       );
-  }
-  for (const [id, cookie] of incoming) {
+  for (const [id, cookie] of incoming)
     if (JSON.stringify(previous.get(id)) !== JSON.stringify(cookie))
       await CookieManager.set(
-        `https://${cookie.domain!.replace(/^\./, "")}`,
+        `https://${cookieHost(cookie)}`,
         cookie,
         !fromWebKit,
       );
-  }
 }
 
 export async function* platformFeed(
@@ -76,14 +77,7 @@ export async function* platformFeed(
   if ((retryAt.get(platform.id) ?? 0) > Date.now())
     throw new Error("Refresh rate limited. Try again later.");
   const session = await CookieManager.get(platform.startUrl, true);
-  const cookies = Object.fromEntries(
-    Object.entries(session).map(([name, cookie]) => [name, cookie.value]),
-  );
-  if (
-    !platform.sessionCookieGroups.every((group) =>
-      group.some((name) => cookies[name]),
-    )
-  )
+  if (!hasSession(platform, session))
     throw new FeedAccessError("Open the platform to sign in again.");
   await syncCookies(platform, true);
   // Facebook requires the device identity to serve its web API bootstrap.
@@ -91,6 +85,7 @@ export async function* platformFeed(
     platform.id === "facebook"
       ? await Constants.getWebViewUserAgentAsync()
       : undefined;
+  const cookies = cookieValues(session);
   const request: FeedRequest = {
     cookies,
     signal,
@@ -98,13 +93,8 @@ export async function* platformFeed(
     pendingItems,
     fetch: async (url, init) => {
       if (signal.aborted) throw new Error("Refresh cancelled.");
-      const hostname = new URL(url).hostname;
-      if (
-        new URL(url).protocol !== "https:" ||
-        !platform.dataDomains.some(
-          (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
-        )
-      )
+      const { protocol, hostname } = new URL(url);
+      if (protocol !== "https:" || !ownsHost(platform, hostname))
         throw new Error("Unexpected feed request host.");
       const headers = new Headers(init?.headers);
       if (userAgent) headers.set("User-Agent", userAgent);
@@ -122,8 +112,7 @@ export async function* platformFeed(
       }
       const current = await CookieManager.get(platform.startUrl, true);
       for (const name of Object.keys(cookies)) delete cookies[name];
-      for (const [name, cookie] of Object.entries(current))
-        cookies[name] = cookie.value;
+      Object.assign(cookies, cookieValues(current));
       if (
         response.status === 401 ||
         /(?:^|\/)(login|signin|ServiceLogin|checkpoint|challenge)(?:\/|$)/i.test(
