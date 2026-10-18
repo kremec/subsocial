@@ -44,6 +44,10 @@ import { useTheme } from "@/theme/use-theme";
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 const positionKey = "feed-position";
 
+// The back-to-top pill stays hidden within the first two screens of the feed.
+const nearTop = (state: { scroll: number; scrollLength: number }) =>
+  state.scroll <= state.scrollLength * 2;
+
 const getItemType = (row: FeedRow) =>
   row.post ? "thread" : row.item.media.length ? "media" : "text";
 
@@ -145,10 +149,11 @@ export const FeedList: FC<FeedListProps> = (props) => {
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
-    const visible = info.viewableItems.filter((row) => row.isViewable);
-    readingRowId.current = visible[0]?.item.id;
+    readingRowId.current = info.viewableItems.find(
+      (row) => row.isViewable,
+    )?.item.id;
     const state = list.current?.getState();
-    if (state && state.scroll <= state.scrollLength * 2) {
+    if (state && nearTop(state)) {
       previousScrollY.current = state.scroll;
       setShowBackToTop(false);
     }
@@ -170,11 +175,8 @@ export const FeedList: FC<FeedListProps> = (props) => {
           const state = list.current?.getState();
           if (!state) return;
           const delta = state.scroll - previousScrollY.current;
-          if (state.scroll <= state.scrollLength * 2) {
-            setShowBackToTop(false);
-          } else if (Math.abs(delta) > 2) {
-            setShowBackToTop(delta < 0);
-          }
+          if (nearTop(state)) setShowBackToTop(false);
+          else if (Math.abs(delta) > 2) setShowBackToTop(delta < 0);
           if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
         }}
         scrollEventThrottle={16}
