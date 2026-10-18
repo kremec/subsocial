@@ -61,6 +61,16 @@ const presentationFlags = [
   "StoriesShouldIncludeFbNotes",
 ];
 
+// Best quality first. Fields may sit on the video or its legacy delivery data.
+const playbackKeys = [
+  "browser_native_hd_url",
+  "playable_url_quality_hd",
+  "browser_native_sd_url",
+  "playable_url",
+] as const;
+
+const isFacebook = (url: URL) => /(^|\.)facebook\.com$/.test(url.hostname);
+
 function mediaFor(attachments: Json): FeedMedia[] {
   const media = new Map<string, FeedMedia>();
   for (const entry of objects(attachments)) {
@@ -74,17 +84,10 @@ function mediaFor(attachments: Json): FeedMedia[] {
       data.preferred_thumbnail?.image ||
       data.preferred_thumbnail;
     const poster = image?.uri || "";
-    const playback = data.videoDeliveryLegacyFields;
     const playable =
-      playback?.browser_native_hd_url ||
-      data.browser_native_hd_url ||
-      playback?.playable_url_quality_hd ||
-      data.playable_url_quality_hd ||
-      playback?.browser_native_sd_url ||
-      data.browser_native_sd_url ||
-      playback?.playable_url ||
-      data.playable_url ||
-      "";
+      playbackKeys
+        .map((key) => data.videoDeliveryLegacyFields?.[key] || data[key])
+        .find(Boolean) || "";
     const candidateUrl = video ? playable || poster : poster;
     const id = data.id || candidateUrl;
     const previous = media.get(id);
@@ -121,28 +124,21 @@ function attachmentFor(attachments: Json) {
     let url: URL;
     try {
       url = new URL(rawUrl);
-      if (
-        /(^|\.)facebook\.com$/.test(url.hostname) &&
-        url.pathname === "/l.php"
-      )
+      // Unwrap Facebook's outbound link redirect.
+      if (isFacebook(url) && url.pathname === "/l.php")
         url = new URL(url.searchParams.get("u") || rawUrl);
     } catch {
       continue;
     }
     const isEvent =
       event.__typename === "Event" ||
-      (/^(www\.)?facebook\.com$/.test(url.hostname) &&
-        /^\/events\/\d+/.test(url.pathname));
+      (isFacebook(url) && /^\/events\/\d+/.test(url.pathname));
     const title =
       string(object(entry.title_with_entities).text) ||
       string(object(entry.title).text) ||
       string(entry.title) ||
       (isEvent ? string(event.name) : "");
-    if (
-      !isEvent &&
-      media.__typename !== "ExternalUrl" &&
-      /(^|\.)facebook\.com$/.test(url.hostname)
-    )
+    if (!isEvent && media.__typename !== "ExternalUrl" && isFacebook(url))
       continue;
     const parsed = feedAttachmentSchema.safeParse({
       type: isEvent ? "event" : "link",
