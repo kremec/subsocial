@@ -25,9 +25,9 @@ Scroll through posts, threads, images, and videos from your visible platforms.
 Tap Show more to expand long posts, or tap an image to open it full screen.
 Open an original post in the platform's app when installed, or in the built-in browser.
 
-The feed refreshes automatically on the first app open each day. Pull down to refresh it manually.
-Saved posts remain readable while new posts load. Open the feed menu to see which platforms are
-still refreshing.
+The feed refreshes automatically whenever you open the app. Pull down to refresh it manually.
+Saved posts remain readable while new posts load. The header shows which platforms are still
+refreshing.
 
 Feed refreshes use direct requests with your on-device login session. If a platform needs you to
 sign in again, a "needs attention" notice appears below the header. Tap its globe icon to handle
