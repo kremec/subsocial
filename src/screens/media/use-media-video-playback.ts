@@ -3,7 +3,7 @@ import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { type AudioTrack, type VideoPlayer } from "expo-video";
 
 import { type FeedMedia } from "@/feed/types";
-import { playbackPositionsFor } from "@/screens/feed/feed-video-player";
+import { playbackPositions } from "@/screens/feed/feed-video-player";
 
 export interface MediaVideoSession {
   playbackKey: string;
@@ -41,7 +41,6 @@ export function useMediaVideoPlayback(
     const shouldPlay =
       previous.current?.playbackKey !== playbackKey ||
       previous.current?.shouldPlay;
-    const positions = playbackPositionsFor(player);
     let phase: "replacing" | "loading" | "ready" | "disposed" = "replacing";
     let selectedAudioTrack: AudioTrack | undefined;
     const selectAudioTrack = () => {
@@ -72,7 +71,7 @@ export function useMediaVideoPlayback(
         if (player.status !== "readyToPlay") return;
         phase = "ready";
         selectAudioTrack();
-        const position = positions.get(playbackKey);
+        const position = playbackPositions.get(playbackKey);
         if (position !== undefined) player.currentTime = position;
         setLoaded({ playbackKey, url });
         if (shouldPlay) startPlayback();
@@ -95,7 +94,7 @@ export function useMediaVideoPlayback(
     );
     return () => {
       if (phase === "ready") {
-        positions.set(playbackKey, player.currentTime);
+        playbackPositions.set(playbackKey, player.currentTime);
         previous.current = {
           playbackKey,
           shouldPlay:
