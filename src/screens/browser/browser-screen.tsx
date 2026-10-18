@@ -7,8 +7,8 @@ import { WebView, type WebViewNavigation } from "react-native-webview";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
+import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
-import { Typography } from "@/components/ui/typography";
 import { listConnectedPlatforms } from "@/feed/database";
 import { type PlatformId } from "@/feed/types";
 import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
@@ -96,39 +96,26 @@ export const BrowserScreen: FC = () => {
   return (
     <Screen>
       <Stack.Screen options={{ gestureEnabled: !resetting }} />
-      <View
-        style={{
-          height: 56,
-          paddingHorizontal: theme.spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
+      <ModalHeader
+        title={platform.label}
+        closeDisabled={resetting}
+        onClose={() => void closeBrowser()}
       >
-        <Typography
-          style={{
-            flex: 1,
-            fontWeight: "600",
-          }}
-        >
-          {platform.label}
-        </Typography>
         {connected && (
           <IconButton
+            plain
+            accessibilityLabel={`Log out of ${platform.label}`}
             disabled={resetting}
             onPress={confirmReset}
-            style={({ pressed }) => ({
-              borderWidth: 0,
-              backgroundColor: "transparent",
-              opacity: pressed || resetting ? 0.45 : 1,
-            })}
+            style={resetting && { opacity: 0.45 }}
           >
             <Icon name="logout" color={theme.colors.text} size={22} />
           </IconButton>
         )}
         {installed && (
           <IconButton
+            plain
+            accessibilityLabel={`Open ${platform.label} app`}
             disabled={resetting}
             onPress={() => {
               void openPlatformApp(platform.id).catch(() =>
@@ -138,32 +125,12 @@ export const BrowserScreen: FC = () => {
                 ),
               );
             }}
-            style={({ pressed }) => ({
-              borderWidth: 0,
-              backgroundColor: "transparent",
-              opacity: pressed || resetting ? 0.45 : 1,
-            })}
+            style={resetting && { opacity: 0.45 }}
           >
             <Icon name="external-link" color={theme.colors.text} size={22} />
           </IconButton>
         )}
-        <IconButton
-          disabled={resetting}
-          onPress={() => void closeBrowser()}
-          style={({ pressed }) => ({
-            borderWidth: 0,
-            backgroundColor: "transparent",
-            opacity: pressed ? 0.45 : 1,
-          })}
-        >
-          <Icon
-            name="x"
-            color={theme.colors.text}
-            size={24}
-            strokeWidth={1.8}
-          />
-        </IconButton>
-      </View>
+      </ModalHeader>
       {resetting && (
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}

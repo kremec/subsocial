@@ -3,9 +3,7 @@ import { BackHandler, View } from "react-native";
 
 import { WebView } from "react-native-webview";
 
-import { Icon } from "@/components/ui/icon";
-import { IconButton } from "@/components/ui/icon-button";
-import { Typography } from "@/components/ui/typography";
+import { ModalHeader } from "@/components/ui/modal-header";
 import {
   CollectionProgress,
   datedExtraction,
@@ -156,31 +154,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
         backgroundColor: theme.colors.background,
       }}
     >
-      <View
-        style={{
-          height: 56,
-          paddingHorizontal: theme.spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
-      >
-        <Typography style={{ flex: 1, fontWeight: "600" }}>
-          {platform.label}
-        </Typography>
-        <IconButton
-          onPress={close}
-          style={{ borderWidth: 0, backgroundColor: "transparent" }}
-        >
-          <Icon
-            name="x"
-            color={theme.colors.text}
-            size={24}
-            strokeWidth={1.8}
-          />
-        </IconButton>
-      </View>
+      <ModalHeader title={platform.label} onClose={close} />
       <WebView
         source={{ uri: platform.startUrl }}
         originWhitelist={["*"]}

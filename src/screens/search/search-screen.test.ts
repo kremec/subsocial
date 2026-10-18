@@ -70,6 +70,8 @@ test("search includes hidden platforms, updates the shared feed, and closes like
       if (name === "@/components/ui/icon") return { Icon: "Icon" };
       if (name === "@/components/ui/icon-button")
         return { IconButton: "IconButton" };
+      if (name === "@/components/ui/modal-header")
+        return { ModalHeader: "ModalHeader" };
       if (name === "@/components/ui/screen") return { Screen: "Screen" };
       if (name === "@/screens/feed/components/feed-list")
         return { FeedList: "FeedList" };
@@ -182,9 +184,9 @@ test("search includes hidden platforms, updates the shared feed, and closes like
   await act(() =>
     screen
       .root!.queryAll(
-        (element) => element.props.accessibilityLabel === "Close search",
+        (element) => element.props.closeLabel === "Close search",
       )[0]!
-      .props.onPress(),
+      .props.onClose(),
   );
   assert.equal(closes, 1);
   await screen.unmount();

@@ -58,20 +58,22 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
             Platforms
           </Typography>
           <IconButton
+            size={36}
+            accessibilityLabel="Import data"
             onPress={() => {
               onClose();
               onImportData();
             }}
-            style={{ width: 36, height: 36 }}
           >
             <Icon name="file-import" color={theme.colors.text} size={20} />
           </IconButton>
           <IconButton
+            size={36}
+            accessibilityLabel="Export data"
             onPress={() => {
               onClose();
               onExportData();
             }}
-            style={{ width: 36, height: 36 }}
           >
             <Icon name="file-export" color={theme.colors.text} size={20} />
           </IconButton>
@@ -107,11 +109,9 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               </Typography>
 
               <IconButton
+                size={36}
+                accessibilityLabel={`${active ? "Hide" : "Show"} ${platform.label}`}
                 onPress={() => onTogglePlatform(platform.id)}
-                style={{
-                  width: 36,
-                  height: 36,
-                }}
               >
                 <Icon
                   name={active ? "eye" : "eye-off"}
@@ -121,6 +121,8 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               </IconButton>
 
               <IconButton
+                size={36}
+                accessibilityLabel={`Open ${platform.label}`}
                 onPress={() => {
                   onClose();
                   openBrowser(
@@ -130,7 +132,6 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                       : platform.loginUrl || platform.startUrl,
                   );
                 }}
-                style={{ width: 36, height: 36 }}
               >
                 <Icon
                   name="world"
