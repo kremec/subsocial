@@ -3,19 +3,13 @@ import {
   type ExtractedPost,
   type FeedMedia,
 } from "@/feed/types";
+import { aspectRatio } from "@/platforms/json";
+import { paginate } from "@/platforms/paginate";
 import {
   listingSchema,
   type RedditPost,
 } from "@/platforms/reddit/schemas/listing-schema";
-import { type FeedPage, type FeedRequest } from "@/platforms/types";
-
-const aspectRatio = (width: number | undefined, height: number | undefined) =>
-  typeof width === "number" &&
-  typeof height === "number" &&
-  width > 0 &&
-  height > 0
-    ? width / height
-    : undefined;
+import { type FeedRequest } from "@/platforms/types";
 
 function mediaFor(post: RedditPost): FeedMedia[] {
   const preview = post.preview?.images?.[0]?.source;
@@ -99,15 +93,11 @@ function postFor(post: RedditPost): ExtractedPost | undefined {
   };
 }
 
-export async function* redditFeed(
-  request: FeedRequest,
-): AsyncGenerator<FeedPage> {
-  let after = "";
-  const cursors = new Set<string>();
-  while (!request.signal.aborted) {
+export const redditFeed = (request: FeedRequest) =>
+  paginate(request, "Reddit", async (after) => {
     const url = new URL("https://www.reddit.com/new.json?limit=25&raw_json=1");
     if (after) url.searchParams.set("after", after);
-    const response = await request.fetch(url.href, { signal: request.signal });
+    const response = await request.fetch(url.href);
     const listing = listingSchema.safeParse(await response.json());
     if (!listing.success)
       throw new Error(
@@ -124,10 +114,6 @@ export async function* redditFeed(
       const item = postFor(post);
       if (item) items.push({ ...item, media: item.media ?? [] });
     }
-    after = data.after || "";
-    const end = !after || cursors.has(after);
-    yield { items, excludedSourceIds, end };
-    if (end) return;
-    cursors.add(after);
-  }
-}
+    const cursor = data.after || "";
+    return { items, excludedSourceIds, end: !cursor, cursor };
+  });

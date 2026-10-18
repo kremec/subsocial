@@ -13,6 +13,7 @@ import {
   webLiteTokenSchema,
 } from "@/platforms/facebook/schemas/feed-response-schema";
 import {
+  aspectRatio,
   bootstrap,
   object,
   objects,
@@ -20,6 +21,7 @@ import {
   type Json,
   type JsonObject,
 } from "@/platforms/json";
+import { paginate } from "@/platforms/paginate";
 import {
   FeedAccessError,
   type FeedPage,
@@ -90,19 +92,14 @@ function mediaFor(attachments: Json): FeedMedia[] {
       ? previous.url
       : candidateUrl || previous?.url;
     if (!url) continue;
-    const width = Number(image?.width);
-    const height = Number(image?.height);
-    const aspectRatio = video
-      ? data.aspect_ratio ||
-        (data.width && data.height ? data.width / data.height : undefined)
-      : undefined;
     media.set(id, {
       type: video ? "video" : "image",
       url,
       aspectRatio:
-        aspectRatio ||
+        (video &&
+          (data.aspect_ratio || aspectRatio(data.width, data.height))) ||
         previous?.aspectRatio ||
-        (width && height ? width / height : undefined),
+        aspectRatio(image?.width, image?.height),
       ...(video
         ? {
             posterUrl: poster || previous?.posterUrl,
@@ -161,12 +158,7 @@ function attachmentFor(attachments: Json) {
     const preview = feedMediaSchema.safeParse({
       type: "image",
       url: image.uri,
-      aspectRatio:
-        typeof image.width === "number" &&
-        typeof image.height === "number" &&
-        image.height > 0
-          ? image.width / image.height
-          : undefined,
+      aspectRatio: aspectRatio(Number(image.width), Number(image.height)),
     });
     return {
       attachment: parsed.data,
@@ -357,9 +349,7 @@ export async function* facebookFeed(
   };
   for (const name of presentationFlags)
     variables[`__relay_internal__pv__${name}relayprovider`] = false;
-  let cursor = "";
-  const cursors = new Set<string>();
-  do {
+  yield* paginate(request, "Facebook", async (cursor) => {
     if (cursor) variables.feedEndCursor = cursor;
     const response = await request.fetch(
       "https://www.facebook.com/api/graphql/",
@@ -375,12 +365,6 @@ export async function* facebookFeed(
         }).toString(),
       },
     );
-    const page = parseFacebookFeed(await response.text());
-    if (!page.end && (!page.cursor || cursors.has(page.cursor)))
-      throw new Error("Facebook did not advance the feed.");
-    yield { items: page.items, end: page.end };
-    if (page.end) return;
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return parseFacebookFeed(await response.text());
+  });
 }

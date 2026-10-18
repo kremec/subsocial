@@ -1,5 +1,6 @@
 import type { ExtractedItem, FeedMedia, ExtractedPost } from "@/feed/types";
-import { type Json } from "@/platforms/json";
+import { aspectRatio, type Json } from "@/platforms/json";
+import { paginate } from "@/platforms/paginate";
 import {
   FeedAccessError,
   type FeedPage,
@@ -31,13 +32,14 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
   const media: FeedMedia[] = [];
   for (const item of legacy.extended_entities?.media || []) {
     const poster = item.media_url_https;
-    const dimensions = item.original_info;
-    const aspectRatio =
-      (dimensions?.width || 0) / (dimensions?.height || 0) || undefined;
+    const ratio = aspectRatio(
+      item.original_info?.width,
+      item.original_info?.height,
+    );
     if (item.type === "photo" && poster) {
       const url = new URL(poster);
       url.searchParams.set("name", "orig");
-      media.push({ type: "image", url: url.href, aspectRatio });
+      media.push({ type: "image", url: url.href, aspectRatio: ratio });
     } else {
       const variant = (item.video_info?.variants || [])
         .filter((entry) => entry.content_type === "video/mp4")
@@ -49,8 +51,10 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
           posterUrl: poster || undefined,
           playable: true,
           aspectRatio:
-            (item.video_info?.aspect_ratio?.[0] || 0) /
-              (item.video_info?.aspect_ratio?.[1] || 0) || aspectRatio,
+            aspectRatio(
+              item.video_info?.aspect_ratio?.[0],
+              item.video_info?.aspect_ratio?.[1],
+            ) || ratio,
         });
     }
   }
@@ -177,28 +181,21 @@ const features = {
 export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
   if (!request.cookies.ct0)
     throw new FeedAccessError("Open X to renew your login.");
-  const html = await (
-    await request.fetch("https://x.com/home", { signal: request.signal })
-  ).text();
+  const html = await (await request.fetch("https://x.com/home")).text();
   const scriptUrl = html.match(
     /https:\/\/abs\.twimg\.com\/responsive-web\/client-web[^"\s]*\/main\.[^"\s]+\.js/,
   )?.[0];
   if (!scriptUrl) throw new Error("X web API configuration unavailable.");
-  const script = await (
-    await request.fetch(scriptUrl, { signal: request.signal })
-  ).text();
+  const script = await (await request.fetch(scriptUrl)).text();
   const bearer = script.match(/AAAAA[A-Za-z0-9%]+/)?.[0];
   if (!bearer) throw new Error("X web API configuration unavailable.");
   // Query and feature flags observed on X's chronological following feed.
   const queryId = "iv-dlEyuey-JlgeP5u6rPw";
-  let cursor = "";
-  const cursors = new Set<string>();
-  do {
+  yield* paginate(request, "X", async (cursor) => {
     const response = await request.fetch(
       `https://x.com/i/api/graphql/${queryId}/HomeLatestTimeline`,
       {
         method: "POST",
-        signal: request.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${bearer}`,
@@ -219,12 +216,6 @@ export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
         }),
       },
     );
-    const page = xPage(await response.json());
-    yield page;
-    if (page.end) return;
-    if (cursors.has(page.cursor))
-      throw new Error("X did not advance the feed.");
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return xPage(await response.json());
+  });
 }
