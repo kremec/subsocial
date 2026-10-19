@@ -50,7 +50,7 @@ export const feedPostSchema = z.object({
   },
 });
 
-export const extractedPostSchema = feedPostSchema.extend({
+const extractedPostSchema = feedPostSchema.extend({
   sourceId: z.string().min(1),
 });
 
@@ -59,7 +59,7 @@ export const extractedItemSchema = extractedPostSchema.extend({
   thread: z.array(extractedPostSchema).optional(),
 });
 
-export const feedItemSchema = extractedItemSchema.extend({
+const feedItemSchema = extractedItemSchema.extend({
   publishedAt: z.number().positive(),
   id: z.string().min(1),
   platform: platformIdSchema,

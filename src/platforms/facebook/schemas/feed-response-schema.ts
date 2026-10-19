@@ -40,12 +40,11 @@ export const edgeSchema = z.object({
   category: z.string().optional(),
   node: storySchema,
 });
-export type FacebookEdge = z.infer<typeof edgeSchema>;
 export const pageInfoSchema = z.object({
   has_next_page: z.boolean(),
   end_cursor: z.string().nullish(),
 });
-export const feedSchema = z.object({
+const feedSchema = z.object({
   edges: z.array(z.json()).optional(),
   page_info: pageInfoSchema.optional(),
 });

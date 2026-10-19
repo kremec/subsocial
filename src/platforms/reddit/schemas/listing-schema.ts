@@ -12,7 +12,7 @@ const videoSchema = z.object({
   height: z.number().optional(),
 });
 const mediaSchema = z.object({ reddit_video: videoSchema.nullish() });
-export const redditPostSchema = z.object({
+const redditPostSchema = z.object({
   name: z.string().min(1),
   permalink: z.string().startsWith("/"),
   author: z.string().optional(),
