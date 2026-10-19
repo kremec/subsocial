@@ -1,4 +1,4 @@
-import { type FC, memo, useCallback } from "react";
+import { type FC, memo } from "react";
 import { View } from "react-native";
 
 import { type FeedItem, type FeedPost } from "@/feed/types";
@@ -43,15 +43,10 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
     onRetry,
     onPlaybackError,
   } = props;
-  const activatePost = useCallback(
-    (postUrl: string) => onActivate(rowId, postUrl),
-    [rowId, onActivate],
-  );
+  const activatePost = (postUrl: string) => onActivate(rowId, postUrl);
   const playableItem = withYouTubeStream(item, resolution);
-  const setVideoView = useCallback(
-    (postUrl: string, view: View | null) => onVideoView(rowId, postUrl, view),
-    [rowId, onVideoView],
-  );
+  const setVideoView = (postUrl: string, view: View | null) =>
+    onVideoView(rowId, postUrl, view);
   const theme = useTheme();
 
   return (

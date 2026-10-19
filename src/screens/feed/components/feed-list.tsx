@@ -1,10 +1,8 @@
 import {
   type FC,
   type RefObject,
-  useCallback,
   useEffect,
   useEffectEvent,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -73,32 +71,18 @@ export const FeedList: FC<FeedListProps> = (props) => {
   } = props;
   const theme = useTheme();
   const searching = query !== undefined;
-  const searchIndex = useMemo(
-    () => (searching ? indexFeedItems(items) : undefined),
-    [items, searching],
-  );
-  const filteredItems = useMemo(
-    () =>
-      searchIndex && query?.trim()
-        ? searchFeedItems(searchIndex, query)
-        : items,
-    [items, searchIndex, query],
-  );
-  const itemRows = useMemo(() => rowsForItems(items), [items]);
-  const rows = useMemo(
-    () => filteredItems.flatMap((item) => itemRows.get(item)!),
-    [filteredItems, itemRows],
-  );
+  const searchIndex = searching ? indexFeedItems(items) : undefined;
+  const filteredItems =
+    searchIndex && query?.trim() ? searchFeedItems(searchIndex, query) : items;
+  const itemRows = rowsForItems(items);
+  const rows = filteredItems.flatMap((item) => itemRows.get(item)!);
   const localList = useRef<LegendListRef>(null);
   const list = listRef ?? localList;
   const readingRowId = useRef<string>(undefined);
   const { viewport, activeVideo, updateVideoVisibility, onVideoView } =
     useFeedVideoVisibility(rows, visible);
-  const activatePost = useCallback(
-    (rowId: string, postUrl: string) =>
-      updateVideoVisibility({ rowId, postUrl }),
-    [updateVideoVisibility],
-  );
+  const activatePost = (rowId: string, postUrl: string) =>
+    updateVideoVisibility({ rowId, postUrl });
   const [initialScrollIndex] = useState(() => {
     if (!rememberPosition) return undefined;
     const saved = Storage.getItemSync(positionKey);
@@ -142,10 +126,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
   }, []);
   const visibleRow = rows.find((row) => row.id === activeVideo?.rowId);
   const media = useYouTubeMedia(visibleRow?.item, visible);
-  const extraData = useMemo(
-    () => [activeVideo, media.resolution, visible],
-    [activeVideo, media.resolution, visible],
-  );
+  const extraData = [activeVideo, media.resolution, visible];
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {

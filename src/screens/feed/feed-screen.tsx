@@ -1,4 +1,4 @@
-import { type FC, useMemo, useState } from "react";
+import { type FC, useState } from "react";
 import { View } from "react-native";
 
 import { useIsFocused } from "expo-router";
@@ -33,9 +33,8 @@ export const FeedScreen: FC = () => {
   const browserShown =
     !!attentionBrowser && feed.attention.includes(attentionBrowser);
   const feedVisible = visible && !browserShown;
-  const visibleItems = useMemo(
-    () => items.filter((item) => activePlatforms.includes(item.platform)),
-    [items, activePlatforms],
+  const visibleItems = items.filter((item) =>
+    activePlatforms.includes(item.platform),
   );
 
   return (
