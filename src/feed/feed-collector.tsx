@@ -157,10 +157,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
     <View
       style={{
         position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
+        inset: 0,
         zIndex: 2,
         backgroundColor: theme.colors.background,
       }}
