@@ -128,15 +128,6 @@ test("untagged renditions cannot match a missing original audio ID", () => {
   }
 });
 
-test("supports React Native's AbortSignal without throwIfAborted", async () => {
-  const controller = new NativeAbortController();
-  controller.abort();
-  await assert.rejects(
-    resolveYouTubePlayback("video", controller.signal as AbortSignal),
-    { name: "AbortError" },
-  );
-});
-
 test("resolves matching public video through anonymous abortable HTTP requests", async () => {
   const controller = new AbortController();
   const urls: string[] = [];
@@ -215,8 +206,9 @@ test("restricted responses do not fetch media, and mismatched or unsafe streams 
   }
 });
 
+// React Native's AbortSignal has no throwIfAborted.
 test("aborts before the next request even if an in-flight fetch ignores cancellation", async () => {
-  const controller = new AbortController();
+  const controller = new NativeAbortController();
   let calls = 0;
   const request = async () => {
     calls += 1;
@@ -224,40 +216,29 @@ test("aborts before the next request even if an in-flight fetch ignores cancella
     return Response.json({ responseContext: { visitorData: "visitor" } });
   };
   await assert.rejects(
-    resolveYouTubePlayback("video", controller.signal, request),
+    resolveYouTubePlayback("video", controller.signal as AbortSignal, request),
     { name: "AbortError" },
   );
   assert.equal(calls, 1);
   await assert.rejects(
-    resolveYouTubePlayback("video", controller.signal, request),
+    resolveYouTubePlayback("video", controller.signal as AbortSignal, request),
     { name: "AbortError" },
   );
   assert.equal(calls, 1);
 });
 
-test("validates native YouTube sources and identifies their content type", () => {
-  const sources = [
-    {
-      url: "https://manifest.googlevideo.com/api/manifest/hls_playlist/id/video/index.m3u8",
-      contentType: "hls" as const,
-    },
-    {
-      url: "https://rr1.googlevideo.com/videoplayback?id=video",
-      contentType: "progressive" as const,
-    },
-  ];
-  for (const source of sources)
-    assert.deepEqual(youtubeStream(source.url), {
-      status: "ready",
-      ...source,
-    });
-});
-
-test("rejects unsupported and foreign native sources", () => {
+test("accepts only googlevideo HLS sources", () => {
+  const url =
+    "https://manifest.googlevideo.com/api/manifest/hls_playlist/id/video/index.m3u8";
+  assert.deepEqual(youtubeStream(url), {
+    status: "ready",
+    url,
+    contentType: "hls",
+  });
   for (const url of [
     "https://example.com/api/manifest/hls_playlist/id/video/index.m3u8",
     "http://manifest.googlevideo.com/api/manifest/hls_playlist/id/video/index.m3u8",
-    "https://rr1.googlevideo.com/file.mp4",
+    "https://rr1.googlevideo.com/videoplayback?id=video",
     "not a URL",
   ]) {
     assert.throws(() => youtubeStream(url));
@@ -277,14 +258,14 @@ test("applies only a ready stream and keeps saved media fields", () => {
   assert.deepEqual(
     withYouTubeStream(poster, {
       status: "ready",
-      url: "https://rr1.googlevideo.com/videoplayback?id=video",
-      contentType: "progressive",
+      url: "https://manifest.googlevideo.com/api/manifest/hls_playlist/id/video/index.m3u8",
+      contentType: "hls",
       preferredAudioTrack: "English - original",
     }),
     {
       ...poster,
-      url: "https://rr1.googlevideo.com/videoplayback?id=video",
-      contentType: "progressive",
+      url: "https://manifest.googlevideo.com/api/manifest/hls_playlist/id/video/index.m3u8",
+      contentType: "hls",
       preferredAudioTrack: "English - original",
     },
   );
