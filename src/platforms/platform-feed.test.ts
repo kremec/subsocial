@@ -15,7 +15,7 @@ import {
 } from "@/types/platform";
 
 const source = transpileModule(
-  readFileSync(new URL("./service.ts", import.meta.url), "utf8"),
+  readFileSync(new URL("./platform-feed.ts", import.meta.url), "utf8"),
   {
     compilerOptions: { module: ModuleKind.CommonJS },
   },

@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { aspectRatio } from "@/platforms/json";
-import { paginate } from "@/platforms/paginate";
+import { aspectRatio, paginate } from "@/platforms/web-api";
 import { type FeedRequest } from "@/types/platform";
 import { type ExtractedItem, type FeedMedia } from "@/types/post";
 

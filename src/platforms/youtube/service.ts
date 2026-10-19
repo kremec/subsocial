@@ -9,7 +9,7 @@ import {
   string,
   objects,
   bootstrap,
-} from "@/platforms/json";
+} from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,

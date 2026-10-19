@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { CollectionProgress } from "@/feed/collection";
-import type { JsonObject } from "@/platforms/json";
+import type { JsonObject } from "@/platforms/web-api";
 import { xFeed, xPage } from "@/platforms/x/service";
 
 const tweet = (id: string): JsonObject => ({

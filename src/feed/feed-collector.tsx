@@ -8,7 +8,7 @@ import {
   saveExtraction,
 } from "@/db/repositories/feed-items-repository";
 import { CollectionProgress, datedExtraction } from "@/feed/collection";
-import { platformFeed } from "@/platforms/service";
+import { platformFeed } from "@/platforms/platform-feed";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { FeedAccessError, type PlatformDefinition } from "@/types/platform";
