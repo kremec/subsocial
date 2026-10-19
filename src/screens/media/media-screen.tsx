@@ -117,12 +117,13 @@ export const MediaScreen: FC = () => {
                             {item.playable ? (
                               <FeedVideo
                                 key={item.url}
-                                playbackKey={`${postUrl}:${itemIndex}`}
+                                index={itemIndex}
                                 media={item}
                                 platform={platform}
                                 postUrl={postUrl}
                                 sourceId={sourceId}
                                 fullscreen
+                                onFullscreen={() => router.back()}
                                 navigationGestures={navigationGestures}
                               />
                             ) : (

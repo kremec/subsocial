@@ -7,8 +7,6 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
-import { router } from "expo-router";
-
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
@@ -20,20 +18,20 @@ import { showVideo, useMediaStore } from "@/stores/media-store";
 import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedVideoProps {
-  playbackKey: string;
+  index: number;
   media: FeedMedia;
   platform: PlatformId;
   postUrl: string;
   sourceId?: string;
   fullscreen?: boolean;
-  onFullscreen?: () => void;
+  onFullscreen: () => void;
   navigationGestures?: GestureType[];
   counter?: ReactNode;
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
   const {
-    playbackKey,
+    index,
     media,
     platform,
     postUrl,
@@ -43,6 +41,8 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
     navigationGestures,
     counter,
   } = props;
+  // The inline and fullscreen views share a key to resume the same playback.
+  const playbackKey = `${postUrl}:${index}`;
   const loaded = useMediaStore((state) => state.loaded);
   const youtube = useYouTubeMedia(
     platform === "youtube" ? sourceId : undefined,
@@ -78,7 +78,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         platform={platform}
         counter={counter}
         fullscreen={fullscreen}
-        onFullscreen={onFullscreen ?? (() => router.back())}
+        onFullscreen={onFullscreen}
         navigationGestures={navigationGestures}
       />
     );
