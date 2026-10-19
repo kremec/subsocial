@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { aspectRatio, type Json } from "@/platforms/json";
-import { paginate } from "@/platforms/paginate";
+import { aspectRatio, type Json, paginate } from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,

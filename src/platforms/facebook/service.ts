@@ -8,8 +8,8 @@ import {
   string,
   type Json,
   type JsonObject,
-} from "@/platforms/json";
-import { paginate } from "@/platforms/paginate";
+  paginate,
+} from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,
