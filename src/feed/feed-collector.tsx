@@ -13,13 +13,14 @@ import {
   CollectionProgress,
   collectionKnownKey,
   datedExtraction,
-  collectionTimeout,
 } from "@/feed/collection";
 import { extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
 import { useTheme } from "@/theme/use-theme";
+
+const collectionTimeout = 120_000;
 
 export interface CollectionResult {
   platform: PlatformDefinition["id"];
