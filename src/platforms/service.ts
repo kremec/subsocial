@@ -7,7 +7,6 @@ import CookieManager, {
   type Cookies,
 } from "@preeternal/react-native-cookie-manager";
 
-import { type ExtractedItem } from "@/feed/types";
 import { facebookFeed } from "@/platforms/facebook/service";
 import { instagramFeed } from "@/platforms/instagram/service";
 import { hasSession, ownsHost } from "@/platforms/platforms";
@@ -72,7 +71,6 @@ export async function* platformFeed(
   platform: PlatformDefinition,
   signal: AbortSignal,
   dates: Map<string, number>,
-  pendingItems: ExtractedItem[] = [],
 ) {
   if ((retryAt.get(platform.id) ?? 0) > Date.now())
     throw new Error("Refresh rate limited. Try again later.");
@@ -90,7 +88,6 @@ export async function* platformFeed(
     cookies,
     signal,
     dates,
-    pendingItems,
     fetch: async (url, init) => {
       if (signal.aborted) throw new Error("Refresh cancelled.");
       const { protocol, hostname } = new URL(url);

@@ -290,17 +290,6 @@ export function listPostIds(): Set<string> {
   );
 }
 
-export function listPendingYouTubeItems(): ExtractedItem[] {
-  return database
-    .getAllSync<FeedItemRow>(
-      "SELECT * FROM feed_items WHERE platform = 'youtube' AND published_at IS NULL",
-    )
-    .map((row) => {
-      const post = postFromRow(row);
-      return { ...post, media: post.media ?? [] };
-    });
-}
-
 export function listPublicationDates(platform: PlatformId): [string, number][] {
   return database
     .getAllSync<{ source_id: string; published_at: number }>(

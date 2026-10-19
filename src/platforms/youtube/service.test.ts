@@ -230,38 +230,6 @@ test("YouTube reports malformed continuation responses instead of completing the
   }
 });
 
-test("YouTube recovers stored undated posts even when absent from the subscription page", async () => {
-  const feed = youtubeFeed({
-    signal: new AbortController().signal,
-    cookies: { SAPISID: "session" },
-    dates: new Map(),
-    pendingItems: [
-      {
-        sourceId: "pending",
-        url: "https://www.youtube.com/watch?v=pending",
-        text: "Saved title",
-        media: [],
-      },
-    ],
-    fetch: async (_url, init) =>
-      init?.method
-        ? Response.json({
-            microformat: {
-              playerMicroformatRenderer: {
-                publishDate: "2026-09-11T09:30:00Z",
-              },
-            },
-          })
-        : html([]),
-  });
-  const items = [];
-  for await (const page of feed) items.push(...page.items);
-  assert.equal(items.length, 1);
-  assert.equal(items[0].sourceId, "pending");
-  assert.equal(items[0].text, "Saved title");
-  assert.equal(items[0].publishedAt, Date.parse("2026-09-11T09:30:00Z"));
-});
-
 test("YouTube reads hex-escaped initial data from mobile pages", async () => {
   const data = JSON.stringify(initialData([video("known")], true));
   const encoded = [...data]
