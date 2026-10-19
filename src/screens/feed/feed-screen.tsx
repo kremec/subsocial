@@ -24,19 +24,15 @@ export const FeedScreen: FC = () => {
   const [webKitReady, setWebKitReady] = useState(false);
   const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
   const feed = useFeedRefresh(focused, webKitReady);
-  const {
-    items,
-    connected: connectedPlatforms,
-    active: activePlatforms,
-    collection,
-  } = feed;
   const visible = focused && feed.foreground;
-  const browserShown =
-    !!attentionBrowser && feed.attention.includes(attentionBrowser);
-  const feedVisible = visible && !browserShown;
-  const visibleItems = items.filter((item) =>
-    activePlatforms.includes(item.platform),
-  );
+  const shownBrowser =
+    attentionBrowser && feed.attention.includes(attentionBrowser)
+      ? attentionBrowser
+      : undefined;
+  const closeBrowser = (platform: PlatformId) =>
+    setAttentionBrowser((current) =>
+      current === platform ? undefined : current,
+    );
 
   return (
     <Screen>
@@ -48,21 +44,13 @@ export const FeedScreen: FC = () => {
           platform={getPlatform(platform)}
           active={visible}
           attention={feed.attention.includes(platform)}
-          open={
-            attentionBrowser === platform && feed.attention.includes(platform)
-          }
+          open={shownBrowser === platform}
           onAttention={(needed) =>
             feed.needsAttention(feed.runId!, platform, needed)
           }
-          onClose={() =>
-            setAttentionBrowser((current) =>
-              current === platform ? undefined : current,
-            )
-          }
+          onClose={() => closeBrowser(platform)}
           onFinish={(result) => {
-            setAttentionBrowser((current) =>
-              current === platform ? undefined : current,
-            );
+            closeBrowser(platform);
             feed.finish(feed.runId!, result);
           }}
         />
@@ -76,10 +64,10 @@ export const FeedScreen: FC = () => {
         }}
       >
         <FeedHeader
-          activePlatforms={activePlatforms}
-          connectedPlatforms={connectedPlatforms}
+          activePlatforms={feed.active}
+          connectedPlatforms={feed.connected}
           failedPlatforms={feed.failed}
-          loadingPlatforms={collection}
+          loadingPlatforms={feed.collection}
           onImportData={() => {
             void importDatabase()
               .then((imported) => {
@@ -118,10 +106,12 @@ export const FeedScreen: FC = () => {
         ))}
 
         <FeedList
-          items={visibleItems}
-          visible={feedVisible}
+          items={feed.items.filter((item) =>
+            feed.active.includes(item.platform),
+          )}
+          visible={visible && !shownBrowser}
           rememberPosition
-          refreshing={collection.length > 0}
+          refreshing={feed.collection.length > 0}
           onRefresh={feed.refresh}
         />
       </View>
