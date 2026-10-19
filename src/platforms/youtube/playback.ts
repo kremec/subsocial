@@ -8,7 +8,7 @@ import {
   playbackResponseSchema,
   playbackVisitorSchema,
   type PlaybackResponse,
-} from "@/platforms/youtube/schemas/playback-response-schema";
+} from "@/platforms/youtube/schema";
 
 // Keep this client aligned with NewPipeExtractor's ClientsConstants.
 const client = {

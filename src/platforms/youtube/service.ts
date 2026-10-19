@@ -16,13 +16,13 @@ import {
   type FeedPage,
   type FeedRequest,
 } from "@/platforms/types";
-import { browseResponseSchema } from "@/platforms/youtube/schemas/browse-response-schema";
-import { configSchema } from "@/platforms/youtube/schemas/config-schema";
 import {
+  browseResponseSchema,
+  configSchema,
   playerResponseSchema,
   type PlayerResponse,
-} from "@/platforms/youtube/schemas/player-response-schema";
-import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-schema";
+  videoRendererSchema,
+} from "@/platforms/youtube/schema";
 
 function videos(data: Json) {
   const found = new Map<string, JsonObject>();

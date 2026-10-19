@@ -1,10 +1,7 @@
 import { type ExtractedItem, type FeedMedia } from "@/feed/types";
 import { aspectRatio } from "@/platforms/json";
 import { paginate } from "@/platforms/paginate";
-import {
-  listingSchema,
-  type RedditPost,
-} from "@/platforms/reddit/schemas/listing-schema";
+import { listingSchema, type RedditPost } from "@/platforms/reddit/schema";
 import { type FeedRequest } from "@/platforms/types";
 
 function mediaFor(post: RedditPost): FeedMedia[] {

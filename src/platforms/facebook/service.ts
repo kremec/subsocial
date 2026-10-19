@@ -16,7 +16,7 @@ import {
   mediaSchema,
   tokenSchema,
   webLiteTokenSchema,
-} from "@/platforms/facebook/schemas/feed-response-schema";
+} from "@/platforms/facebook/schema";
 import {
   aspectRatio,
   bootstrap,

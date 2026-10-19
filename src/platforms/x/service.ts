@@ -6,10 +6,7 @@ import {
   type FeedPage,
   type FeedRequest,
 } from "@/platforms/types";
-import {
-  feedResponseSchema,
-  type Tweet,
-} from "@/platforms/x/schemas/feed-response-schema";
+import { feedResponseSchema, type Tweet } from "@/platforms/x/schema";
 
 function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
   const tweet = value?.tweet || value;
