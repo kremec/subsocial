@@ -111,7 +111,7 @@ export function useMediaVideoPlayback(
 
   useLayoutEffect(() => {
     if (!active) {
-      resume.current ||= player.playing;
+      if (player.playing) resume.current = true;
       player.pause();
     } else if (resume.current) {
       resume.current = false;
