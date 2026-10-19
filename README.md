@@ -64,3 +64,7 @@ Bun patches LegendList 3.6.0 so Fabric updates the content dimensions together w
 and the scroll anchor. Separate animated dimension updates caused a brief jump when platforms
 were shown or hidden. Keep the patch until an upstream release fixes this behavior, and check
 scrolled platform toggles frame by frame before removing it.
+
+Bun also patches expo-quick-actions 6.0.2 so an Android shortcut with a `targetUrl` param opens
+that URL in the platform's own app, using the app's icon. Upstream shortcuts can only reopen
+subsocial. Keep the patch until upstream supports external shortcut targets.
