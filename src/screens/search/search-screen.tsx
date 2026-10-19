@@ -1,7 +1,7 @@
 import { type FC, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 
-import { router, useIsFocused } from "expo-router";
+import { router, useFocusEffect, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
@@ -16,7 +16,9 @@ import { useTheme } from "@/theme/use-theme";
 export const SearchScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [items] = useState(listFeedItems);
+  const [items, setItems] = useState(listFeedItems);
+  // Logging out from a browser opened here deletes posts.
+  useFocusEffect(() => setItems(listFeedItems()));
   const [query, setQuery] = useState("");
   const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {

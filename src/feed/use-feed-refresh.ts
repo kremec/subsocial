@@ -113,15 +113,17 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     };
   }, [focused, foreground, webKitReady]);
 
-  // Collectors abort when unmounted, so only finished platforms can repeat.
-  const currentRun = (platform: PlatformId) => {
+  // A replaced run's collectors may still report before they unmount.
+  const currentRun = (runId: number, platform: PlatformId) => {
     const current = running.current;
-    return current?.queue.includes(platform) ? current : undefined;
+    return current?.id === runId && current.queue.includes(platform)
+      ? current
+      : undefined;
   };
 
-  const finish = (result: CollectionResult) => {
+  const finish = (runId: number, result: CollectionResult) => {
     const { platform, error } = result;
-    const current = currentRun(platform);
+    const current = currentRun(runId, platform);
     if (!current) return;
     setFailed((failed) => withMember(failed, platform, !!error));
     if (!error)
@@ -145,8 +147,12 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     update(undefined);
   };
 
-  const needsAttention = (platform: PlatformId, needed: boolean) => {
-    const current = currentRun(platform);
+  const needsAttention = (
+    runId: number,
+    platform: PlatformId,
+    needed: boolean,
+  ) => {
+    const current = currentRun(runId, platform);
     if (!current) return;
     if (needed) setFailed((failed) => withMember(failed, platform, true));
     update({

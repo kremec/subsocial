@@ -40,14 +40,12 @@ async function downloadMedia(media: FeedMedia) {
         ? format
         : "jpg";
   // Download into the cache first; picked folders may not accept direct downloads.
-  const file = await File.downloadFileAsync(
-    media.url,
-    new File(Paths.cache, `subsocial-${Date.now()}.${extension}`),
-  );
+  const file = new File(Paths.cache, `subsocial-${Date.now()}.${extension}`);
   try {
+    await File.downloadFileAsync(media.url, file);
     await file.copy(target);
   } finally {
-    file.delete();
+    if (file.exists) file.delete();
   }
 }
 
