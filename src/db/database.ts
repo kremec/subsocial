@@ -78,21 +78,9 @@ export function saveExtraction(
   excludedSourceIds: string[],
   fetchedAt = Date.now(),
 ): void {
-  database.withTransactionSync(() =>
-    savePosts(database, platform, items, excludedSourceIds, fetchedAt),
-  );
-}
-
-function savePosts(
-  connection: SQLiteDatabase,
-  platform: PlatformId,
-  items: ExtractedItem[],
-  excludedSourceIds: string[],
-  fetchedAt: number,
-  retainUndated = false,
-): void {
-  const excluded = new Set(excludedSourceIds);
-  const insert = connection.prepareSync(`
+  database.withTransactionSync(() => {
+    const excluded = new Set(excludedSourceIds);
+    const insert = database.prepareSync(`
     INSERT INTO feed_items (id, platform, source_id, published_at, fetched_at, item_json, thread_id)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
@@ -100,68 +88,70 @@ function savePosts(
       item_json = excluded.item_json,
       thread_id = excluded.thread_id
   `);
-  try {
-    for (const sourceId of excluded)
-      connection.runSync(
-        "DELETE FROM feed_items WHERE id = ?",
-        `${platform}:${sourceId}`,
-      );
-    for (const item of items) {
-      if (excluded.has(item.sourceId)) continue;
-      const { thread, ...root } = item;
-      const posts = new Map<string, ExtractedPost>();
-      for (const post of [root, ...(thread ?? [])])
-        if (!excluded.has(post.sourceId))
-          posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
-      const relatedIds = new Set(posts.keys());
-      for (const post of posts.values()) {
-        if (post.replyToSourceId) relatedIds.add(post.replyToSourceId);
-        if (post.threadContextSourceId)
-          relatedIds.add(post.threadContextSourceId);
-      }
-      const previous = connection.getAllSync<FeedItemRow>(
-        `SELECT * FROM feed_items
+    try {
+      for (const sourceId of excluded)
+        database.runSync(
+          "DELETE FROM feed_items WHERE id = ?",
+          `${platform}:${sourceId}`,
+        );
+      for (const item of items) {
+        if (excluded.has(item.sourceId)) continue;
+        const { thread, ...root } = item;
+        const posts = new Map<string, ExtractedPost>();
+        for (const post of [root, ...(thread ?? [])])
+          if (!excluded.has(post.sourceId))
+            posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
+        const relatedIds = new Set(posts.keys());
+        for (const post of posts.values()) {
+          if (post.replyToSourceId) relatedIds.add(post.replyToSourceId);
+          if (post.threadContextSourceId)
+            relatedIds.add(post.threadContextSourceId);
+        }
+        const previous = database.getAllSync<FeedItemRow>(
+          `SELECT * FROM feed_items
          WHERE id IN (SELECT value FROM json_each(?))
            OR (platform = ? AND json_extract(item_json, '$.replyToSourceId')
              IN (SELECT value FROM json_each(?)))
            OR (platform = ? AND json_extract(item_json, '$.threadContextSourceId')
              IN (SELECT value FROM json_each(?)))`,
-        JSON.stringify([...relatedIds].map((id) => `${platform}:${id}`)),
-        platform,
-        JSON.stringify([...posts.keys()]),
-        platform,
-        JSON.stringify([...posts.keys()]),
-      );
-      const groups = [...new Set(previous.map((row) => row.thread_id))];
-      const threadId = groups.sort()[0] ?? `${platform}:${item.sourceId}`;
-      // Connect overlaps and reply relationships, including replies saved first.
-      if (groups.length > 1)
-        connection.runSync(
-          "UPDATE feed_items SET thread_id = ? WHERE thread_id IN (SELECT value FROM json_each(?))",
-          threadId,
-          JSON.stringify(groups),
-        );
-      const saved = new Map(previous.map((row) => [row.source_id, row]));
-      for (const post of posts.values()) {
-        const old = saved.get(post.sourceId);
-        const merged = mergePost(post, old && postFromRow(old));
-        if (!merged.publishedAt && !retainUndated) continue;
-        insert.executeSync(
-          `${platform}:${post.sourceId}`,
+          JSON.stringify([...relatedIds].map((id) => `${platform}:${id}`)),
           platform,
-          post.sourceId,
-          merged.publishedAt ?? null,
-          fetchedAt,
-          serializePost(merged),
-          threadId,
+          JSON.stringify([...posts.keys()]),
+          platform,
+          JSON.stringify([...posts.keys()]),
         );
+        const groups = [...new Set(previous.map((row) => row.thread_id))];
+        const threadId = groups.sort()[0] ?? `${platform}:${item.sourceId}`;
+        // Connect overlaps and reply relationships, including replies saved first.
+        if (groups.length > 1)
+          database.runSync(
+            "UPDATE feed_items SET thread_id = ? WHERE thread_id IN (SELECT value FROM json_each(?))",
+            threadId,
+            JSON.stringify(groups),
+          );
+        const saved = new Map(previous.map((row) => [row.source_id, row]));
+        for (const post of posts.values()) {
+          const old = saved.get(post.sourceId);
+          const merged = mergePost(post, old && postFromRow(old));
+          if (!merged.publishedAt) continue;
+          insert.executeSync(
+            `${platform}:${post.sourceId}`,
+            platform,
+            post.sourceId,
+            merged.publishedAt ?? null,
+            fetchedAt,
+            serializePost(merged),
+            threadId,
+          );
+        }
       }
+    } finally {
+      insert.finalizeSync();
     }
-  } finally {
-    insert.finalizeSync();
-  }
+  });
 }
 
+// Every statement is idempotent, so older versions only gain what they lack.
 export function migrateDatabase(connection: SQLiteDatabase): void {
   const version = connection.getFirstSync<{ user_version: number }>(
     "PRAGMA user_version",
@@ -169,16 +159,7 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
   if (version > databaseVersion)
     throw new Error("This database requires a newer version of Subsocial.");
   if (version === databaseVersion) return;
-
-  connection.withTransactionSync(() => {
-    if (version === 2) {
-      migrateThreadContext(connection);
-      return;
-    }
-    if (version === 1) {
-      migrateReplyRelationships(connection);
-      return;
-    }
+  connection.withTransactionSync(() =>
     connection.execSync(`
       CREATE TABLE IF NOT EXISTS feed_items (
         id TEXT PRIMARY KEY NOT NULL,
@@ -189,98 +170,17 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
         item_json TEXT NOT NULL,
         thread_id TEXT NOT NULL
       );
-      DROP INDEX IF EXISTS feed_items_order;
+      CREATE TABLE IF NOT EXISTS connections (platform TEXT PRIMARY KEY NOT NULL);
       CREATE INDEX IF NOT EXISTS feed_items_publication_order
         ON feed_items (published_at DESC, id DESC);
-      CREATE TABLE IF NOT EXISTS connections (platform TEXT PRIMARY KEY NOT NULL);
-    `);
-    // Migrate both previous JSON layouts, preserving first-seen times and media.
-    const columns = connection.getAllSync<{ name: string }>(
-      "PRAGMA table_info(feed_items)",
-    );
-    if (!columns.some((column) => column.name === "thread_id")) {
-      connection.execSync("ALTER TABLE feed_items ADD COLUMN thread_id TEXT");
-      const groups = connection
-        .getAllSync<FeedItemRow>("SELECT * FROM feed_items")
-        .map((row) => {
-          const stored = JSON.parse(row.item_json) as
-            | ExtractedItem
-            | { thread: ExtractedPost[] };
-          const root =
-            "url" in stored
-              ? stored
-              : stored.thread.find((post) => post.sourceId === row.source_id)!;
-          const item: ExtractedItem = {
-            ...root,
-            sourceId: row.source_id,
-            publishedAt: row.published_at ?? root.publishedAt,
-            media: root.media ?? [],
-            thread: stored.thread,
-          };
-          const { thread: _thread, ...post } = item;
-          // Flatten every existing root first so normal merging can retain its loaded media.
-          connection.runSync(
-            "UPDATE feed_items SET item_json = ?, thread_id = id WHERE id = ?",
-            serializePost(post),
-            row.id,
-          );
-          return { row, item };
-        });
-      for (const { row, item } of groups) {
-        savePosts(connection, row.platform, [item], [], row.fetched_at, true);
-        connection.runSync(
-          "UPDATE feed_items SET fetched_at = MIN(fetched_at, ?) WHERE id IN (SELECT value FROM json_each(?))",
-          row.fetched_at,
-          JSON.stringify(
-            [item, ...(item.thread ?? [])].map(
-              (post) => `${row.platform}:${post.sourceId}`,
-            ),
-          ),
-        );
-      }
-    }
-    connection.execSync(`
-      UPDATE feed_items SET item_json = json_remove(
-        json_set(item_json, '$.media[0].url', json_extract(item_json, '$.media[0].posterUrl')),
-        '$.media[0].expiresAt', '$.media[0].contentType'
-      )
-      WHERE platform = 'youtube'
-        AND (json_extract(item_json, '$.media[0].expiresAt') IS NOT NULL
-          OR json_extract(item_json, '$.media[0].contentType') IS NOT NULL)
-        AND json_extract(item_json, '$.media[0].posterUrl') IS NOT NULL;
       CREATE INDEX IF NOT EXISTS feed_items_thread ON feed_items (thread_id);
-    `);
-    migrateReplyRelationships(connection);
-  });
-}
-
-function migrateReplyRelationships(connection: SQLiteDatabase): void {
-  connection.execSync(`
-    CREATE INDEX IF NOT EXISTS feed_items_reply
-      ON feed_items (platform, json_extract(item_json, '$.replyToSourceId'));
-  `);
-  for (const row of connection.getAllSync<FeedItemRow>(
-    "SELECT * FROM feed_items WHERE platform = 'x' AND json_extract(item_json, '$.replyToSourceId') IS NOT NULL",
-  )) {
-    const post = postFromRow(row);
-    savePosts(
-      connection,
-      row.platform,
-      [{ ...post, media: post.media ?? [] }],
-      [],
-      row.fetched_at,
-      true,
-    );
-  }
-  migrateThreadContext(connection);
-}
-
-function migrateThreadContext(connection: SQLiteDatabase): void {
-  connection.execSync(`
-    CREATE INDEX IF NOT EXISTS feed_items_thread_context
-      ON feed_items (platform, json_extract(item_json, '$.threadContextSourceId'));
-    PRAGMA user_version = ${databaseVersion};
-  `);
+      CREATE INDEX IF NOT EXISTS feed_items_reply
+        ON feed_items (platform, json_extract(item_json, '$.replyToSourceId'));
+      CREATE INDEX IF NOT EXISTS feed_items_thread_context
+        ON feed_items (platform, json_extract(item_json, '$.threadContextSourceId'));
+      PRAGMA user_version = ${databaseVersion};
+    `),
+  );
 }
 
 const cachedItems = new Map<string, { key: string; items: FeedItem[] }>();
