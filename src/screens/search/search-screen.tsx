@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
-import { listFeedItems } from "@/db/database";
+import { listFeedItems } from "@/db/repositories/feed-items-repository";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 

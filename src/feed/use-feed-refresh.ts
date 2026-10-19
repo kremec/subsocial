@@ -2,12 +2,12 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { showErrorToast } from "@/components/ui/toast";
+import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import {
-  listConnectedPlatforms,
   listFeedItems,
   listPostIds,
   pruneFeedItems,
-} from "@/db/database";
+} from "@/db/repositories/feed-items-repository";
 import { type CollectionResult } from "@/feed/feed-collector";
 import { type PlatformId, platformIdSchema } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";

@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
-import { listConnectedPlatforms } from "@/db/database";
+import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openBrowser } from "@/platforms/open-post";
 import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
