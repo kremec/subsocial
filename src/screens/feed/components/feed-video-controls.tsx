@@ -20,7 +20,7 @@ import {
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
 import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
 import { canDownloadMedia } from "@/screens/feed/download-media";
@@ -28,6 +28,7 @@ import { canDownloadMedia } from "@/screens/feed/download-media";
 interface FeedVideoControlsProps {
   player: VideoPlayer;
   media: FeedMedia;
+  platform: PlatformId;
   counter?: ReactNode;
   fullscreen: boolean;
   onFullscreen: () => void;
@@ -45,12 +46,13 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   const {
     player,
     media,
+    platform,
     counter,
     fullscreen,
     onFullscreen,
     navigationGestures,
   } = props;
-  const downloadable = !fullscreen && canDownloadMedia(media);
+  const downloadable = !fullscreen && canDownloadMedia(media, platform);
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });

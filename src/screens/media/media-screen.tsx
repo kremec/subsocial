@@ -38,11 +38,7 @@ export const MediaScreen: FC = () => {
   const focused = useIsFocused();
   const [mediaIndex, setMediaIndex] = useState(Number(index));
   const selectedMedia = media[mediaIndex]!;
-  // YouTube streams are HLS playlists, which cannot be saved as one file.
-  const downloadable =
-    platform !== "youtube" &&
-    (selectedMedia.type === "image" || !!selectedMedia.playable) &&
-    canDownloadMedia(selectedMedia);
+  const downloadable = canDownloadMedia(selectedMedia, platform);
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollView>(null);
