@@ -5,7 +5,6 @@ import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { type FeedPost, type PlatformId } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
-import { RepostAttribution } from "@/screens/feed/components/repost-attribution";
 import { formatAge } from "@/screens/feed/format-age";
 import { useTheme } from "@/theme/use-theme";
 
@@ -63,7 +62,35 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         >
           {author}
         </Typography>
-        {showContext && <RepostAttribution handle={post.context} />}
+        {showContext && !!post.context && (
+          <View
+            style={{
+              minWidth: 0,
+              flexShrink: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              marginLeft: theme.spacing.xs,
+            }}
+          >
+            <Typography variant="bodySmall" color={theme.colors.textSecondary}>
+              (
+            </Typography>
+            <Icon
+              name="repeat"
+              color={theme.colors.textSecondary}
+              size={13}
+              strokeWidth={2}
+            />
+            <Typography
+              variant="bodySmall"
+              numberOfLines={1}
+              color={theme.colors.textSecondary}
+              style={{ flexShrink: 1 }}
+            >
+              {` ${post.context})`}
+            </Typography>
+          </View>
+        )}
       </View>
       {!!post.publishedAt && (
         <Typography
