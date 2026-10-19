@@ -1,18 +1,26 @@
 import { type FC, useEffectEvent, useEffect, useRef, useState } from "react";
 import { BackHandler, View } from "react-native";
 
+import Storage from "expo-sqlite/kv-store";
+
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   CollectionProgress,
+  collectionKnownKey,
   datedExtraction,
   collectionTimeout,
 } from "@/feed/collection";
 import {
   listPublicationDates,
   listPendingYouTubeItems,
+  listSourceIds,
   saveExtraction,
 } from "@/feed/database";
-import { type ExtractedItem, extractedItemSchema } from "@/feed/types";
+import {
+  type ExtractedItem,
+  extractedItemSchema,
+  type PlatformId,
+} from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
@@ -25,7 +33,6 @@ export interface CollectionResult {
 
 interface FeedCollectorProps {
   platform: PlatformDefinition;
-  known: string[];
   active: boolean;
   attention: boolean;
   open: boolean;
@@ -39,6 +46,17 @@ interface CollectionState {
   pendingItems: ExtractedItem[];
   progress: CollectionProgress;
   failures: Set<string>;
+}
+
+// Keep the boundary until collection succeeds, even when it is empty,
+// so an interrupted first collection can finish later.
+function knownSourceIds(platform: PlatformId): string[] {
+  const key = collectionKnownKey(platform);
+  const saved = Storage.getItemSync(key);
+  if (saved) return JSON.parse(saved);
+  const known = listSourceIds(platform);
+  Storage.setItemSync(key, JSON.stringify(known));
+  return known;
 }
 
 // Save pages until the feed reaches known posts, remembering undated posts.
@@ -79,22 +97,14 @@ async function collectFeed(
 }
 
 export const FeedCollector: FC<FeedCollectorProps> = (props) => {
-  const {
-    platform,
-    known,
-    active,
-    attention,
-    open,
-    onAttention,
-    onClose,
-    onFinish,
-  } = props;
+  const { platform, active, attention, open, onAttention, onClose, onFinish } =
+    props;
   const theme = useTheme();
   const [state] = useState(
     (): CollectionState => ({
       dates: new Map(listPublicationDates(platform.id)),
       pendingItems: platform.id === "youtube" ? listPendingYouTubeItems() : [],
-      progress: new CollectionProgress(new Set(known)),
+      progress: new CollectionProgress(new Set(knownSourceIds(platform.id))),
       failures: new Set(),
     }),
   );

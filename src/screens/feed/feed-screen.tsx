@@ -45,7 +45,6 @@ export const FeedScreen: FC = () => {
         <FeedCollector
           key={`${feed.runId}:${platform}`}
           platform={getPlatform(platform)}
-          known={feed.known[platform]!}
           active={visible}
           attention={feed.attention.includes(platform)}
           open={

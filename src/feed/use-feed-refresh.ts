@@ -9,7 +9,6 @@ import {
   listConnectedPlatforms,
   listFeedItems,
   listPostIds,
-  listSourceIds,
   pruneFeedItems,
 } from "@/feed/database";
 import { type CollectionResult } from "@/feed/feed-collector";
@@ -20,7 +19,6 @@ import { syncPlatformSessions } from "@/platforms/session";
 interface RefreshRun {
   id: number;
   queue: PlatformId[];
-  known: Partial<Record<PlatformId, string[]>>;
   errors: string[];
   attention: PlatformId[];
 }
@@ -66,25 +64,11 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     if (collecting && !restart) return;
     const waiting = collecting ? undefined : current;
     const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
-    const known = Object.fromEntries(
-      queue.map((id) => {
-        if (waiting?.queue.includes(id)) return [id, waiting.known[id]];
-        // Preserve even an empty boundary so interrupted initial collections can finish.
-        const key = collectionKnownKey(id);
-        const previous = Storage.getItemSync(key);
-        const value = previous
-          ? (JSON.parse(previous) as string[])
-          : listSourceIds(id);
-        Storage.setItemSync(key, JSON.stringify(value));
-        return [id, value];
-      }),
-    );
     running.current = queue.length
       ? {
           // Keep login collectors mounted while healthy platforms refresh again.
           id: waiting?.id ?? performance.now(),
           queue,
-          known,
           errors: [],
           attention: waiting?.attention ?? [],
         }
@@ -194,7 +178,6 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     needsAttention,
     foreground,
     runId: run?.id,
-    known: run?.known ?? {},
     finish,
     toggle,
     reload: () => {
