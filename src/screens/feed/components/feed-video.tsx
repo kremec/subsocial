@@ -79,6 +79,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
       <FeedVideoControls
         player={playback.player}
         media={video}
+        platform={platform}
         counter={counter}
         fullscreen={fullscreen}
         onFullscreen={onFullscreen ?? (() => router.back())}

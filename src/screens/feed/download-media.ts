@@ -1,10 +1,13 @@
 import { Directory, File, Paths } from "expo-file-system";
 
-import { type FeedMedia } from "@/feed/types";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
 
-export const canDownloadMedia = (media: FeedMedia) =>
-  media.type !== "video" ||
-  (media.contentType !== "hls" &&
+// Streams are playlists rather than files, and YouTube only plays streams.
+export const canDownloadMedia = (media: FeedMedia, platform: PlatformId) =>
+  media.type === "image" ||
+  (!!media.playable &&
+    platform !== "youtube" &&
+    media.contentType !== "hls" &&
     !/\.m3u8(?:$|\/)|\/manifest\/hls/i.test(new URL(media.url).pathname));
 
 const pickDirectory = async () => {
