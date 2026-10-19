@@ -29,3 +29,8 @@ export const useSettingsStore = create<Settings>()(
     },
   ),
 );
+
+export const setCollectionBoundary = (platform: PlatformId, ids?: string[]) =>
+  useSettingsStore.setState((state) => ({
+    collectionBoundaries: { ...state.collectionBoundaries, [platform]: ids },
+  }));

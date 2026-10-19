@@ -11,7 +11,10 @@ import {
 import { type CollectionResult } from "@/feed/feed-collector";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
-import { useSettingsStore } from "@/stores/settings-store";
+import {
+  setCollectionBoundary,
+  useSettingsStore,
+} from "@/stores/settings-store";
 import { type PlatformId, platformIdSchema } from "@/types/post";
 
 interface RefreshRun {
@@ -126,13 +129,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     const current = currentRun(runId, platform);
     if (!current) return;
     setFailed((failed) => withMember(failed, platform, !!error));
-    if (!error)
-      useSettingsStore.setState((state) => ({
-        collectionBoundaries: {
-          ...state.collectionBoundaries,
-          [platform]: undefined,
-        },
-      }));
+    if (!error) setCollectionBoundary(platform);
     const next = {
       ...current,
       queue: current.queue.filter((id) => id !== platform),
