@@ -40,9 +40,8 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
-  const setVideoView = useContext(FeedVideoLayoutContext);
-  const album = useContext(MediaAlbumContext);
-  const selection = album?.selection;
+  const setVideoView = useContext(FeedVideoLayoutContext)!;
+  const { selection, setSelection } = useContext(MediaAlbumContext)!;
   useLayoutEffect(() => {
     if (selection?.postUrl !== postUrl) return;
     // Fullscreen and inline views keep the same album position.
@@ -54,15 +53,15 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     });
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
-    album?.setSelection({ postUrl, index });
+    setSelection({ postUrl, index });
     openMedia(media, platform, postUrl, index, androidUrl, sourceId);
   };
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
   useLayoutEffect(() => {
     if (!playable || !view.current) return;
-    setVideoView?.(postUrl, view.current);
-    return () => setVideoView?.(postUrl, null);
+    setVideoView(postUrl, view.current);
+    return () => setVideoView(postUrl, null);
   }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
@@ -129,7 +128,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView?.(postUrl, view.current);
+        if (playable) setVideoView(postUrl, view.current);
       }}
       style={{
         width: "100%",
