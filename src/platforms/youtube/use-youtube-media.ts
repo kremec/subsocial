@@ -1,29 +1,19 @@
-import {
-  type Dispatch,
-  type SetStateAction,
-  createContext,
-  useContext,
-  useEffect,
-} from "react";
+import { useEffect } from "react";
 
 import {
   resolveYouTubePlayback,
   type YouTubeResolution,
 } from "@/platforms/youtube/playback";
+import { useMediaStore } from "@/stores/media-store";
 
-export interface PlaybackResult {
-  sourceId: string;
-  resolution: YouTubeResolution;
-}
+const setResolution = (sourceId: string, resolution?: YouTubeResolution) =>
+  useMediaStore.setState({
+    youtube: resolution && { sourceId, resolution },
+  });
 
-// One shared result lets fullscreen playback reuse the feed's resolved stream.
-export const YouTubeMediaContext = createContext<{
-  result?: PlaybackResult;
-  setResult: Dispatch<SetStateAction<PlaybackResult | undefined>>;
-} | null>(null);
-
+// Resolve a YouTube stream while its video is shown.
 export function useYouTubeMedia(sourceId: string | undefined) {
-  const { result, setResult } = useContext(YouTubeMediaContext)!;
+  const result = useMediaStore((state) => state.youtube);
   const resolution =
     sourceId && result?.sourceId === sourceId ? result.resolution : undefined;
 
@@ -31,25 +21,24 @@ export function useYouTubeMedia(sourceId: string | undefined) {
     if (!sourceId || resolution) return;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
-    let active = true;
+    let cancelled = false;
     void resolveYouTubePlayback(sourceId, controller.signal)
       .catch((): YouTubeResolution => ({ status: "error" }))
       .then((resolution) => {
-        if (active) setResult({ sourceId, resolution });
-      })
-      .finally(() => clearTimeout(timeout));
+        if (!cancelled) setResolution(sourceId, resolution);
+      });
     return () => {
-      active = false;
+      cancelled = true;
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [sourceId, resolution, setResult]);
+  }, [sourceId, resolution]);
 
   return {
     resolution,
-    retry: () => setResult(undefined),
+    retry: () => useMediaStore.setState({ youtube: undefined }),
     fail: () => {
-      if (sourceId) setResult({ sourceId, resolution: { status: "error" } });
+      if (sourceId) setResolution(sourceId, { status: "error" });
     },
   };
 }

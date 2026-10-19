@@ -1,4 +1,4 @@
-import { type FC, useContext, useEffect, useRef, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { Image } from "expo-image";
@@ -18,7 +18,7 @@ import {
   canDownloadMedia,
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
-import { MediaAlbumContext } from "@/screens/media/media-video-provider";
+import { useMediaStore } from "@/stores/media-store";
 
 export const MediaScreen: FC = () => {
   const {
@@ -44,8 +44,6 @@ export const MediaScreen: FC = () => {
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollView>(null);
-  const { setSelection } = useContext(MediaAlbumContext)!;
-  useEffect(() => () => setSelection(undefined), [setSelection]);
   const pagingGesture = Gesture.Native();
   const closeGesture = Gesture.Pan()
     .enabled(!zoomed)
@@ -85,7 +83,9 @@ export const MediaScreen: FC = () => {
                   event.nativeEvent.contentOffset.x / width,
                 );
                 setMediaIndex(selectedIndex);
-                setSelection({ postUrl, index: selectedIndex });
+                useMediaStore.setState({
+                  album: { postUrl, index: selectedIndex },
+                });
               }}
               style={{ flex: 1 }}
             >
