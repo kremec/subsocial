@@ -3,16 +3,16 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { useIsFocused } from "expo-router";
 
+import { PlatformIcon } from "@/components/platform-icon";
 import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
+import { WebKitBootstrap } from "@/components/web-kit-bootstrap";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openBrowser } from "@/platforms/open-post";
-import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
-import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
 import { useTheme } from "@/theme/use-theme";
 
 interface OnboardingScreenProps {

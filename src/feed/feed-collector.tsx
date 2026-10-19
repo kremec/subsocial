@@ -1,13 +1,13 @@
 import { type FC, useEffectEvent, useEffect, useRef, useState } from "react";
 import { BackHandler, View } from "react-native";
 
+import { PlatformWebView } from "@/components/platform-web-view";
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   listPublicationDates,
   saveExtraction,
 } from "@/db/repositories/feed-items-repository";
 import { CollectionProgress, datedExtraction } from "@/feed/collection";
-import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
