@@ -1,4 +1,4 @@
-import { type FC, useRef, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -27,9 +27,9 @@ export const BrowserScreen: FC = () => {
     listConnectedPlatforms().includes(platform.id),
   );
 
-  const logOut = () => {
-    webView.current?.stopLoading();
-    setResetting(true);
+  // Clear the session only after the WebView unmounts, so it can't restore cookies.
+  useEffect(() => {
+    if (!resetting) return;
     void resetPlatformSession(platform).then(
       () => router.back(),
       (error: Error) => {
@@ -37,6 +37,11 @@ export const BrowserScreen: FC = () => {
         Alert.alert("Could not log out", error.message);
       },
     );
+  }, [platform, resetting]);
+
+  const logOut = () => {
+    webView.current?.stopLoading();
+    setResetting(true);
   };
 
   return (
