@@ -109,7 +109,7 @@ function importHarness() {
                 .map((row) => String(row.item_json));
             },
           };
-        case "@/feed/database":
+        case "@/db/database":
           return { ...databaseExports, database: {} };
         default:
           return require(name);

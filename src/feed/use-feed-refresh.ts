@@ -4,13 +4,13 @@ import { AppState } from "react-native";
 import Storage from "expo-sqlite/kv-store";
 
 import { showErrorToast } from "@/components/ui/toast";
-import { collectionKnownKey } from "@/feed/collection";
 import {
   listConnectedPlatforms,
   listFeedItems,
   listPostIds,
   pruneFeedItems,
-} from "@/feed/database";
+} from "@/db/database";
+import { collectionKnownKey } from "@/feed/collection";
 import { type CollectionResult } from "@/feed/feed-collector";
 import { type PlatformId, platformIdSchema } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";

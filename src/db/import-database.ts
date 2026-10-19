@@ -9,7 +9,7 @@ import {
 
 import { z } from "zod";
 
-import { database, migrateDatabase } from "@/feed/database";
+import { database, migrateDatabase } from "@/db/database";
 import { feedPostSchema, platformIdSchema } from "@/feed/types";
 
 const importDatabaseName = "subsocial-import.db";
