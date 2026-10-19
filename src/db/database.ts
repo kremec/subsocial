@@ -36,11 +36,6 @@ function postFromRow(row: FeedItemRow): ExtractedPost {
   };
 }
 
-function serializePost(post: ExtractedPost): string {
-  const { sourceId: _sourceId, publishedAt: _publishedAt, ...content } = post;
-  return JSON.stringify(content);
-}
-
 function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
   if (!previous || previous.url !== post.url) return post;
   const media =
@@ -132,15 +127,19 @@ export function saveExtraction(
         const saved = new Map(previous.map((row) => [row.source_id, row]));
         for (const post of posts.values()) {
           const old = saved.get(post.sourceId);
-          const merged = mergePost(post, old && postFromRow(old));
-          if (!merged.publishedAt) continue;
+          // Identity and date live in their own columns.
+          const { sourceId, publishedAt, ...content } = mergePost(
+            post,
+            old && postFromRow(old),
+          );
+          if (!publishedAt) continue;
           insert.executeSync(
-            `${platform}:${post.sourceId}`,
+            `${platform}:${sourceId}`,
             platform,
-            post.sourceId,
-            merged.publishedAt ?? null,
+            sourceId,
+            publishedAt,
             fetchedAt,
-            serializePost(merged),
+            JSON.stringify(content),
             threadId,
           );
         }

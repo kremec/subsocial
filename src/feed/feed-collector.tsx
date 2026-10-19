@@ -15,7 +15,7 @@ import {
   datedExtraction,
   collectionTimeout,
 } from "@/feed/collection";
-import { extractedItemSchema, type PlatformId } from "@/feed/types";
+import { extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
@@ -40,17 +40,6 @@ interface CollectionState {
   dates: Map<string, number>;
   progress: CollectionProgress;
   failures: Set<string>;
-}
-
-// Keep the boundary until collection succeeds, even when it is empty,
-// so an interrupted first collection can finish later.
-function knownSourceIds(platform: PlatformId): string[] {
-  const key = collectionKnownKey(platform);
-  const saved = Storage.getItemSync(key);
-  if (saved) return JSON.parse(saved);
-  const known = listSourceIds(platform);
-  Storage.setItemSync(key, JSON.stringify(known));
-  return known;
 }
 
 // Save pages until the feed reaches known posts, remembering undated posts.
@@ -89,13 +78,21 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const { platform, active, attention, open, onAttention, onClose, onFinish } =
     props;
   const theme = useTheme();
-  const [state] = useState(
-    (): CollectionState => ({
+  const [state] = useState((): CollectionState => {
+    // Keep the boundary until collection succeeds, even when it is empty,
+    // so an interrupted first collection can finish later.
+    const key = collectionKnownKey(platform.id);
+    const saved = Storage.getItemSync(key);
+    const known: string[] = saved
+      ? JSON.parse(saved)
+      : listSourceIds(platform.id);
+    Storage.setItemSync(key, JSON.stringify(known));
+    return {
       dates: new Map(listPublicationDates(platform.id)),
-      progress: new CollectionProgress(new Set(knownSourceIds(platform.id))),
+      progress: new CollectionProgress(new Set(known)),
       failures: new Set(),
-    }),
-  );
+    };
+  });
   const finished = useRef(false);
   const finish = useEffectEvent((error?: string) => {
     if (finished.current) return;
