@@ -4,34 +4,14 @@ import { Stack } from "expo-router";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { useAppBootstrap } from "@/bootstrap/use-app-bootstrap";
-import { Screen } from "@/components/ui/screen";
 import { Toast } from "@/components/ui/toast";
-import { Typography } from "@/components/ui/typography";
 import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
 import { MediaVideoProvider } from "@/screens/media/media-video-provider";
 import { useTheme } from "@/theme/use-theme";
 
 export const AppRoot: FC = () => {
-  const { colors, spacing, themeName } = useTheme();
-  const { error } = useAppBootstrap();
+  const { colors, themeName } = useTheme();
   usePlatformShortcuts();
-
-  if (error !== undefined) {
-    return (
-      <Screen
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          padding: spacing.lg,
-        }}
-      >
-        <Typography accessibilityRole="alert">
-          Could not open the database: {error}
-        </Typography>
-      </Screen>
-    );
-  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

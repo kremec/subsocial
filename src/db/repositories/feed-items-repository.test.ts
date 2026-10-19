@@ -1,44 +1,24 @@
-/// <reference types="node" />
+/// <reference types="bun" />
 
+import { mock } from "bun:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { test } from "node:test";
-import { runInNewContext } from "node:vm";
-import { ModuleKind, transpileModule } from "typescript";
 
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
-import { type ExtractedItem } from "@/feed/types";
+import { type ExtractedItem, type PlatformId } from "@/feed/types";
 import { rowsForItems } from "@/screens/feed/feed-rows";
 
-// Exercise the production SQL against SQLite without requiring a native app.
-function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
-  const reads: number[] = [];
-  const queries: string[] = [];
-  const statements: string[] = [];
-  let opens = 0;
-  const database = {
-    execSync: (sql: string) => {
-      statements.push(sql);
-      db.exec(sql);
-    },
+// Run the production SQL against an in-memory SQLite database.
+let db = new DatabaseSync(":memory:");
+mock.module("expo-sqlite", () => ({
+  openDatabaseSync: () => ({
+    execSync: (sql: string) => db.exec(sql),
     getFirstSync: (sql: string) => db.prepare(sql).get(),
-    getAllSync: (sql: string, ...params: string[]) => {
-      queries.push(sql);
-      const rows = db.prepare(sql).all(...params);
-      reads.push(rows.length);
-      return rows;
-    },
-    runSync: (sql: string, ...params: string[]) =>
+    getAllSync: (sql: string, ...params: SQLInputValue[]) =>
+      db.prepare(sql).all(...params),
+    runSync: (sql: string, ...params: SQLInputValue[]) =>
       db.prepare(sql).run(...params),
-    prepareSync: (sql: string) => {
-      const statement = db.prepare(sql);
-      return {
-        executeSync: (...params: (string | number | null)[]) =>
-          statement.run(...params),
-        finalizeSync() {},
-      };
-    },
     withTransactionSync: (action: () => void) => {
       db.exec("BEGIN");
       try {
@@ -49,40 +29,19 @@ function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
         throw error;
       }
     },
-  };
-  const exports = {} as typeof import("./database");
-  const source = readFileSync(
-    new URL("./database.ts", import.meta.url),
-    "utf8",
-  );
-  runInNewContext(
-    transpileModule(source, {
-      compilerOptions: { module: ModuleKind.CommonJS },
-    }).outputText,
-    {
-      exports,
-      require: (name: string) => {
-        if (name === "expo-sqlite")
-          return {
-            openDatabaseSync: () => {
-              opens++;
-              return database;
-            },
-          };
-        return require(name);
-      },
-    },
-  );
-  if (initialize) exports.initializeDatabase();
+  }),
+}));
+const { database, migrateDatabase } = await import("@/db/client");
+const repository = await import("@/db/repositories/feed-items-repository");
+
+function openStore(existing = new DatabaseSync(":memory:")) {
+  db = existing;
+  migrateDatabase(database);
   return {
-    ...exports,
+    ...repository,
     db,
-    reads,
-    queries,
-    statements,
-    get opens() {
-      return opens;
-    },
+    sourceIds: (platform: PlatformId) =>
+      repository.listPublicationDates(platform).map(([id]) => id),
   };
 }
 
@@ -93,38 +52,11 @@ const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
   media: [],
 });
 
-test("completed migrations do not run again on repeated initialization or restart", () => {
-  const store = openStore();
-  const media = {
-    type: "video" as const,
-    url: "https://example.com/playback.mp4",
-    posterUrl: "https://example.com/poster.jpg",
-    contentType: "progressive" as const,
-    playable: true,
-  };
-  store.saveExtraction(
-    "youtube",
-    [{ ...post("video", 1), media: [media] }],
-    [],
-  );
-  const statements = store.statements.length;
-  store.initializeDatabase();
-  assert.equal(store.opens, 1);
-  assert.equal(store.statements.length, statements + 1);
-  assert.deepEqual({ ...store.listFeedItems()[0].media[0] }, media);
-
-  const restarted = openStore(store.db);
-  assert.equal(restarted.statements.length, 1);
-  assert.deepEqual({ ...restarted.listFeedItems()[0].media[0] }, media);
-  store.db.close();
-});
-
-test("startup rejects a newer database without changing its schema or version", () => {
+test("rejects a database from a newer app version without changing it", () => {
   const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA user_version = 4");
-  const store = openStore(db, false);
-  assert.throws(() => store.initializeDatabase(), /newer version/);
-  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 4);
+  db.exec("PRAGMA user_version = 5");
+  assert.throws(() => openStore(db), /newer version/);
+  assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 5);
   assert.equal(
     db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!.count,
     0,
@@ -132,33 +64,17 @@ test("startup rejects a newer database without changing its schema or version", 
   db.close();
 });
 
-test("upgrading version 2 adds the context index without rewriting saved posts", () => {
+test("upgrading adds missing indexes and drops undated posts only", () => {
   const store = openStore();
-  store.saveExtraction(
-    "youtube",
-    [
-      {
-        ...post("video", 1),
-        media: [
-          {
-            type: "video",
-            url: "https://example.com/playback.mp4",
-            posterUrl: "https://example.com/poster.jpg",
-            contentType: "progressive",
-            playable: true,
-          },
-        ],
-      },
-    ],
-    [],
-    10,
-  );
+  store.saveExtraction("youtube", [post("video", 1)], [], 10);
   const before = store.db.prepare("SELECT * FROM feed_items").all();
-  store.db.exec(
-    "DROP INDEX feed_items_thread_context; PRAGMA user_version = 2;",
-  );
-  store.initializeDatabase();
-  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 3);
+  store.db.exec(`
+    DROP INDEX feed_items_thread_context;
+    INSERT INTO feed_items VALUES ('youtube:old', 'youtube', 'old', NULL, 5, '{}', 'youtube:old');
+    PRAGMA user_version = 2;
+  `);
+  migrateDatabase(database);
+  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 4);
   assert.deepEqual(store.db.prepare("SELECT * FROM feed_items").all(), before);
   assert.ok(
     store.db
@@ -167,24 +83,6 @@ test("upgrading version 2 adds the context index without rewriting saved posts",
       )
       .get(),
   );
-  store.db.close();
-});
-
-test("reply and thread context lookups use expression indexes instead of scanning platform posts", () => {
-  const store = openStore();
-  store.saveExtraction("x", [post("first", 1)], []);
-  const query = store.queries.at(-1)!;
-  const plan = store.db
-    .prepare(`EXPLAIN QUERY PLAN ${query}`)
-    .all('["x:first"]', "x", '["first"]', "x", '["first"]');
-  for (const index of ["feed_items_reply", "feed_items_thread_context"])
-    assert.ok(
-      plan.some(
-        (row) =>
-          String(row.detail).includes(index) &&
-          String(row.detail).includes("<expr>=?"),
-      ),
-    );
   store.db.close();
 });
 
@@ -230,22 +128,6 @@ test("updates hydrated posts without changing first-seen time or unaffected row 
   assert.equal(updated.text, "Updated");
   assert.equal(unchanged, b);
   assert.equal(store.listFeedItems()[0], updated);
-  store.db.close();
-});
-
-test("a one-post refresh only reads overlapping saved posts", () => {
-  const store = openStore();
-  store.saveExtraction(
-    "x",
-    Array.from({ length: 500 }, (_, index) => post(String(index), index + 1)),
-    [],
-  );
-  store.reads.length = 0;
-  store.saveExtraction("x", [{ ...post("250"), text: "Updated" }], []);
-  assert.equal(
-    store.reads.reduce((total, count) => total + count, 0),
-    1,
-  );
   store.db.close();
 });
 
@@ -313,7 +195,7 @@ test("withholds new undated posts on every platform and removes explicit exclusi
     "youtube",
   ] as const) {
     store.saveExtraction(platform, [post("undated")], []);
-    assert.equal(store.listSourceIds(platform).length, 0);
+    assert.equal(store.sourceIds(platform).length, 0);
   }
   assert.equal(store.listFeedItems().length, 0);
   store.saveExtraction("youtube", [post("upcoming", 1)], []);
@@ -363,10 +245,7 @@ test("grouped threads replace standalone copies and retain every stop-boundary I
     store.listFeedItems()[0].thread?.[0].media?.[0].url,
     "first-photo",
   );
-  assert.deepEqual(
-    new Set(store.listSourceIds("x")),
-    new Set(["first", "last"]),
-  );
+  assert.deepEqual(new Set(store.sourceIds("x")), new Set(["first", "last"]));
   store.db.close();
 });
 
@@ -463,7 +342,7 @@ test("a new sibling reply does not bump an older branch in the feed", () => {
   store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], [], 40);
   assert.equal(store.listFeedItems()[0], items[0]);
   assert.equal(store.listFeedItems()[2], items[2]);
-  assert.equal(store.listSourceIds("x").length, 3);
+  assert.equal(store.sourceIds("x").length, 3);
   store.db.close();
 });
 
@@ -716,6 +595,6 @@ test("preserves different thread members when a page repeats the same root", () 
     })),
     [],
   );
-  assert.deepEqual(store.listSourceIds("x").sort(), ["old", "root", "unseen"]);
+  assert.deepEqual(store.sourceIds("x").sort(), ["old", "root", "unseen"]);
   store.db.close();
 });

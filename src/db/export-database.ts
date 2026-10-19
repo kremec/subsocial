@@ -6,7 +6,7 @@ import {
   openDatabaseSync,
 } from "expo-sqlite";
 
-import { database } from "@/db/database";
+import { database } from "@/db/client";
 
 const exportDatabaseName = "subsocial-export.db";
 

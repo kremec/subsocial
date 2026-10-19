@@ -4,9 +4,8 @@ import { BackHandler, View } from "react-native";
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   listPublicationDates,
-  listSourceIds,
   saveExtraction,
-} from "@/db/database";
+} from "@/db/repositories/feed-items-repository";
 import { CollectionProgress, datedExtraction } from "@/feed/collection";
 import { extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
@@ -77,9 +76,10 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const [state] = useState((): CollectionState => {
     // Keep the boundary until collection succeeds, even when it is empty,
     // so an interrupted first collection can finish later.
-    const known =
-      useSettingsStore.getState().collectionBoundaries[platform.id] ??
-      listSourceIds(platform.id);
+    const dates = new Map(listPublicationDates(platform.id));
+    const known = useSettingsStore.getState().collectionBoundaries[
+      platform.id
+    ] ?? [...dates.keys()];
     useSettingsStore.setState((settings) => ({
       collectionBoundaries: {
         ...settings.collectionBoundaries,
@@ -87,7 +87,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       },
     }));
     return {
-      dates: new Map(listPublicationDates(platform.id)),
+      dates,
       progress: new CollectionProgress(new Set(known)),
       failures: new Set(),
     };

@@ -2,12 +2,13 @@ import { Platform } from "react-native";
 
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
+import { database } from "@/db/client";
 import {
   connectPlatform,
   disconnectPlatform,
-  deletePlatformData,
   listConnectedPlatforms,
-} from "@/db/database";
+} from "@/db/repositories/connections-repository";
+import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
 import { type PlatformId } from "@/feed/types";
 import { hasSession, platforms } from "@/platforms/platforms";
 import { type PlatformDefinition } from "@/platforms/types";
@@ -50,7 +51,10 @@ export async function resetPlatformSession(
       );
     }
   }
-  deletePlatformData(platform.id);
+  database.withTransactionSync(() => {
+    deletePlatformPosts(platform.id);
+    disconnectPlatform(platform.id);
+  });
   useSettingsStore.setState((state) => ({
     collectionBoundaries: {
       ...state.collectionBoundaries,
