@@ -63,7 +63,6 @@ const feedItemSchema = extractedItemSchema.extend({
   publishedAt: z.number().positive(),
   id: z.string().min(1),
   platform: platformIdSchema,
-  fetchedAt: z.number(),
 });
 
 export type PlatformId = z.infer<typeof platformIdSchema>;

@@ -13,7 +13,6 @@ interface FeedItemRow {
   platform: PlatformId;
   source_id: string;
   published_at: number;
-  fetched_at: number;
   item_json: string;
   thread_id: string;
 }
@@ -55,7 +54,6 @@ export function saveExtraction(
   platform: PlatformId,
   items: ExtractedItem[],
   excludedSourceIds: string[],
-  fetchedAt = Date.now(),
 ): void {
   const excluded = new Set(excludedSourceIds);
   database.withTransactionSync(() => {
@@ -117,7 +115,7 @@ export function saveExtraction(
           platform,
           sourceId,
           publishedAt,
-          fetchedAt,
+          Date.now(),
           JSON.stringify(content),
           threadId,
         );
@@ -188,7 +186,6 @@ export function listFeedItems(): FeedItem[] {
           id: latest.id,
           platform: latest.platform,
           publishedAt: latest.published_at,
-          fetchedAt: latest.fetched_at,
           thread: posts.length > 1 ? posts : undefined,
         };
       });

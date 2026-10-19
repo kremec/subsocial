@@ -22,7 +22,6 @@ function branch(...sourceIds: number[]): FeedItem {
     ...last,
     id: `x:${last.sourceId}`,
     platform: "x",
-    fetchedAt: last.publishedAt,
     media: [],
     thread: posts.length > 1 ? posts : undefined,
   };
@@ -107,7 +106,6 @@ function positionRows(sourceIds: string[], publishedAt: number) {
     sourceId,
     platform: "x",
     publishedAt,
-    fetchedAt: publishedAt,
     url: `https://x.com/user/status/${sourceId}`,
     media: [],
     thread: sourceIds.map((id) => ({
