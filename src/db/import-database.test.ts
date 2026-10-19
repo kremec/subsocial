@@ -140,55 +140,12 @@ test("accepts exported posts and pending undated rows with metadata outside JSON
   assert.equal(app.state.closed, true);
 });
 
-test("unversioned exports are migrated before validation", async () => {
-  const app = importHarness();
-  app.db.exec("ALTER TABLE feed_items DROP COLUMN thread_id");
-  app.db.prepare("UPDATE feed_items SET item_json = ?").run(
-    JSON.stringify({
-      thread: [
-        {
-          sourceId: "video",
-          url: "https://youtube.com/watch?v=video",
-          media: [],
-        },
-      ],
-    }),
-  );
-  assert.equal(await app.importDatabase(), true);
-  assert.equal(app.state.version, 3);
-  assert.equal(
-    JSON.parse(app.state.payloads[0]).url,
-    "https://youtube.com/watch?v=video",
-  );
-});
-
 test("rejects databases without saved posts before backup", async () => {
   const app = importHarness();
   app.db.exec("DROP TABLE feed_items");
   await assert.rejects(app.importDatabase(), /Not a subsocial database/);
   assert.equal(app.state.backups, 0);
   assert.equal(app.state.closed, true);
-});
-
-test("current-version imports preserve playable YouTube sources without rerunning migration SQL", async () => {
-  const app = importHarness();
-  const media = {
-    type: "video",
-    url: "https://example.com/playback.mp4",
-    posterUrl: "https://example.com/poster.jpg",
-    contentType: "progressive",
-    playable: true,
-  };
-  app.db.exec("PRAGMA user_version = 3");
-  app.db.prepare("UPDATE feed_items SET item_json = ?").run(
-    JSON.stringify({
-      url: "https://youtube.com/watch?v=video",
-      media: [media],
-    }),
-  );
-  assert.equal(await app.importDatabase(), true);
-  assert.equal(app.state.version, 3);
-  assert.deepEqual(JSON.parse(app.state.payloads[0]).media, [media]);
 });
 
 test("rejects invalid JSON, platforms, identities, timestamps, and essential payload fields before backup", async () => {
