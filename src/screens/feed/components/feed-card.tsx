@@ -10,7 +10,7 @@ import {
 } from "@/platforms/youtube/media";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
-import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
+import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedCardProps {

@@ -9,17 +9,19 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
-import { type VideoPlayer } from "expo-video";
+import Storage from "expo-sqlite/kv-store";
+import { useVideoPlayer, type VideoPlayer } from "expo-video";
 
 import {
   type PlaybackResult,
   YouTubeMediaContext,
 } from "@/platforms/youtube/media-resolver";
-import { useFeedVideoPlayer } from "@/screens/feed/feed-video-player";
 import {
   type MediaVideoSession,
   useMediaVideoPlayback,
 } from "@/screens/media/use-media-video-playback";
+
+const mutedKey = "feed-video-muted";
 
 interface MediaVideoProviderProps {
   children?: ReactNode;
@@ -47,7 +49,16 @@ export const MediaVideoContext = createContext<{
 } | null>(null);
 
 export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
-  const player = useFeedVideoPlayer();
+  // Videos only borrow this player. Recycling a feed row must not release it.
+  const player = useVideoPlayer(null, (player) => {
+    player.loop = true;
+    player.timeUpdateEventInterval = 0.25;
+    player.muted = Storage.getItemSync(mutedKey) !== "false";
+    player.bufferOptions = {
+      minBufferForPlayback: 0.5,
+      preferredForwardBufferDuration: 5,
+    };
+  });
   const [result, setResult] = useState<PlaybackResult>();
   const [selection, setSelection] = useState<AlbumSelection>();
   const [video, setVideo] = useState<RegisteredVideo>();
@@ -60,6 +71,12 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
     );
     return () => listener.remove();
   }, []);
+  useEffect(() => {
+    const listener = player.addListener("mutedChange", ({ muted }) =>
+      Storage.setItemSync(mutedKey, String(muted)),
+    );
+    return () => listener.remove();
+  }, [player]);
   const registerVideo = (session: MediaVideoSession) => {
     const registeredSession: MediaVideoSession = {
       ...session,

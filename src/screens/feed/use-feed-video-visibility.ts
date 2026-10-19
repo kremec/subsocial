@@ -1,4 +1,10 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  createContext,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { type View } from "react-native";
 
 import { type FeedItem } from "@/feed/types";
@@ -7,6 +13,10 @@ interface ActiveVideo {
   rowId: string;
   postUrl: string;
 }
+
+export const FeedVideoLayoutContext = createContext<
+  ((postUrl: string, view: View | null) => void) | null
+>(null);
 
 const sameVideo = (left?: ActiveVideo, right?: ActiveVideo) =>
   left?.rowId === right?.rowId && left?.postUrl === right?.postUrl;
