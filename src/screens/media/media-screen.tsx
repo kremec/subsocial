@@ -46,9 +46,8 @@ export const MediaScreen: FC = () => {
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollView>(null);
-  const album = useContext(MediaAlbumContext);
-  const setSelection = album?.setSelection;
-  useEffect(() => () => setSelection?.(undefined), [setSelection]);
+  const { setSelection } = useContext(MediaAlbumContext)!;
+  useEffect(() => () => setSelection(undefined), [setSelection]);
   const pagingGesture = Gesture.Native();
   const closeGesture = Gesture.Pan()
     .enabled(!zoomed)
@@ -88,7 +87,7 @@ export const MediaScreen: FC = () => {
                   event.nativeEvent.contentOffset.x / width,
                 );
                 setMediaIndex(selectedIndex);
-                setSelection?.({ postUrl, index: selectedIndex });
+                setSelection({ postUrl, index: selectedIndex });
               }}
               style={{ flex: 1 }}
             >
