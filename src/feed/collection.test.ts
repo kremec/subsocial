@@ -8,8 +8,8 @@ import {
   datedExtraction,
   feedItemLimit,
 } from "@/feed/collection";
-import { type ExtractedItem, extractedItemSchema } from "@/feed/types";
-import { type FeedPage } from "@/platforms/types";
+import { type FeedPage } from "@/types/platform";
+import { type ExtractedItem, extractedItemSchema } from "@/types/post";
 
 const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
   sourceId,

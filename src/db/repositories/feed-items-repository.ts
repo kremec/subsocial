@@ -6,7 +6,7 @@ import {
   type FeedItem,
   type FeedPost,
   type PlatformId,
-} from "@/feed/types";
+} from "@/types/post";
 
 interface FeedItemRow {
   id: string;

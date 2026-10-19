@@ -1,11 +1,11 @@
 import { toByteArray } from "base64-js";
 
-import { type FeedMedia } from "@/feed/types";
 import {
   playbackResponseSchema,
   playbackVisitorSchema,
   type PlaybackResponse,
 } from "@/platforms/youtube/schema";
+import { type FeedMedia } from "@/types/post";
 
 export type YouTubeResolution =
   | {

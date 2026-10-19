@@ -3,9 +3,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type FeedItem } from "@/feed/types";
 import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
 import { rowsForItems } from "@/screens/feed/feed-rows";
+import { type FeedItem } from "@/types/post";
 
 function branch(...sourceIds: number[]): FeedItem {
   const posts = sourceIds.map((id, index) => ({

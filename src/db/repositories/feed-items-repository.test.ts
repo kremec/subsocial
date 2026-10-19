@@ -6,8 +6,8 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { test } from "node:test";
 
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
-import { type ExtractedItem, type PlatformId } from "@/feed/types";
 import { rowsForItems } from "@/screens/feed/feed-rows";
+import { type ExtractedItem, type PlatformId } from "@/types/post";
 
 // Run the production SQL against an in-memory SQLite database.
 let db = new DatabaseSync(":memory:");

@@ -2,8 +2,8 @@ import { type FC } from "react";
 import { View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
-import { type PlatformDefinition } from "@/platforms/types";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformDefinition } from "@/types/platform";
 
 interface PlatformIconProps {
   platform: PlatformDefinition;

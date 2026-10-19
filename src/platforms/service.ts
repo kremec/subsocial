@@ -11,13 +11,13 @@ import { facebookFeed } from "@/platforms/facebook/service";
 import { instagramFeed } from "@/platforms/instagram/service";
 import { hasSession, ownsHost } from "@/platforms/platforms";
 import { redditFeed } from "@/platforms/reddit/service";
+import { xFeed } from "@/platforms/x/service";
+import { youtubeFeed } from "@/platforms/youtube/service";
 import {
   FeedAccessError,
   type FeedRequest,
   type PlatformDefinition,
-} from "@/platforms/types";
-import { xFeed } from "@/platforms/x/service";
-import { youtubeFeed } from "@/platforms/youtube/service";
+} from "@/types/platform";
 
 const retryAt = new Map<string, number>();
 

@@ -1,5 +1,5 @@
 import { database } from "@/db/client";
-import { type PlatformId } from "@/feed/types";
+import { type PlatformId } from "@/types/post";
 
 export function connectPlatform(platform: PlatformId): void {
   database.runSync(

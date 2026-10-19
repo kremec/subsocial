@@ -3,10 +3,10 @@ import { View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
 import { formatAge } from "@/screens/feed/format-age";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedPost, type PlatformId } from "@/types/post";
 
 interface PostHeaderProps {
   platform: PlatformId;

@@ -12,12 +12,12 @@ import { router } from "expo-router";
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
 import { player, showVideo, useMediaStore } from "@/stores/media-store";
+import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedVideoProps {
   playbackKey: string;

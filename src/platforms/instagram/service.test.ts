@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { instagramFeed, instagramPage } from "@/platforms/instagram/service";
-import { FeedAccessError } from "@/platforms/types";
+import { FeedAccessError } from "@/types/platform";
 
 describe("Instagram API feed", () => {
   it("maps coauthors, timestamps, carousel media and pagination", () => {

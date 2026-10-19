@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import { useRecyclingState } from "@legendapp/list/react-native";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
+import { type FeedMedia } from "@/types/post";
 
 interface FeedImageProps {
   media: FeedMedia;

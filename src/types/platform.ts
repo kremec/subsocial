@@ -1,4 +1,4 @@
-import { type PlatformId, type ExtractedItem } from "@/feed/types";
+import { type PlatformId, type ExtractedItem } from "@/types/post";
 
 export interface FeedRequest {
   fetch: (url: string, init?: RequestInit) => Promise<Response>;

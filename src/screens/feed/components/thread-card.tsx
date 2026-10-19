@@ -3,11 +3,11 @@ import { Pressable, View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedPost, type PlatformId } from "@/types/post";
 
 interface ThreadCardProps {
   post: FeedPost;

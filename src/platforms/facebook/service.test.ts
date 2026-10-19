@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { extractedItemSchema } from "@/feed/types";
 import { facebookFeed, parseFacebookFeed } from "@/platforms/facebook/service";
+import { extractedItemSchema } from "@/types/post";
 
 const story = {
   __typename: "Story",

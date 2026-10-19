@@ -6,13 +6,13 @@ import { router } from "expo-router";
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedMediaCarouselProps {
   postUrl: string;

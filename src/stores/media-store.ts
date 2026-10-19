@@ -4,9 +4,9 @@ import { type AudioTrack, createVideoPlayer } from "expo-video";
 
 import { create } from "zustand";
 
-import { type FeedMedia } from "@/feed/types";
 import { type YouTubeResolution } from "@/platforms/youtube/playback";
 import { useSettingsStore } from "@/stores/settings-store";
+import { type FeedMedia } from "@/types/post";
 
 export interface PlayerVideo {
   // Identifies one video of one post, so its position survives row recycling.

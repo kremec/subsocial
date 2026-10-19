@@ -10,12 +10,12 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
-import { type PlatformId } from "@/feed/types";
 import { openPlatformApp } from "@/platforms/open-post";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
 export const BrowserScreen: FC = () => {
   const theme = useTheme();

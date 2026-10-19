@@ -7,7 +7,7 @@ import {
 } from "react";
 import { type View } from "react-native";
 
-import { type FeedItem } from "@/feed/types";
+import { type FeedItem } from "@/types/post";
 
 interface ActiveVideo {
   rowId: string;

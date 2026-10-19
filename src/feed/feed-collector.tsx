@@ -7,12 +7,12 @@ import {
   saveExtraction,
 } from "@/db/repositories/feed-items-repository";
 import { CollectionProgress, datedExtraction } from "@/feed/collection";
-import { extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
-import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { FeedAccessError, type PlatformDefinition } from "@/types/platform";
+import { extractedItemSchema } from "@/types/post";
 
 const collectionTimeout = 120_000;
 

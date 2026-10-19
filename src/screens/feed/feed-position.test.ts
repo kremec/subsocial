@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type FeedItem } from "@/feed/types";
 import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
+import { type FeedItem } from "@/types/post";
 
 function branch(sourceIds: string[], publishedAt: number) {
   const sourceId = sourceIds.at(-1)!;

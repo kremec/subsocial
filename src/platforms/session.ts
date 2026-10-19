@@ -9,10 +9,10 @@ import {
   listConnectedPlatforms,
 } from "@/db/repositories/connections-repository";
 import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
-import { type PlatformId } from "@/feed/types";
 import { hasSession, platforms } from "@/platforms/platforms";
-import { type PlatformDefinition } from "@/platforms/types";
 import { useSettingsStore } from "@/stores/settings-store";
+import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformId } from "@/types/post";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,
