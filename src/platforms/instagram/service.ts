@@ -61,7 +61,6 @@ const feedResponseSchema = z
     (response) => response.data.xdt_api__v1__feed__timeline__connection,
   );
 
-const tokenSchema = z.object({ token: z.string().min(1) });
 type Media = z.infer<typeof mediaSchema>;
 type Variant = z.infer<typeof variantSchema>;
 
@@ -139,9 +138,10 @@ export async function* instagramFeed(
     throw new FeedAccessError("Open Instagram to renew your login.");
   const token = (name: string) => {
     const marker = `"${name}",[],`;
-    return tokenSchema.parse(
-      bootstrap(html.slice(html.lastIndexOf(marker)), marker),
-    ).token;
+    return z
+      .string()
+      .min(1)
+      .parse(bootstrap(html.slice(html.lastIndexOf(marker)), marker).token);
   };
   const fbDtsg = token("DTSGInitData");
   const lsd = token("LSD");

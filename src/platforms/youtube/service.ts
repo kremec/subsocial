@@ -27,20 +27,16 @@ const configSchema = z.object({
 
 // Renderer trees vary between desktop, mobile, and continuation responses.
 // Keep the tree intact and validate individual video renderers when traversing it.
+const roots = [
+  "contents",
+  "onResponseReceivedActions",
+  "onResponseReceivedEndpoints",
+  "continuationContents",
+];
 const browseResponseSchema = z
-  .object({
-    contents: z.json().optional(),
-    onResponseReceivedActions: z.array(z.json()).optional(),
-    onResponseReceivedEndpoints: z.array(z.json()).optional(),
-    continuationContents: z.json().optional(),
-  })
-  .catchall(z.json())
+  .record(z.string(), z.json())
   .refine(
-    (response) =>
-      response.contents !== undefined ||
-      response.onResponseReceivedActions !== undefined ||
-      response.onResponseReceivedEndpoints !== undefined ||
-      response.continuationContents !== undefined,
+    (response) => roots.some((key) => response[key] !== undefined),
     "YouTube feed response was incomplete.",
   );
 
@@ -115,7 +111,7 @@ const playerResponseSchema = z.object({
 
 type PlayerResponse = z.infer<typeof playerResponseSchema>;
 
-function videos(data: Json) {
+function videos(response: JsonObject) {
   const found = new Map<string, JsonObject>();
   let continuation = "";
   const visit = (value: Json | undefined) => {
@@ -171,11 +167,7 @@ function videos(data: Json) {
       visit(renderer.contents || renderer.items || renderer.continuationItems);
     }
   };
-  const response = asObject(data);
-  visit(response.contents);
-  visit(response.onResponseReceivedActions);
-  visit(response.onResponseReceivedEndpoints);
-  visit(response.continuationContents);
+  for (const key of roots) visit(response[key]);
   return { found, continuation };
 }
 
@@ -192,7 +184,7 @@ export async function* youtubeFeed(
   const context = config.INNERTUBE_CONTEXT;
   if (!context) throw new Error("YouTube feed context was incomplete.");
   const origin = new URL(response.url).origin;
-  let data: Json = browseResponseSchema.parse(
+  let data: JsonObject = browseResponseSchema.parse(
     bootstrap(html, "var ytInitialData = "),
   );
   const api = async (
@@ -307,7 +299,6 @@ export async function* youtubeFeed(
         sourceId,
         url: `https://www.youtube.com/watch?v=${sourceId}`,
         authorName: author,
-        authorHandle: author,
         text: title,
         publishedAt,
         media: [
