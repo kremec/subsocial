@@ -6,10 +6,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { FeedImage } from "@/screens/feed/components/feed-image";
-import {
-  FeedVideo,
-  type PlaybackStatus,
-} from "@/screens/feed/components/feed-video";
+import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { MediaAlbumContext } from "@/screens/media/media-video-provider";
@@ -23,11 +20,7 @@ interface FeedMediaCarouselProps {
   sourceId?: string;
   media: FeedMedia[];
   active: boolean;
-  playbackStatus?: PlaybackStatus;
   onActivate: () => void;
-  onRetry?: () => void;
-  onPlaybackError?: () => void;
-  onVerification?: () => void;
   onPress: () => void;
 }
 
@@ -39,11 +32,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     sourceId,
     media,
     active,
-    playbackStatus,
     onActivate,
-    onRetry,
-    onPlaybackError,
-    onVerification,
     onPress,
   } = props;
   const theme = useTheme();
@@ -119,11 +108,10 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               key={media.url}
               playbackKey={`${postUrl}:${index}`}
               media={media}
+              platform={platform}
+              postUrl={postUrl}
+              sourceId={sourceId}
               counter={counter}
-              playbackStatus={playbackStatus}
-              onRetry={onRetry}
-              onError={onPlaybackError}
-              onVerification={onVerification}
               onFullscreen={() => openAlbum(index)}
             />
           </Pressable>

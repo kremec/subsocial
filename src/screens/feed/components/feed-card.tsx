@@ -2,12 +2,6 @@ import { type FC, memo } from "react";
 import { View } from "react-native";
 
 import { type FeedItem, type FeedPost } from "@/feed/types";
-import { openBrowser } from "@/platforms/open-post";
-import {
-  youtubePlaybackStatus,
-  withYouTubeStream,
-  type YouTubeResolution,
-} from "@/platforms/youtube/media";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
@@ -21,11 +15,8 @@ interface FeedCardProps {
   threadEnd?: boolean;
   threadGapBefore?: boolean;
   activePostUrl?: string;
-  resolution?: YouTubeResolution;
   onActivate: (rowId: string, postUrl: string) => void;
   onVideoView: (rowId: string, postUrl: string, view: View | null) => void;
-  onRetry: () => void;
-  onPlaybackError: (id: string) => void;
 }
 
 export const FeedCard: FC<FeedCardProps> = memo((props) => {
@@ -37,14 +28,10 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
     threadEnd,
     threadGapBefore,
     activePostUrl,
-    resolution,
     onActivate,
     onVideoView,
-    onRetry,
-    onPlaybackError,
   } = props;
   const activatePost = (postUrl: string) => onActivate(rowId, postUrl);
-  const playableItem = withYouTubeStream(item, resolution);
   const setVideoView = (postUrl: string, view: View | null) =>
     onVideoView(rowId, postUrl, view);
   const theme = useTheme();
@@ -70,19 +57,11 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
           }}
         >
           <PostContent
-            post={playableItem}
+            post={item}
             platform={item.platform}
             variant="feed"
             activePostUrl={activePostUrl}
             onActivate={activatePost}
-            playbackStatus={youtubePlaybackStatus(item, resolution)}
-            onRetry={item.platform === "youtube" ? onRetry : undefined}
-            onPlaybackError={
-              item.platform === "youtube"
-                ? () => onPlaybackError(item.id)
-                : undefined
-            }
-            onVerification={() => openBrowser(item.platform, item.url)}
           />
         </View>
       )}

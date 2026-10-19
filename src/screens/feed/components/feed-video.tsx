@@ -13,64 +13,72 @@ import { router } from "expo-router";
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
+import { openBrowser } from "@/platforms/open-post";
+import { withYouTubeStream } from "@/platforms/youtube/media";
+import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
 import { MediaVideoContext } from "@/screens/media/media-video-provider";
-
-export type PlaybackStatus = "loading" | "error" | "verification";
 
 interface FeedVideoProps {
   playbackKey: string;
   media: FeedMedia;
+  platform: PlatformId;
+  postUrl: string;
+  sourceId?: string;
   fullscreen?: boolean;
   onFullscreen?: () => void;
   navigationGestures?: GestureType[];
   counter?: ReactNode;
-  playbackStatus?: PlaybackStatus;
-  onRetry?: () => void;
-  onError?: () => void;
-  onVerification?: () => void;
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
   const {
     playbackKey,
     media,
+    platform,
+    postUrl,
+    sourceId,
     fullscreen = false,
     onFullscreen,
     navigationGestures,
     counter,
-    playbackStatus,
-    onRetry,
-    onError,
-    onVerification,
   } = props;
-  const playback = useContext(MediaVideoContext);
-  const registerVideo = playback?.registerVideo;
+  const playback = useContext(MediaVideoContext)!;
+  const { registerVideo } = playback;
+  const youtube = useYouTubeMedia(
+    platform === "youtube" ? sourceId : undefined,
+  );
+  const { resolution } = youtube;
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => {
     setFailed(true);
-    onError?.();
-  }, [onError]);
-  const status = playbackStatus || (failed ? "error" : undefined);
+    youtube.fail();
+  }, [youtube]);
+  const status =
+    platform === "youtube" && resolution?.status !== "ready"
+      ? resolution?.status || "loading"
+      : failed && "error";
+  const video = withYouTubeStream(media, resolution);
 
   // Load this video into the shared player while it can play.
   useLayoutEffect(() => {
-    if (!status) return registerVideo?.({ playbackKey, media, onError: fail });
-  }, [status, registerVideo, playbackKey, media, fail]);
+    if (!status)
+      return registerVideo({
+        playbackKey,
+        media: withYouTubeStream(media, resolution),
+        onError: fail,
+      });
+  }, [status, registerVideo, playbackKey, media, resolution, fail]);
 
   if (!status) {
-    const loaded = playback?.loadedVideo;
-    if (
-      !playback ||
-      loaded?.playbackKey !== playbackKey ||
-      loaded.url !== media.url
-    )
+    const loaded = playback.loadedVideo;
+    if (loaded?.playbackKey !== playbackKey || loaded.url !== video.url)
       return counter || null;
     return (
       <FeedVideoControls
         player={playback.player}
-        media={media}
+        media={video}
         counter={counter}
         fullscreen={fullscreen}
         onFullscreen={onFullscreen ?? (() => router.back())}
@@ -96,14 +104,13 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         <Pressable
           accessibilityRole="button"
           style={{ padding: 16 }}
-          onPress={
-            status === "verification"
-              ? onVerification
-              : () => {
-                  setFailed(false);
-                  onRetry?.();
-                }
-          }
+          onPress={() => {
+            if (status === "verification") openBrowser(platform, postUrl);
+            else {
+              setFailed(false);
+              youtube.retry();
+            }
+          }}
         >
           <Typography style={{ color: "white" }}>
             {status === "verification"
