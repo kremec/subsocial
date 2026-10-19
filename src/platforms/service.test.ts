@@ -12,6 +12,7 @@ import {
   type FeedRequest,
   type PlatformDefinition,
 } from "@/platforms/types";
+import { xPlatform } from "@/platforms/x/config";
 
 const source = transpileModule(
   readFileSync(new URL("./service.ts", import.meta.url), "utf8"),
@@ -19,17 +20,7 @@ const source = transpileModule(
     compilerOptions: { module: ModuleKind.CommonJS },
   },
 ).outputText;
-const platform: PlatformDefinition = {
-  id: "x",
-  label: "X",
-  startUrl: "https://x.com/home",
-  androidPackage: "",
-  androidAppUrl: "",
-  appScheme: "",
-  color: "",
-  dataDomains: ["x.com"],
-  sessionCookieGroups: [["auth_token"]],
-};
+const platform = xPlatform;
 interface TestCookie {
   name: string;
   value: string;

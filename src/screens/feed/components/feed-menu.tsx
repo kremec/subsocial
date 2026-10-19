@@ -127,9 +127,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                   onClose();
                   openBrowser(
                     platform.id,
-                    connected
-                      ? platform.startUrl
-                      : platform.loginUrl || platform.startUrl,
+                    connected ? platform.startUrl : platform.loginUrl,
                   );
                 }}
               >

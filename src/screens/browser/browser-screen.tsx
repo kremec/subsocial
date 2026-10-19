@@ -27,7 +27,7 @@ export const BrowserScreen: FC = () => {
     listConnectedPlatforms().includes(platform.id),
   );
   const [installed, setInstalled] = useState(false);
-  const url = params.url || platform.loginUrl || platform.startUrl;
+  const url = params.url || platform.loginUrl;
 
   useEffect(() => {
     let current = true;

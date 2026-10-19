@@ -39,7 +39,7 @@ export async function resetPlatformSession(
 ): Promise<void> {
   const urls = new Set([
     platform.startUrl,
-    platform.loginUrl || platform.startUrl,
+    platform.loginUrl,
     ...platform.dataDomains.map((domain) => `https://${domain}`),
   ]);
   for (const useWebKit of Platform.OS === "ios" ? [false, true] : [true]) {
