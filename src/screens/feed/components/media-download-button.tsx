@@ -1,9 +1,55 @@
 import { type FC, useState } from "react";
 import { ActivityIndicator, Alert, Pressable } from "react-native";
 
+import { Directory, File, Paths } from "expo-file-system";
+
 import { Icon } from "@/components/ui/icon";
-import { type FeedMedia } from "@/feed/types";
-import { downloadMedia } from "@/screens/feed/download-media";
+import { type FeedMedia, type PlatformId } from "@/feed/types";
+
+// Streams are playlists rather than files, and YouTube only plays streams.
+export const canDownloadMedia = (media: FeedMedia, platform: PlatformId) =>
+  media.type === "image" ||
+  (!!media.playable &&
+    platform !== "youtube" &&
+    media.contentType !== "hls" &&
+    !/\.m3u8(?:$|\/)|\/manifest\/hls/i.test(new URL(media.url).pathname));
+
+async function downloadMedia(media: FeedMedia) {
+  let target: Directory;
+  try {
+    target = await Directory.pickDirectoryAsync();
+  } catch (error) {
+    const code = error instanceof Error && "code" in error && error.code;
+    if (
+      code === "ERR_PICKER_CANCELLED" ||
+      code === "ERR_FILE_PICKING_CANCELLED"
+    )
+      return;
+    throw error;
+  }
+  const url = new URL(media.url);
+  const format = (
+    url.searchParams.get("format") ||
+    url.pathname.match(/\.([a-z]+)$/i)?.[1] ||
+    ""
+  ).toLowerCase();
+  const extension =
+    media.type === "video"
+      ? "mp4"
+      : /^(jpe?g|png|gif|webp|avif|heic)$/.test(format)
+        ? format
+        : "jpg";
+  // Download into the cache first; picked folders may not accept direct downloads.
+  const file = await File.downloadFileAsync(
+    media.url,
+    new File(Paths.cache, `subsocial-${Date.now()}.${extension}`),
+  );
+  try {
+    await file.copy(target);
+  } finally {
+    file.delete();
+  }
+}
 
 interface MediaDownloadButtonProps {
   media: FeedMedia;

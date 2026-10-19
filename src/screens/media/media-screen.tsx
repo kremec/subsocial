@@ -14,8 +14,10 @@ import { feedMediaSchema, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
-import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
-import { canDownloadMedia } from "@/screens/feed/download-media";
+import {
+  canDownloadMedia,
+  MediaDownloadButton,
+} from "@/screens/feed/components/media-download-button";
 import { MediaAlbumContext } from "@/screens/media/media-video-provider";
 
 export const MediaScreen: FC = () => {
