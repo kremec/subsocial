@@ -4,7 +4,7 @@ import {
   tokenSchema,
   type Media,
   type Variant,
-} from "@/platforms/instagram/schemas/feed-response-schema";
+} from "@/platforms/instagram/schema";
 import { aspectRatio, bootstrap, type Json } from "@/platforms/json";
 import { paginate } from "@/platforms/paginate";
 import {
