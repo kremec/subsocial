@@ -15,13 +15,10 @@ interface ThreadCardProps {
   start: boolean;
   end: boolean;
   gapBefore: boolean;
-  activePostUrl?: string;
-  onActivate: (url: string) => void;
 }
 
 export const ThreadCard: FC<ThreadCardProps> = (props) => {
-  const { post, platform, start, end, gapBefore, activePostUrl, onActivate } =
-    props;
+  const { post, platform, start, end, gapBefore } = props;
   const definition = getPlatform(platform);
   const theme = useTheme();
 
@@ -99,13 +96,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <PostContent
-            post={post}
-            platform={platform}
-            variant="thread"
-            activePostUrl={activePostUrl}
-            onActivate={onActivate}
-          />
+          <PostContent post={post} platform={platform} variant="thread" />
         </View>
       </View>
     </View>

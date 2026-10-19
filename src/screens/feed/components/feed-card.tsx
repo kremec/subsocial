@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
-import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
+import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedItem, type FeedPost } from "@/types/post";
 
@@ -31,13 +31,16 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
     onActivate,
     onVideoView,
   } = props;
-  const activatePost = (postUrl: string) => onActivate(rowId, postUrl);
-  const setVideoView = (postUrl: string, view: View | null) =>
-    onVideoView(rowId, postUrl, view);
   const theme = useTheme();
 
   return (
-    <FeedVideoLayoutContext value={setVideoView}>
+    <FeedVideoContext
+      value={{
+        activePostUrl,
+        activate: (postUrl) => onActivate(rowId, postUrl),
+        setVideoView: (postUrl, view) => onVideoView(rowId, postUrl, view),
+      }}
+    >
       {post ? (
         <ThreadCard
           post={post}
@@ -45,8 +48,6 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
           start={!!threadStart}
           end={!!threadEnd}
           gapBefore={!!threadGapBefore}
-          activePostUrl={activePostUrl}
-          onActivate={activatePost}
         />
       ) : (
         <View
@@ -56,15 +57,9 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
             borderBottomColor: theme.colors.border,
           }}
         >
-          <PostContent
-            post={item}
-            platform={item.platform}
-            variant="feed"
-            activePostUrl={activePostUrl}
-            onActivate={activatePost}
-          />
+          <PostContent post={item} platform={item.platform} variant="feed" />
         </View>
       )}
-    </FeedVideoLayoutContext>
+    </FeedVideoContext>
   );
 });

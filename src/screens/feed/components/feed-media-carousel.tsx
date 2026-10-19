@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
-import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
+import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedMedia, type PlatformId } from "@/types/post";
@@ -21,28 +21,19 @@ interface FeedMediaCarouselProps {
   androidUrl?: string;
   sourceId?: string;
   media: FeedMedia[];
-  active: boolean;
-  onActivate: () => void;
   onPress: () => void;
 }
 
 export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
-  const {
-    postUrl,
-    platform,
-    androidUrl,
-    sourceId,
-    media,
-    active,
-    onActivate,
-    onPress,
-  } = props;
+  const { postUrl, platform, androidUrl, sourceId, media, onPress } = props;
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
-  const setVideoView = useContext(FeedVideoLayoutContext)!;
+  const { activePostUrl, activate, setVideoView } =
+    useContext(FeedVideoContext)!;
+  const active = activePostUrl === postUrl;
   const selection = useMediaStore((state) => state.album);
   useLayoutEffect(() => {
     if (selection?.postUrl !== postUrl) return;
@@ -111,7 +102,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         <Pressable
           onPress={(event) => {
             event.stopPropagation();
-            if (media.playable) onActivate();
+            if (media.playable) activate(postUrl);
             else onPress();
           }}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
