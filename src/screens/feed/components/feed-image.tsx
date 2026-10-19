@@ -24,38 +24,36 @@ export const FeedImage: FC<FeedImageProps> = (props) => {
   );
 
   return (
-    <View style={{ flex: 1 }}>
-      <Pressable
-        onPress={(event) => {
-          event.stopPropagation();
-          onPress();
-        }}
+    <Pressable
+      onPress={(event) => {
+        event.stopPropagation();
+        onPress();
+      }}
+      style={{ flex: 1 }}
+    >
+      <Image
+        source={{ uri: url }}
+        recyclingKey={url}
+        cachePolicy="memory-disk"
+        onLoad={() => setFailedUrl(undefined)}
+        onError={() => setFailedUrl(url)}
+        contentFit="contain"
+        transition={transition}
         style={{ flex: 1 }}
-      >
-        <Image
-          source={{ uri: url }}
-          recyclingKey={url}
-          cachePolicy="memory-disk"
-          onLoad={() => setFailedUrl(undefined)}
-          onError={() => setFailedUrl(url)}
-          contentFit="contain"
-          transition={transition}
-          style={{ flex: 1 }}
-        />
-        {failedUrl === url && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              inset: 0,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Typography variant="bodySmall">Image unavailable.</Typography>
-          </View>
-        )}
-      </Pressable>
-    </View>
+      />
+      {failedUrl === url && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Typography variant="bodySmall">Image unavailable.</Typography>
+        </View>
+      )}
+    </Pressable>
   );
 };

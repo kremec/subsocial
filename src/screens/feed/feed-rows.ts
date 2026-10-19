@@ -60,12 +60,6 @@ export function rowsForItems(items: FeedItem[]): Map<FeedItem, FeedRow[]> {
 }
 
 // Saved reading position, which survives row key changes as threads grow.
-interface PositionRow {
-  id: string;
-  item: FeedItem;
-  post?: FeedPost;
-}
-
 export interface FeedPosition {
   id: string;
   viewOffset: number;
@@ -73,11 +67,11 @@ export interface FeedPosition {
   branchId?: string;
 }
 
-const postIdFor = (row: PositionRow) =>
+const postIdFor = (row: FeedRow) =>
   `${row.item.platform}:${(row.post ?? row.item).sourceId}`;
 
 export const positionFor = (
-  row: PositionRow,
+  row: FeedRow,
   viewOffset: number,
 ): FeedPosition => ({
   id: row.id,
@@ -87,7 +81,7 @@ export const positionFor = (
 });
 
 export function findPositionIndex(
-  rows: PositionRow[],
+  rows: FeedRow[],
   position: FeedPosition,
 ): number {
   const exact = rows.findIndex((row) => row.id === position.id);

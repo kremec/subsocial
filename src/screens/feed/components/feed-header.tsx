@@ -42,7 +42,6 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
       "reduceMotionChanged",
       setReducedMotion,
     );
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
     return () => subscription.remove();
   }, []);
   const [menuVisible, setMenuVisible] = useState(false);

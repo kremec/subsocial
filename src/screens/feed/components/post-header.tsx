@@ -22,19 +22,11 @@ const formatAge = (publishedAt: number) => {
 interface PostHeaderProps {
   platform: PlatformId;
   post: FeedPost;
-  showContext?: boolean;
-  iconSize?: number;
-  showIcon?: boolean;
+  variant: "feed" | "thread" | "quote";
 }
 
 export const PostHeader: FC<PostHeaderProps> = (props) => {
-  const {
-    platform,
-    post,
-    showContext = true,
-    iconSize = 19,
-    showIcon = true,
-  } = props;
+  const { platform, post, variant } = props;
   const theme = useTheme();
   const definition = getPlatform(platform);
   const author = post.authorHandle || post.authorName || definition.label;
@@ -47,11 +39,11 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         gap: theme.spacing.sm,
       }}
     >
-      {showIcon && (
+      {variant !== "thread" && (
         <Icon
           name={`brand-${platform}`}
           color={definition.color}
-          size={iconSize}
+          size={variant === "quote" ? 16 : 19}
         />
       )}
       <View
@@ -73,7 +65,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         >
           {author}
         </Typography>
-        {showContext && !!post.context && (
+        {variant !== "quote" && !!post.context && (
           <View
             style={{
               minWidth: 0,

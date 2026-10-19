@@ -2,6 +2,7 @@ import { type FC, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "expo-image";
+import { router } from "expo-router";
 
 import { useSharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -14,12 +15,11 @@ import {
 interface FullscreenImageProps {
   uri: string;
   aspectRatio?: number;
-  onClose: () => void;
   onZoomChange?: (zoomed: boolean) => void;
 }
 
 export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
-  const { uri, aspectRatio, onClose, onZoomChange } = props;
+  const { uri, aspectRatio, onZoomChange } = props;
   const [screen, setScreen] = useState({ width: 0, height: 0 });
   const [ratio, setRatio] = useState(aspectRatio || 1);
   const [zoomed, setZoomed] = useState(false);
@@ -56,7 +56,7 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
             event.translationY > Math.abs(event.translationX) &&
             zoom.current?.getState().scale === 1
           )
-            onClose();
+            router.back();
         }}
       >
         <Image
