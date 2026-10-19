@@ -1,11 +1,4 @@
-import {
-  type FC,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type FC, useContext, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { Image } from "expo-image";
@@ -47,10 +40,7 @@ export const MediaScreen: FC = () => {
     index: string;
     sourceId?: string;
   }>();
-  const routeMedia = useMemo(
-    () => feedMediaSchema.array().parse(JSON.parse(encodedMedia)),
-    [encodedMedia],
-  );
+  const routeMedia = feedMediaSchema.array().parse(JSON.parse(encodedMedia));
   const focused = useIsFocused();
   const youtubeItem = sourceId
     ? { id: `${platform}:${sourceId}`, sourceId, platform }
@@ -68,26 +58,18 @@ export const MediaScreen: FC = () => {
   const album = useContext(MediaAlbumContext);
   const setSelection = album?.setSelection;
   useEffect(() => () => setSelection?.(undefined), [setSelection]);
-  const pagingGesture = useMemo(() => Gesture.Native(), []);
-  const closeGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(!zoomed)
-        .maxPointers(1)
-        .activeOffsetY(80)
-        .failOffsetX([-20, 20])
-        .simultaneousWithExternalGesture(pagingGesture)
-        .runOnJS(true)
-        .onEnd((event) => {
-          if (event.translationY > 80) router.back();
-        }),
-    [zoomed, pagingGesture],
-  );
-
-  const navigationGestures = useMemo(
-    () => [pagingGesture, closeGesture],
-    [pagingGesture, closeGesture],
-  );
+  const pagingGesture = Gesture.Native();
+  const closeGesture = Gesture.Pan()
+    .enabled(!zoomed)
+    .maxPointers(1)
+    .activeOffsetY(80)
+    .failOffsetX([-20, 20])
+    .simultaneousWithExternalGesture(pagingGesture)
+    .runOnJS(true)
+    .onEnd((event) => {
+      if (event.translationY > 80) router.back();
+    });
+  const navigationGestures = [pagingGesture, closeGesture];
 
   return (
     <GestureDetector gesture={closeGesture}>

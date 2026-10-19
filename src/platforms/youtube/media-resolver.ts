@@ -2,7 +2,6 @@ import {
   type Dispatch,
   type SetStateAction,
   createContext,
-  useCallback,
   useContext,
   useEffect,
 } from "react";
@@ -49,13 +48,9 @@ export function useYouTubeMedia(
     };
   }, [visible, id, sourceId, resolution, setResult]);
 
-  const retry = useCallback(() => setResult(undefined), [setResult]);
-  const fail = useCallback(
-    (id: string) => {
-      setResult({ id, resolution: { status: "error" } });
-    },
-    [setResult],
-  );
-
-  return { resolution, retry, fail };
+  return {
+    resolution,
+    retry: () => setResult(undefined),
+    fail: (id: string) => setResult({ id, resolution: { status: "error" } }),
+  };
 }

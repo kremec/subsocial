@@ -4,9 +4,7 @@ import {
   type Dispatch,
   type SetStateAction,
   createContext,
-  useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import { AppState } from "react-native";
@@ -51,9 +49,7 @@ export const MediaVideoContext = createContext<{
 export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   const player = useFeedVideoPlayer();
   const [result, setResult] = useState<PlaybackResult>();
-  const youtube = useMemo(() => ({ result, setResult }), [result]);
   const [selection, setSelection] = useState<AlbumSelection>();
-  const album = useMemo(() => ({ selection, setSelection }), [selection]);
   const [video, setVideo] = useState<RegisteredVideo>();
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
@@ -64,7 +60,7 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
     );
     return () => listener.remove();
   }, []);
-  const registerVideo = useCallback((session: MediaVideoSession) => {
+  const registerVideo = (session: MediaVideoSession) => {
     const registeredSession: MediaVideoSession = {
       ...session,
       onError: () => {
@@ -81,7 +77,7 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
           ? { ...current, active: false }
           : current,
       );
-  }, []);
+  };
   const loadedVideo = useMediaVideoPlayback(
     player,
     video?.session,
@@ -89,8 +85,8 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   );
 
   return (
-    <YouTubeMediaContext value={youtube}>
-      <MediaAlbumContext value={album}>
+    <YouTubeMediaContext value={{ result, setResult }}>
+      <MediaAlbumContext value={{ selection, setSelection }}>
         <MediaVideoContext value={{ player, registerVideo, loadedVideo }}>
           {props.children}
         </MediaVideoContext>

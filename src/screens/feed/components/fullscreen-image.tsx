@@ -1,4 +1,4 @@
-import { type FC, useCallback, useRef, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "expo-image";
@@ -25,13 +25,10 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
   const [zoomed, setZoomed] = useState(false);
   const reportedZoomed = useSharedValue(false);
   const zoom = useRef<ResumableZoomRefType>(null);
-  const updateZoom = useCallback(
-    (value: boolean) => {
-      setZoomed(value);
-      onZoomChange?.(value);
-    },
-    [onZoomChange],
-  );
+  const updateZoom = (value: boolean) => {
+    setZoomed(value);
+    onZoomChange?.(value);
+  };
   const imageSize = fitContainer(ratio, screen);
 
   return (
