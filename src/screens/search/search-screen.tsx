@@ -1,7 +1,7 @@
-import { type FC, useCallback, useEffect, useRef, useState } from "react";
-import { AppState, TextInput, View } from "react-native";
+import { type FC, useRef, useState } from "react";
+import { TextInput, View } from "react-native";
 
-import { router, useFocusEffect, useIsFocused } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
@@ -16,10 +16,7 @@ import { useTheme } from "@/theme/use-theme";
 export const SearchScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [foreground, setForeground] = useState(
-    AppState.currentState === "active",
-  );
-  const [items, setItems] = useState(listFeedItems);
+  const [items] = useState(listFeedItems);
   const [query, setQuery] = useState("");
   const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {
@@ -27,23 +24,6 @@ export const SearchScreen: FC = () => {
       void list.current.scrollToOffset({ offset: 0, animated: false });
     setQuery(text);
   };
-  useFocusEffect(
-    useCallback(() => {
-      const next = listFeedItems();
-      setItems((current) =>
-        current.length === next.length &&
-        current.every((item, index) => item === next[index])
-          ? current
-          : next,
-      );
-    }, []),
-  );
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setForeground(state === "active"),
-    );
-    return () => subscription.remove();
-  }, []);
 
   return (
     <Screen>
@@ -91,12 +71,7 @@ export const SearchScreen: FC = () => {
           )}
         </View>
       </ModalHeader>
-      <FeedList
-        items={items}
-        visible={focused && foreground}
-        query={query}
-        listRef={list}
-      />
+      <FeedList items={items} visible={focused} query={query} listRef={list} />
     </Screen>
   );
 };
