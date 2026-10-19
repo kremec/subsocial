@@ -5,9 +5,9 @@ import { z } from "zod";
 import {
   type Json,
   type JsonObject,
-  object,
-  string,
-  objects,
+  asObject,
+  asString,
+  nestedObjects,
   bootstrap,
 } from "@/platforms/web-api";
 import {
@@ -124,36 +124,36 @@ function videos(data: Json) {
       for (const item of value) visit(item);
       return;
     }
-    const node = object(value);
-    const lockup = object(node.lockupViewModel);
-    const renderer = object(
+    const node = asObject(value);
+    const lockup = asObject(node.lockupViewModel);
+    const renderer = asObject(
       node.videoRenderer || node.videoWithContextRenderer,
     );
     const video =
       lockup.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" ? lockup : renderer;
-    const id = string(video.contentId) || string(video.videoId);
+    const id = asString(video.contentId) || asString(video.videoId);
     if (id) {
       found.set(id, video);
       return;
     }
-    const token = string(
-      object(
-        object(object(node.continuationItemRenderer).continuationEndpoint)
+    const token = asString(
+      asObject(
+        asObject(asObject(node.continuationItemRenderer).continuationEndpoint)
           .continuationCommand,
       ).token,
     );
     if (token) continuation = token;
-    const browse = object(
+    const browse = asObject(
       node.twoColumnBrowseResultsRenderer ||
         node.singleColumnBrowseResultsRenderer,
     );
     if (Array.isArray(browse.tabs)) {
       for (const tab of browse.tabs) {
-        const renderer = object(object(tab).tabRenderer);
+        const renderer = asObject(asObject(tab).tabRenderer);
         if (renderer.selected === true) visit(renderer.content);
       }
     }
-    visit(object(node.richItemRenderer).content);
+    visit(asObject(node.richItemRenderer).content);
     // Follow feed containers only. Featured and Shorts shelves are not chronological.
     for (const key of [
       "richGridRenderer",
@@ -167,11 +167,11 @@ function videos(data: Json) {
       "appendContinuationItemsAction",
       "reloadContinuationItemsCommand",
     ]) {
-      const renderer = object(node[key]);
+      const renderer = asObject(node[key]);
       visit(renderer.contents || renderer.items || renderer.continuationItems);
     }
   };
-  const response = object(data);
+  const response = asObject(data);
   visit(response.contents);
   visit(response.onResponseReceivedActions);
   visit(response.onResponseReceivedEndpoints);
@@ -251,7 +251,7 @@ export async function* youtubeFeed(
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);
-      const live = [...objects(video)].some(
+      const live = [...nestedObjects(video)].some(
         (node) =>
           node.style === "LIVE" ||
           node.style === "BADGE_STYLE_TYPE_LIVE_NOW" ||
@@ -280,7 +280,7 @@ export async function* youtubeFeed(
           microformat?.publishDate,
           microformat?.uploadDate,
         ]
-          .map((value) => Date.parse(string(value)))
+          .map((value) => Date.parse(asString(value)))
           .find((value) => value > 0);
         if (!publishedAt) {
           yield { items: [], failedSourceIds: [sourceId], end: false };

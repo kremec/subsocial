@@ -3,9 +3,9 @@ import { z } from "zod";
 import {
   aspectRatio,
   bootstrap,
-  object,
-  objects,
-  string,
+  asObject,
+  nestedObjects,
+  asString,
   type Json,
   type JsonObject,
   paginate,
@@ -168,7 +168,7 @@ const isFacebook = (url: URL) => /(^|\.)facebook\.com$/.test(url.hostname);
 
 function mediaFor(attachments: Json): FeedMedia[] {
   const media = new Map<string, FeedMedia>();
-  for (const entry of objects(attachments)) {
+  for (const entry of nestedObjects(attachments)) {
     const parsed = mediaSchema.safeParse(entry);
     if (!parsed.success) continue;
     const data = parsed.data;
@@ -210,11 +210,13 @@ function mediaFor(attachments: Json): FeedMedia[] {
 }
 
 function attachmentFor(attachments: Json) {
-  for (const entry of objects(attachments)) {
-    const media = object(entry.media);
-    const event = object(entry.target);
+  for (const entry of nestedObjects(attachments)) {
+    const media = asObject(entry.media);
+    const event = asObject(entry.target);
     const rawUrl =
-      string(media.external_url) || string(entry.url) || string(event.url);
+      asString(media.external_url) ||
+      asString(entry.url) ||
+      asString(event.url);
     if (!rawUrl) continue;
     let url: URL;
     try {
@@ -229,23 +231,23 @@ function attachmentFor(attachments: Json) {
       event.__typename === "Event" ||
       (isFacebook(url) && /^\/events\/\d+/.test(url.pathname));
     const title =
-      string(object(entry.title_with_entities).text) ||
-      string(object(entry.title).text) ||
-      string(entry.title) ||
-      (isEvent ? string(event.name) : "");
+      asString(asObject(entry.title_with_entities).text) ||
+      asString(asObject(entry.title).text) ||
+      asString(entry.title) ||
+      (isEvent ? asString(event.name) : "");
     if (!isEvent && media.__typename !== "ExternalUrl" && isFacebook(url))
       continue;
     const parsed = feedAttachmentSchema.safeParse({
       type: isEvent ? "event" : "link",
       title,
       url: url.href,
-      description: string(object(entry.description).text) || undefined,
+      description: asString(asObject(entry.description).text) || undefined,
       startsAtText: isEvent
-        ? string(event.capitalized_day_time_sentence) || undefined
+        ? asString(event.capitalized_day_time_sentence) || undefined
         : undefined,
     });
     if (!parsed.success) continue;
-    const image = object(media.image);
+    const image = asObject(media.image);
     const preview = feedMediaSchema.safeParse({
       type: "image",
       url: image.uri,
@@ -280,7 +282,7 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     permalink.searchParams.get("story_fbid") ||
     undefined;
   const context = sections?.context_layout?.story;
-  const contextGroup = [...objects(context || {})]
+  const contextGroup = [...nestedObjects(context || {})]
     .map((entry) => groupSchema.safeParse(entry))
     .find((entry) => entry.success && entry.data.name);
   const authorName =
@@ -323,7 +325,7 @@ function applyPatch(
 ): Json {
   if (!path.length) {
     if (patch && typeof patch === "object" && !Array.isArray(patch))
-      return { ...object(value), ...patch };
+      return { ...asObject(value), ...patch };
     return patch;
   }
   const [key, ...rest] = path;
@@ -332,7 +334,7 @@ function applyPatch(
     result[key] = applyPatch(result[key], rest, patch);
     return result;
   }
-  const result = object(value);
+  const result = asObject(value);
   result[key] = applyPatch(result[key], rest, patch);
   return result;
 }
@@ -384,7 +386,7 @@ export function parseFacebookFeed(response: string) {
       node.sponsored_data
     )
       continue;
-    const context = object(node.comet_sections?.context_layout?.story);
+    const context = asObject(node.comet_sections?.context_layout?.story);
     if (context.unconnected_waist_data) continue;
     const post = postFor(node);
     if (!post?.sourceId || !post.publishedAt) continue;

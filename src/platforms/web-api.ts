@@ -7,14 +7,16 @@ const jsonSchema = z.json();
 const jsonObjectSchema = z.record(z.string(), jsonSchema);
 export type Json = z.infer<typeof jsonSchema>;
 export type JsonObject = z.infer<typeof jsonObjectSchema>;
-export const object = (value: Json | undefined): JsonObject =>
+// Read loosely shaped JSON without failing on unexpected types.
+export const asObject = (value: Json | undefined): JsonObject =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
-export const string = (value: Json | undefined) =>
+export const asString = (value: Json | undefined) =>
   typeof value === "string" ? value : "";
-export function* objects(value: Json): Generator<JsonObject> {
+// Every object nested anywhere in a value, including the value itself.
+export function* nestedObjects(value: Json): Generator<JsonObject> {
   if (!value || typeof value !== "object") return;
   if (!Array.isArray(value)) yield value;
-  for (const child of Object.values(value)) yield* objects(child);
+  for (const child of Object.values(value)) yield* nestedObjects(child);
 }
 
 export const aspectRatio = (
@@ -22,6 +24,7 @@ export const aspectRatio = (
   height: number | null | undefined,
 ) => (width && height ? width / height : undefined);
 
+// Read the JSON a web page embeds right after a marker, such as its API config.
 export function bootstrap(html: string, marker: string): JsonObject {
   const offset = html.indexOf(marker);
   if (offset < 0) throw new Error("Web API configuration unavailable.");
