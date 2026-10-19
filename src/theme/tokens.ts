@@ -17,19 +17,6 @@ export const radius = {
   full: 999,
 } as const;
 
-export const typography = {
-  display: 32,
-  title: 24,
-  titleSmall: 18,
-  body: 16,
-  bodySmall: 14,
-  caption: 12,
-} as const;
-
 export const fonts = {
   rounded: Platform.select({ ios: "ui-rounded", default: "normal" }),
 };
-
-export const layout = {
-  screenMaxWidth: 820,
-} as const;
