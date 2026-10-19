@@ -1,15 +1,5 @@
-import {
-  edgeSchema,
-  groupSchema,
-  type FacebookStory,
-  pageInfoSchema,
-  partSchema,
-  rootDataSchema,
-  pageDataSchema,
-  mediaSchema,
-  tokenSchema,
-  webLiteTokenSchema,
-} from "@/platforms/facebook/schema";
+import { z } from "zod";
+
 import {
   aspectRatio,
   bootstrap,
@@ -32,6 +22,106 @@ import {
   feedMediaSchema,
   type FeedPost,
 } from "@/types/post";
+
+const nameSchema = z.object({ name: z.string().nullish() });
+const storySchema = z.object({
+  id: z.string().nullish(),
+  __typename: z.string().optional(),
+  post_id: z.string().nullish(),
+  creation_time: z.number().nullish(),
+  url: z.string().nullish(),
+  permalink_url: z.string().nullish(),
+  wwwURL: z.string().nullish(),
+  to: nameSchema.extend({ __typename: z.string().optional() }).nullish(),
+  message: z.object({ text: z.string().nullish() }).nullish(),
+  target_group: nameSchema.nullish(),
+  sponsored_data: z.json().optional(),
+  actors: z.array(nameSchema).nullish(),
+  attachments: z.json().optional(),
+  short_form_video_context: z.json().optional(),
+  feedback: z.object({ associated_group: nameSchema.nullish() }).nullish(),
+  get attached_story() {
+    return storySchema.nullish();
+  },
+  get comet_sections() {
+    return z
+      .object({
+        content: z.object({ story: storySchema.nullish() }).nullish(),
+        context_layout: z.object({ story: z.json().optional() }).nullish(),
+        timestamp: z
+          .object({ story: z.object({ url: z.string().nullish() }).nullish() })
+          .nullish(),
+      })
+      .nullish();
+  },
+});
+const groupSchema = nameSchema.extend({
+  __typename: z.literal("Group"),
+});
+type FacebookStory = z.infer<typeof storySchema>;
+const edgeSchema = z.object({
+  category: z.string().optional(),
+  node: storySchema,
+});
+const pageInfoSchema = z.object({
+  has_next_page: z.boolean(),
+  end_cursor: z.string().nullish(),
+});
+const feedSchema = z.object({
+  edges: z.array(z.json()).optional(),
+  page_info: pageInfoSchema.optional(),
+});
+const partSchema = z.object({
+  errors: z.array(z.json()).optional(),
+  path: z.array(z.union([z.string(), z.number()])).optional(),
+  data: z.json().optional(),
+});
+const rootDataSchema = z.object({
+  viewer: z.object({ news_feed: feedSchema }).optional(),
+});
+const pageDataSchema = z.object({ page_info: pageInfoSchema });
+const imageSchema = z.object({
+  uri: z.string().nullish(),
+  width: z.number().nullish(),
+  height: z.number().nullish(),
+});
+const playbackSchema = z.object({
+  browser_native_hd_url: z.string().nullish(),
+  browser_native_sd_url: z.string().nullish(),
+  playable_url_quality_hd: z.string().nullish(),
+  playable_url: z.string().nullish(),
+});
+const mediaNodeSchema = playbackSchema.extend({
+  __typename: z.enum(["Video", "Photo"]),
+  id: z.string().nullish(),
+  image: imageSchema.nullish(),
+  photo_image: imageSchema.nullish(),
+  preferred_thumbnail: imageSchema
+    .extend({ image: imageSchema.nullish() })
+    .nullish(),
+  width: z.number().positive().nullish(),
+  height: z.number().positive().nullish(),
+  aspect_ratio: z.number().positive().nullish(),
+  videoDeliveryLegacyFields: playbackSchema.nullish(),
+});
+const mediaSchema = z.union([
+  mediaNodeSchema,
+  z
+    .object({
+      __typename: z.literal("VideoAttachmentGridRenderer"),
+      video: mediaNodeSchema.extend({
+        __typename: z.literal("Video").default("Video"),
+      }),
+    })
+    .transform((value) => value.video),
+]);
+const tokenSchema = z
+  .object({ token: z.string().min(1) })
+  .transform((value) => value.token);
+
+const webLiteTokenSchema = z
+  .object({ dtsg: z.string().min(1) })
+  .transform((value) => value.dtsg);
 
 // Required presentation variables from Facebook's CometModernHomeFeedQuery.
 const presentationFlags = [

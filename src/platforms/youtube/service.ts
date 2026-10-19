@@ -11,18 +11,109 @@ import {
   bootstrap,
 } from "@/platforms/json";
 import {
-  browseResponseSchema,
-  configSchema,
-  playerResponseSchema,
-  type PlayerResponse,
-  videoRendererSchema,
-} from "@/platforms/youtube/schema";
-import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
 } from "@/types/platform";
 import { type ExtractedItem } from "@/types/post";
+
+const configSchema = z.object({
+  SESSION_INDEX: z.union([z.string(), z.number()]).optional(),
+  USER_SESSION_ID: z.string().optional(),
+  DELEGATED_SESSION_ID: z.string().optional(),
+  LOGGED_IN: z.boolean().optional(),
+  INNERTUBE_CONTEXT: z.record(z.string(), z.json()).optional(),
+});
+
+// Renderer trees vary between desktop, mobile, and continuation responses.
+// Keep the tree intact and validate individual video renderers when traversing it.
+const browseResponseSchema = z
+  .object({
+    contents: z.json().optional(),
+    onResponseReceivedActions: z.array(z.json()).optional(),
+    onResponseReceivedEndpoints: z.array(z.json()).optional(),
+    continuationContents: z.json().optional(),
+  })
+  .catchall(z.json())
+  .refine(
+    (response) =>
+      response.contents !== undefined ||
+      response.onResponseReceivedActions !== undefined ||
+      response.onResponseReceivedEndpoints !== undefined ||
+      response.continuationContents !== undefined,
+    "YouTube feed response was incomplete.",
+  );
+
+const textSchema = z
+  .object({
+    content: z.string().optional(),
+    simpleText: z.string().optional(),
+    runs: z.array(z.object({ text: z.string() })).optional(),
+  })
+  .transform(
+    (value) =>
+      value.content ||
+      value.simpleText ||
+      value.runs?.map((run) => run.text).join("") ||
+      "",
+  );
+
+const videoRendererSchema = z.object({
+  contentId: z.string().optional(),
+  videoId: z.string().optional(),
+  headline: textSchema.optional(),
+  title: textSchema.optional(),
+  shortBylineText: textSchema.optional(),
+  metadata: z
+    .object({
+      lockupMetadataViewModel: z.object({
+        title: textSchema.optional(),
+        metadata: z
+          .object({
+            contentMetadataViewModel: z.object({
+              metadataRows: z.array(
+                z.object({
+                  metadataParts: z.array(
+                    z.object({ text: textSchema.optional() }),
+                  ),
+                }),
+              ),
+            }),
+          })
+          .optional(),
+      }),
+    })
+    .optional(),
+});
+
+const playerResponseSchema = z.object({
+  videoDetails: z
+    .object({
+      author: z.string().optional(),
+      title: z.string().optional(),
+      isLive: z.boolean().optional(),
+      isUpcoming: z.boolean().optional(),
+    })
+    .optional(),
+  microformat: z
+    .object({
+      playerMicroformatRenderer: z
+        .object({
+          publishDate: z.string().optional(),
+          uploadDate: z.string().optional(),
+          liveBroadcastDetails: z
+            .object({
+              isLiveNow: z.boolean().optional(),
+              endTimestamp: z.string().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+type PlayerResponse = z.infer<typeof playerResponseSchema>;
 
 function videos(data: Json) {
   const found = new Map<string, JsonObject>();
