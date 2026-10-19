@@ -20,19 +20,39 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
-import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
-import { type FeedRow, rowsForItems } from "@/screens/feed/feed-rows";
-import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
+import {
+  type FeedRow,
+  findPositionIndex,
+  positionFor,
+  rowsForItems,
+} from "@/screens/feed/feed-rows";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedItem } from "@/types/post";
+import { type FeedItem, type FeedPost } from "@/types/post";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 
 // The back-to-top pill stays hidden within the first two screens of the feed.
 const nearTop = (state: { scroll: number; scrollLength: number }) =>
   state.scroll <= state.scrollLength * 2;
+
+// Lowercase and drop accents so "cafe" also finds "Café".
+const normalize = (text: string) =>
+  text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+
+const postText = (post: FeedPost): string =>
+  [
+    post.title,
+    post.text,
+    post.authorName,
+    post.authorHandle,
+    post.context,
+    post.attachment?.title,
+    post.attachment?.description,
+    post.attachment?.startsAtText,
+    post.quote && postText(post.quote),
+  ].join(" ");
 
 const getItemType = (row: FeedRow) =>
   row.post ? "thread" : row.item.media.length ? "media" : "text";
@@ -59,9 +79,29 @@ export const FeedList: FC<FeedListProps> = (props) => {
   } = props;
   const theme = useTheme();
   const searching = query !== undefined;
-  const searchIndex = searching ? indexFeedItems(items) : undefined;
+  const searchTexts =
+    searching &&
+    new Map(
+      items.map((item) => [
+        item,
+        normalize(
+          [
+            item.platform,
+            postText(item),
+            ...(item.thread ?? []).map(postText),
+          ].join(" "),
+        ),
+      ]),
+    );
+  const terms = normalize(query ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
   const filteredItems =
-    searchIndex && query?.trim() ? searchFeedItems(searchIndex, query) : items;
+    searchTexts && terms.length
+      ? items.filter((item) =>
+          terms.every((term) => searchTexts.get(item)!.includes(term)),
+        )
+      : items;
   const itemRows = rowsForItems(items);
   const rows = filteredItems.flatMap((item) => itemRows.get(item)!);
   const localList = useRef<LegendListRef>(null);
