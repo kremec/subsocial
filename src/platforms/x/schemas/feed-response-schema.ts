@@ -7,21 +7,8 @@ const createdAtSchema = z.string().transform((value) => {
   );
   if (!parts) return undefined;
   const month =
-    [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ].indexOf(parts[1]) + 1;
-  if (!month) return undefined;
+    "JanFebMarAprMayJunJulAugSepOctNovDec".indexOf(parts[1]) / 3 + 1;
+  if (!Number.isInteger(month)) return undefined;
   return (
     Date.parse(
       `${parts[6]}-${String(month).padStart(2, "0")}-${parts[2]}T${parts[3]}${parts[4]}:${parts[5]}`,
