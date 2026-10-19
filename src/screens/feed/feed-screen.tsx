@@ -1,10 +1,12 @@
 import { type FC, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useIsFocused } from "expo-router";
 
+import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
+import { Typography } from "@/components/ui/typography";
 import { exportDatabase } from "@/db/export-database";
 import { importDatabase } from "@/db/import-database";
 import { FeedCollector } from "@/feed/feed-collector";
@@ -12,7 +14,6 @@ import { type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
 import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
-import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
@@ -93,11 +94,25 @@ export const FeedScreen: FC = () => {
         />
 
         {feed.attention.map((platform) => (
-          <FeedAttentionNotice
+          <Pressable
             key={platform}
-            platformName={getPlatform(platform).label}
+            accessibilityRole="button"
             onPress={() => setAttentionBrowser(platform)}
-          />
+            style={({ pressed }) => ({
+              minHeight: 48,
+              paddingHorizontal: theme.spacing.lg,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: theme.spacing.sm,
+              backgroundColor: theme.colors.surface,
+              opacity: pressed ? 0.55 : 1,
+            })}
+          >
+            <Typography style={{ flex: 1 }}>
+              {getPlatform(platform).label} needs attention
+            </Typography>
+            <Icon name="world" color={theme.colors.text} size={22} />
+          </Pressable>
         ))}
 
         <FeedList

@@ -21,7 +21,6 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { type FeedItem } from "@/feed/types";
-import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
 import {
@@ -202,9 +201,19 @@ export const FeedList: FC<FeedListProps> = (props) => {
           paddingBottom: theme.spacing.xl,
         }}
         ListEmptyComponent={
-          <EmptyFeed
-            message={query?.trim() ? "No matching posts" : undefined}
-          />
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: theme.spacing.xl,
+              paddingBottom: 80,
+            }}
+          >
+            <Typography variant="titleSmall" style={{ textAlign: "center" }}>
+              {query?.trim() ? "No matching posts" : "No active posts"}
+            </Typography>
+          </View>
         }
       />
       <View
