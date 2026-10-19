@@ -16,7 +16,7 @@ import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
-import { player, showVideo, useMediaStore } from "@/stores/media-store";
+import { showVideo, useMediaStore } from "@/stores/media-store";
 import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedVideoProps {
@@ -74,7 +74,6 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
       return counter || null;
     return (
       <FeedVideoControls
-        player={player}
         media={video}
         platform={platform}
         counter={counter}
