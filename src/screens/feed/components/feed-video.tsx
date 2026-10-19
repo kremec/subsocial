@@ -15,7 +15,7 @@ import { type GestureType } from "react-native-gesture-handler";
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
-import { withYouTubeStream } from "@/platforms/youtube/media";
+import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
 import { MediaVideoContext } from "@/screens/media/media-video-provider";
