@@ -53,7 +53,7 @@ export const SearchScreen: FC = () => {
             style={{
               flex: 1,
               color: theme.colors.text,
-              fontSize: theme.typography.body,
+              fontSize: 16,
               paddingVertical: theme.spacing.sm,
             }}
           />

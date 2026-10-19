@@ -20,7 +20,7 @@ export const Screen: FC<PropsWithChildren<ScreenProps>> = (props) => {
           {
             flex: 1,
             width: "100%",
-            maxWidth: theme.layout.screenMaxWidth,
+            maxWidth: 820,
             alignSelf: "center",
           },
           style,
