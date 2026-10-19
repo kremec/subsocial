@@ -14,9 +14,12 @@ interface ActiveVideo {
   postUrl: string;
 }
 
-export const FeedVideoLayoutContext = createContext<
-  ((postUrl: string, view: View | null) => void) | null
->(null);
+// Lets each card's videos activate themselves and report their layout.
+export const FeedVideoContext = createContext<{
+  activePostUrl?: string;
+  activate: (postUrl: string) => void;
+  setVideoView: (postUrl: string, view: View | null) => void;
+} | null>(null);
 
 const sameVideo = (left?: ActiveVideo, right?: ActiveVideo) =>
   left?.rowId === right?.rowId && left?.postUrl === right?.postUrl;

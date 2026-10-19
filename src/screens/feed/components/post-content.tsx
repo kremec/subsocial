@@ -15,12 +15,10 @@ interface PostContentProps {
   post: FeedPost;
   platform: PlatformId;
   variant: "feed" | "thread" | "quote";
-  activePostUrl?: string;
-  onActivate: (url: string) => void;
 }
 
 export const PostContent: FC<PostContentProps> = (props) => {
-  const { post, platform, variant, activePostUrl, onActivate } = props;
+  const { post, platform, variant } = props;
   const theme = useTheme();
   const [expanded, setExpanded] = useRecyclingState(false);
   const feed = variant === "feed";
@@ -49,8 +47,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
         androidUrl={post.androidUrl}
         sourceId={post.sourceId}
         media={post.media}
-        active={activePostUrl === post.url}
-        onActivate={() => onActivate(post.url)}
         onPress={openPostUrl}
       />
     </Pressable>
@@ -146,8 +142,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
             post={post.quote}
             platform={platform}
             variant="quote"
-            activePostUrl={activePostUrl}
-            onActivate={onActivate}
           />
         </View>
       )}
