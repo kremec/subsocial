@@ -9,7 +9,10 @@ import {
 } from "@/db/repositories/feed-items-repository";
 import { CollectionProgress, datedExtraction } from "@/feed/collection";
 import { platformFeed } from "@/platforms/platform-feed";
-import { useSettingsStore } from "@/stores/settings-store";
+import {
+  setCollectionBoundary,
+  useSettingsStore,
+} from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { FeedAccessError, type PlatformDefinition } from "@/types/platform";
 import { extractedItemSchema } from "@/types/post";
@@ -75,12 +78,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
     const known = useSettingsStore.getState().collectionBoundaries[
       platform.id
     ] ?? [...dates.keys()];
-    useSettingsStore.setState((settings) => ({
-      collectionBoundaries: {
-        ...settings.collectionBoundaries,
-        [platform.id]: known,
-      },
-    }));
+    setCollectionBoundary(platform.id, known);
     return {
       dates,
       progress: new CollectionProgress(new Set(known)),
@@ -104,7 +102,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const requireAttention = useEffectEvent(() => onAttention(true));
 
   useEffect(() => {
-    if (!active || attention || open || finished.current) return;
+    if (!active || attention || finished.current) return;
     const controller = new AbortController();
     const { signal } = controller;
     const timeout = setTimeout(() => {
@@ -127,7 +125,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [active, attention, open, platform, state]);
+  }, [active, attention, platform, state]);
 
   const close = () => {
     onClose();
