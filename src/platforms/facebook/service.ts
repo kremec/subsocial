@@ -55,9 +55,6 @@ const storySchema = z.object({
       .nullish();
   },
 });
-const groupSchema = nameSchema.extend({
-  __typename: z.literal("Group"),
-});
 type FacebookStory = z.infer<typeof storySchema>;
 const edgeSchema = z.object({
   category: z.string().optional(),
@@ -68,18 +65,14 @@ const pageInfoSchema = z.object({
   end_cursor: z.string().nullish(),
 });
 const feedSchema = z.object({
-  edges: z.array(z.json()).optional(),
-  page_info: pageInfoSchema.optional(),
+  edges: z.array(z.json().optional()).optional(),
+  page_info: pageInfoSchema,
 });
 const partSchema = z.object({
   errors: z.array(z.json()).optional(),
   path: z.array(z.union([z.string(), z.number()])).optional(),
   data: z.json().optional(),
 });
-const rootDataSchema = z.object({
-  viewer: z.object({ news_feed: feedSchema }).optional(),
-});
-const pageDataSchema = z.object({ page_info: pageInfoSchema });
 const imageSchema = z.object({
   uri: z.string().nullish(),
   width: z.number().nullish(),
@@ -115,14 +108,6 @@ const mediaSchema = z.union([
     })
     .transform((value) => value.video),
 ]);
-const tokenSchema = z
-  .object({ token: z.string().min(1) })
-  .transform((value) => value.token);
-
-const webLiteTokenSchema = z
-  .object({ dtsg: z.string().min(1) })
-  .transform((value) => value.dtsg);
-
 // Required presentation variables from Facebook's CometModernHomeFeedQuery.
 const presentationFlags = [
   "GHLShouldChangeAdIdFieldName",
@@ -282,15 +267,15 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     permalink.searchParams.get("story_fbid") ||
     undefined;
   const context = sections?.context_layout?.story;
-  const contextGroup = [...nestedObjects(context || {})]
-    .map((entry) => groupSchema.safeParse(entry))
-    .find((entry) => entry.success && entry.data.name);
+  const contextGroup = [...nestedObjects(context || {})].find(
+    (entry) => entry.__typename === "Group" && asString(entry.name),
+  );
   const authorName =
     (node.to?.__typename === "Group" ? node.to.name : undefined) ||
     content?.target_group?.name ||
     node.target_group?.name ||
     node.feedback?.associated_group?.name ||
-    (contextGroup?.success ? contextGroup.data.name : undefined) ||
+    asString(contextGroup?.name) ||
     node.actors?.[0]?.name ||
     content?.actors?.[0]?.name ||
     undefined;
@@ -310,7 +295,6 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     androidUrl: node.id ? `fb://native_post/${node.id}` : undefined,
     publishedAt: node.creation_time ? node.creation_time * 1000 : undefined,
     authorName,
-    authorHandle: authorName,
     text: content?.message?.text || node.message?.text || undefined,
     media,
     attachment: preview?.attachment,
@@ -340,44 +324,22 @@ function applyPatch(
 }
 
 export function parseFacebookFeed(response: string) {
-  const edges = new Map<number, Json>();
-  let pageInfo;
+  // The response streams the feed as patches into one JSON tree.
+  let data: Json = {};
   for (const line of response.trim().split("\n")) {
     const part = partSchema.parse(JSON.parse(line));
     if (part.errors?.length)
       throw new Error(
         "Facebook feed request failed. Open Facebook to check your session.",
       );
-    const root =
-      part.data === undefined ? undefined : rootDataSchema.parse(part.data);
-    const feed = root?.viewer?.news_feed;
-    feed?.edges?.forEach((edge, index) => edges.set(index, edge));
-    const path = part.path || [];
-    if (path[0] === "viewer" && path[1] === "news_feed") {
-      if (
-        path[2] === "edges" &&
-        typeof path[3] === "number" &&
-        part.data !== undefined
-      ) {
-        const index = path[3];
-        edges.set(
-          index,
-          applyPatch(edges.get(index), path.slice(4), part.data),
-        );
-      } else {
-        const page = pageDataSchema.safeParse(part.data);
-        if (page.success) pageInfo = page.data.page_info;
-      }
-    }
-    if (feed?.page_info) pageInfo = feed.page_info;
+    if (part.data !== undefined)
+      data = applyPatch(data, part.path || [], part.data);
   }
-  const pagination = pageInfoSchema.safeParse(pageInfo);
-  if (!pagination.success)
-    throw new Error("Facebook feed response was incomplete.");
+  const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
+  if (!feed.success) throw new Error("Facebook feed response was incomplete.");
   const items: ExtractedItem[] = [];
-  for (const [, rawEdge] of [...edges].sort(
-    ([left], [right]) => left - right,
-  )) {
+  for (const rawEdge of feed.data.edges || []) {
+    if (!rawEdge) continue;
     const edge = edgeSchema.parse(rawEdge);
     const node = edge.node;
     if (
@@ -394,8 +356,8 @@ export function parseFacebookFeed(response: string) {
   }
   return {
     items,
-    cursor: pagination.data.end_cursor || "",
-    end: pagination.data.has_next_page === false,
+    cursor: feed.data.page_info.end_cursor || "",
+    end: !feed.data.page_info.has_next_page,
   };
 }
 
@@ -414,10 +376,10 @@ export async function* facebookFeed(
   ].find((value) => html.includes(value));
   if (!marker) throw new Error("Facebook web API configuration unavailable.");
   const config = bootstrap(html.slice(html.lastIndexOf(marker)), marker);
-  const token =
-    marker === "wlct.init("
-      ? webLiteTokenSchema.parse(config)
-      : tokenSchema.parse(config);
+  const token = z
+    .string()
+    .min(1)
+    .parse(marker === "wlct.init(" ? config.dtsg : config.token);
   const variables: JsonObject = {
     RELAY_INCREMENTAL_DELIVERY: true,
     connectionClass: "EXCELLENT",
