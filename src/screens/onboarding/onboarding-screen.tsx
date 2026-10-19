@@ -125,9 +125,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
                     setChecking(true);
                     openBrowser(
                       platform.id,
-                      isConnected
-                        ? platform.startUrl
-                        : platform.loginUrl || platform.startUrl,
+                      isConnected ? platform.startUrl : platform.loginUrl,
                     );
                   }}
                   style={({ pressed }) => ({

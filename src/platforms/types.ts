@@ -26,7 +26,7 @@ export interface PlatformDefinition {
   androidPackage: string | null;
   androidAppUrl: string;
   appScheme: string;
-  loginUrl?: string;
+  loginUrl: string;
   dataDomains: string[];
   sessionCookieGroups: readonly (readonly string[])[];
 }
