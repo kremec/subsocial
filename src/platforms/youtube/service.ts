@@ -153,25 +153,10 @@ export async function* youtubeFeed(
       throw new Error("YouTube API request failed. Try again later.");
     return data;
   };
-  let pending = request.pendingItems ?? [];
   const seen = new Set<string>();
   const cursors = new Set<string>();
   while (!request.signal.aborted) {
     const page = videos(data);
-    if (pending.length) {
-      page.found = new Map([
-        ...pending.map((item): [string, JsonObject] => [
-          item.sourceId,
-          {
-            videoId: item.sourceId,
-            title: { simpleText: item.text || "" },
-            shortBylineText: { simpleText: item.authorName || "" },
-          },
-        ]),
-        ...page.found,
-      ]);
-      pending = [];
-    }
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);

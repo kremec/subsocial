@@ -6,7 +6,6 @@ import Storage from "expo-sqlite/kv-store";
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   listPublicationDates,
-  listPendingYouTubeItems,
   listSourceIds,
   saveExtraction,
 } from "@/db/database";
@@ -16,11 +15,7 @@ import {
   datedExtraction,
   collectionTimeout,
 } from "@/feed/collection";
-import {
-  type ExtractedItem,
-  extractedItemSchema,
-  type PlatformId,
-} from "@/feed/types";
+import { extractedItemSchema, type PlatformId } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
@@ -43,7 +38,6 @@ interface FeedCollectorProps {
 
 interface CollectionState {
   dates: Map<string, number>;
-  pendingItems: ExtractedItem[];
   progress: CollectionProgress;
   failures: Set<string>;
 }
@@ -65,13 +59,8 @@ async function collectFeed(
   state: CollectionState,
   signal: AbortSignal,
 ) {
-  const { dates, pendingItems, progress, failures } = state;
-  for await (const page of platformFeed(
-    platform,
-    signal,
-    dates,
-    pendingItems,
-  )) {
+  const { dates, progress, failures } = state;
+  for await (const page of platformFeed(platform, signal, dates)) {
     if (signal.aborted) return;
     const items = extractedItemSchema.array().parse(page.items);
     const batch = progress.accept({ ...page, items });
@@ -103,7 +92,6 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const [state] = useState(
     (): CollectionState => ({
       dates: new Map(listPublicationDates(platform.id)),
-      pendingItems: platform.id === "youtube" ? listPendingYouTubeItems() : [],
       progress: new CollectionProgress(new Set(knownSourceIds(platform.id))),
       failures: new Set(),
     }),
