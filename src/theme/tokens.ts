@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 
 export const spacing = {
-  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -15,7 +14,6 @@ export const radius = {
   sm: 10,
   md: 14,
   lg: 18,
-  xl: 24,
   full: 999,
 } as const;
 
