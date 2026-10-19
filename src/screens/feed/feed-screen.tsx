@@ -5,9 +5,9 @@ import { useIsFocused } from "expo-router";
 
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
-import { exportDatabase } from "@/feed/export-database";
+import { exportDatabase } from "@/db/export-database";
+import { importDatabase } from "@/db/import-database";
 import { FeedCollector } from "@/feed/feed-collector";
-import { importDatabase } from "@/feed/import-database";
 import { type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";

@@ -2,7 +2,7 @@ import { type FC, useState } from "react";
 
 import Storage from "expo-sqlite/kv-store";
 
-import { listConnectedPlatforms, listFeedItems } from "@/feed/database";
+import { listConnectedPlatforms, listFeedItems } from "@/db/database";
 import { FeedScreen } from "@/screens/feed/feed-screen";
 import { OnboardingScreen } from "@/screens/onboarding/onboarding-screen";
 

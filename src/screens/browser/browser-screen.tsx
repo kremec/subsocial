@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
-import { listConnectedPlatforms } from "@/feed/database";
+import { listConnectedPlatforms } from "@/db/database";
 import { type PlatformId } from "@/feed/types";
 import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { PlatformWebView } from "@/platforms/platform-web-view";

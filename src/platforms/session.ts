@@ -4,13 +4,13 @@ import Storage from "expo-sqlite/kv-store";
 
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
-import { collectionKnownKey } from "@/feed/collection";
 import {
   connectPlatform,
   disconnectPlatform,
   deletePlatformData,
   listConnectedPlatforms,
-} from "@/feed/database";
+} from "@/db/database";
+import { collectionKnownKey } from "@/feed/collection";
 import { type PlatformId } from "@/feed/types";
 import { hasSession, platforms } from "@/platforms/platforms";
 import { type PlatformDefinition } from "@/platforms/types";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { initializeDatabase } from "@/feed/database";
+import { initializeDatabase } from "@/db/database";
 
 // Opening the database is synchronous, so routes can mount on the first render.
 export function useAppBootstrap() {

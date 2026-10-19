@@ -5,17 +5,17 @@ import Storage from "expo-sqlite/kv-store";
 
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
+  listPublicationDates,
+  listPendingYouTubeItems,
+  listSourceIds,
+  saveExtraction,
+} from "@/db/database";
+import {
   CollectionProgress,
   collectionKnownKey,
   datedExtraction,
   collectionTimeout,
 } from "@/feed/collection";
-import {
-  listPublicationDates,
-  listPendingYouTubeItems,
-  listSourceIds,
-  saveExtraction,
-} from "@/feed/database";
 import {
   type ExtractedItem,
   extractedItemSchema,
