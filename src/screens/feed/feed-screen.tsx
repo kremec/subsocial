@@ -7,7 +7,6 @@ import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
-import { WebKitBootstrap } from "@/components/web-kit-bootstrap";
 import { exportDatabase } from "@/db/export-database";
 import { importDatabase } from "@/db/import-database";
 import { FeedCollector } from "@/feed/feed-collector";
@@ -18,10 +17,14 @@ import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { type PlatformId } from "@/types/post";
 
-export const FeedScreen: FC = () => {
+interface FeedScreenProps {
+  webKitReady: boolean;
+}
+
+export const FeedScreen: FC<FeedScreenProps> = (props) => {
+  const { webKitReady } = props;
   const theme = useTheme();
   const focused = useIsFocused();
-  const [webKitReady, setWebKitReady] = useState(false);
   const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
   const feed = useFeedRefresh(focused, webKitReady);
   const visible = focused && feed.foreground;
@@ -36,8 +39,6 @@ export const FeedScreen: FC = () => {
 
   return (
     <Screen>
-      {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
-
       {feed.collectors.map((platform) => (
         <FeedCollector
           key={`${feed.runId}:${platform}`}
