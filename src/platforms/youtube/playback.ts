@@ -1,11 +1,35 @@
 import { toByteArray } from "base64-js";
+import { z } from "zod";
 
-import {
-  playbackResponseSchema,
-  playbackVisitorSchema,
-  type PlaybackResponse,
-} from "@/platforms/youtube/schema";
 import { type FeedMedia } from "@/types/post";
+
+const formatSchema = z.object({
+  audioTrack: z
+    .object({
+      id: z.string(),
+      displayName: z.string().optional(),
+      isAutoDubbed: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+const playbackVisitorSchema = z.object({
+  responseContext: z.object({ visitorData: z.string().min(1) }),
+});
+
+const playbackResponseSchema = z.object({
+  playabilityStatus: z.object({ status: z.string() }),
+  videoDetails: z.object({ videoId: z.string() }).optional(),
+  streamingData: z
+    .object({
+      hlsManifestUrl: z.string().optional(),
+      formats: z.array(formatSchema).optional(),
+      adaptiveFormats: z.array(formatSchema).optional(),
+    })
+    .optional(),
+});
+
+type PlaybackResponse = z.infer<typeof playbackResponseSchema>;
 
 export type YouTubeResolution =
   | {
