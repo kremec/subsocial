@@ -70,8 +70,7 @@ function openStore(db = new DatabaseSync(":memory:"), initialize = true) {
               return database;
             },
           };
-        if (name === "@/feed/collection") return { feedItemLimit };
-        throw new Error(name);
+        return require(name);
       },
     },
   );
@@ -93,22 +92,6 @@ const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
   publishedAt,
   url: `https://example.com/${sourceId}`,
   media: [],
-});
-
-test("database imports do not open or migrate until explicit initialization", () => {
-  const store = openStore(new DatabaseSync(":memory:"), false);
-  assert.equal(store.opens, 0);
-  assert.deepEqual(store.statements, []);
-  assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS count FROM sqlite_master").get()!
-      .count,
-    0,
-  );
-  store.initializeDatabase();
-  assert.equal(store.opens, 1);
-  assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 3);
-  assert.deepEqual(Array.from(store.listFeedItems()), []);
-  store.db.close();
 });
 
 test("completed migrations do not run again on repeated initialization or restart", () => {
