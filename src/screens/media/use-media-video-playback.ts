@@ -3,7 +3,9 @@ import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { type AudioTrack, type VideoPlayer } from "expo-video";
 
 import { type FeedMedia } from "@/feed/types";
-import { playbackPositions } from "@/screens/feed/feed-video-player";
+
+// Resume positions of the shared player, keyed by playback identity.
+const playbackPositions = new Map<string, number>();
 
 export interface MediaVideoSession {
   playbackKey: string;

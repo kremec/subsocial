@@ -14,7 +14,7 @@ import {
   type PlaybackStatus,
 } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
-import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
+import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { MediaAlbumContext } from "@/screens/media/media-video-provider";
 import { openMedia } from "@/screens/media/open-media";
 import { useTheme } from "@/theme/use-theme";
