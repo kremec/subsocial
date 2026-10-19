@@ -1,7 +1,5 @@
 import { Platform } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
 import {
@@ -10,10 +8,10 @@ import {
   deletePlatformData,
   listConnectedPlatforms,
 } from "@/db/database";
-import { collectionKnownKey } from "@/feed/collection";
 import { type PlatformId } from "@/feed/types";
 import { hasSession, platforms } from "@/platforms/platforms";
 import { type PlatformDefinition } from "@/platforms/types";
+import { useSettingsStore } from "@/stores/settings-store";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,
@@ -53,5 +51,10 @@ export async function resetPlatformSession(
     }
   }
   deletePlatformData(platform.id);
-  Storage.removeItemSync(collectionKnownKey(platform.id));
+  useSettingsStore.setState((state) => ({
+    collectionBoundaries: {
+      ...state.collectionBoundaries,
+      [platform.id]: undefined,
+    },
+  }));
 }

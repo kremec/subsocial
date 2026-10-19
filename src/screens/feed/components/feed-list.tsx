@@ -8,8 +8,6 @@ import {
 } from "react";
 import { AppState, RefreshControl, View } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import {
   LegendList,
   type LegendListRef,
@@ -23,18 +21,14 @@ import { Typography } from "@/components/ui/typography";
 import { type FeedItem } from "@/feed/types";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
-import {
-  type FeedPosition,
-  findPositionIndex,
-  positionFor,
-} from "@/screens/feed/feed-position";
+import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
 import { type FeedRow, rowsForItems } from "@/screens/feed/feed-rows";
 import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
-const positionKey = "feed-position";
 
 // The back-to-top pill stays hidden within the first two screens of the feed.
 const nearTop = (state: { scroll: number; scrollLength: number }) =>
@@ -79,9 +73,8 @@ export const FeedList: FC<FeedListProps> = (props) => {
     updateVideoVisibility({ rowId, postUrl });
   const [initialScrollIndex] = useState(() => {
     if (!rememberPosition) return undefined;
-    const saved = Storage.getItemSync(positionKey);
-    if (!saved) return undefined;
-    const position: FeedPosition = JSON.parse(saved);
+    const position = useSettingsStore.getState().feedPosition;
+    if (!position) return undefined;
     const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
   });
@@ -97,10 +90,9 @@ export const FeedList: FC<FeedListProps> = (props) => {
     const element: View | undefined = state.elementAtIndex(index);
     element?.measureInWindow((_x, rowY) => {
       viewport.current?.measureInWindow((_left, viewportY) => {
-        Storage.setItemSync(
-          positionKey,
-          JSON.stringify(positionFor(row, rowY - viewportY)),
-        );
+        useSettingsStore.setState({
+          feedPosition: positionFor(row, rowY - viewportY),
+        });
       });
     });
   };

@@ -9,7 +9,6 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
 import { useVideoPlayer, type VideoPlayer } from "expo-video";
 
 import {
@@ -20,8 +19,7 @@ import {
   type MediaVideoSession,
   useMediaVideoPlayback,
 } from "@/screens/media/use-media-video-playback";
-
-const mutedKey = "feed-video-muted";
+import { useSettingsStore } from "@/stores/settings-store";
 
 interface MediaVideoProviderProps {
   children?: ReactNode;
@@ -53,7 +51,7 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   const player = useVideoPlayer(null, (player) => {
     player.loop = true;
     player.timeUpdateEventInterval = 0.25;
-    player.muted = Storage.getItemSync(mutedKey) !== "false";
+    player.muted = useSettingsStore.getState().videosMuted;
     player.bufferOptions = {
       minBufferForPlayback: 0.5,
       preferredForwardBufferDuration: 5,
@@ -73,7 +71,7 @@ export const MediaVideoProvider: FC<MediaVideoProviderProps> = (props) => {
   }, []);
   useEffect(() => {
     const listener = player.addListener("mutedChange", ({ muted }) =>
-      Storage.setItemSync(mutedKey, String(muted)),
+      useSettingsStore.setState({ videosMuted: muted }),
     );
     return () => listener.remove();
   }, [player]);
