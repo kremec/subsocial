@@ -11,12 +11,10 @@ import { database } from "@/db/client";
 const exportDatabaseName = "subsocial-export.db";
 
 export async function exportDatabase(): Promise<void> {
-  try {
-    await deleteDatabaseAsync(exportDatabaseName, defaultDatabaseDirectory);
-  } catch {
-    // The temporary export does not exist before the first export.
-  }
-
+  // The temporary export does not exist before the first export.
+  await deleteDatabaseAsync(exportDatabaseName, defaultDatabaseDirectory).catch(
+    () => undefined,
+  );
   const exported = openDatabaseSync(
     exportDatabaseName,
     { useNewConnection: true },
