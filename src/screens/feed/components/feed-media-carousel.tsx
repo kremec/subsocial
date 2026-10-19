@@ -1,14 +1,15 @@
 import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { Image } from "expo-image";
 import { router } from "expo-router";
 
 import { ScrollView } from "react-native-gesture-handler";
 
+import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
-import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
@@ -107,11 +108,38 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     const playing = media.playable && active && index === mediaIndex;
     return (
       <View style={{ flex: 1 }}>
-        <FeedVideoPreview
-          media={media}
-          onPress={media.playable ? onActivate : onPress}
-          showPlayButton={!playing}
-        />
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            if (media.playable) onActivate();
+            else onPress();
+          }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          {!!media.posterUrl && (
+            <Image
+              source={{ uri: media.posterUrl }}
+              recyclingKey={media.posterUrl}
+              cachePolicy="memory-disk"
+              contentFit="cover"
+              style={{ position: "absolute", inset: 0 }}
+            />
+          )}
+          {!playing && (
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: theme.radius.full,
+                backgroundColor: "rgba(0, 0, 0, 0.62)",
+              }}
+            >
+              <Icon name="player-play" color="#FFFFFF" size={25} filled />
+            </View>
+          )}
+        </Pressable>
         {playing && (
           <Pressable
             onPress={(event) => event.stopPropagation()}
