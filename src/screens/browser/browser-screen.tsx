@@ -5,13 +5,13 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import { type WebView } from "react-native-webview";
 
+import { PlatformWebView } from "@/components/platform-web-view";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openPlatformApp } from "@/platforms/open-post";
-import { PlatformWebView } from "@/platforms/platform-web-view";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
