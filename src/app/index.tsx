@@ -1,22 +1,16 @@
-import { type FC, useState } from "react";
-
-import Storage from "expo-sqlite/kv-store";
+import { type FC } from "react";
 
 import { FeedScreen } from "@/screens/feed/feed-screen";
 import { OnboardingScreen } from "@/screens/onboarding/onboarding-screen";
+import { useSettingsStore } from "@/stores/settings-store";
 
 const FeedRoute: FC = () => {
-  const [onboardingComplete, setOnboardingComplete] = useState(
-    () => Storage.getItemSync("onboarding-status") === "complete",
-  );
+  const onboarded = useSettingsStore((state) => state.onboarded);
 
-  if (!onboardingComplete) {
+  if (!onboarded) {
     return (
       <OnboardingScreen
-        onContinue={() => {
-          Storage.setItemSync("onboarding-status", "complete");
-          setOnboardingComplete(true);
-        }}
+        onContinue={() => useSettingsStore.setState({ onboarded: true })}
       />
     );
   }

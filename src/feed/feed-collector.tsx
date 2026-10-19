@@ -1,23 +1,18 @@
 import { type FC, useEffectEvent, useEffect, useRef, useState } from "react";
 import { BackHandler, View } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import { ModalHeader } from "@/components/ui/modal-header";
 import {
   listPublicationDates,
   listSourceIds,
   saveExtraction,
 } from "@/db/database";
-import {
-  CollectionProgress,
-  collectionKnownKey,
-  datedExtraction,
-} from "@/feed/collection";
+import { CollectionProgress, datedExtraction } from "@/feed/collection";
 import { extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 
 const collectionTimeout = 120_000;
@@ -82,12 +77,15 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const [state] = useState((): CollectionState => {
     // Keep the boundary until collection succeeds, even when it is empty,
     // so an interrupted first collection can finish later.
-    const key = collectionKnownKey(platform.id);
-    const saved = Storage.getItemSync(key);
-    const known: string[] = saved
-      ? JSON.parse(saved)
-      : listSourceIds(platform.id);
-    Storage.setItemSync(key, JSON.stringify(known));
+    const known =
+      useSettingsStore.getState().collectionBoundaries[platform.id] ??
+      listSourceIds(platform.id);
+    useSettingsStore.setState((settings) => ({
+      collectionBoundaries: {
+        ...settings.collectionBoundaries,
+        [platform.id]: known,
+      },
+    }));
     return {
       dates: new Map(listPublicationDates(platform.id)),
       progress: new CollectionProgress(new Set(known)),

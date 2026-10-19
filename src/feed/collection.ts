@@ -3,9 +3,6 @@ import { type FeedPage } from "@/platforms/types";
 
 export const feedItemLimit = 500;
 
-export const collectionKnownKey = (platform: string) =>
-  `collection-known:${platform}`;
-
 // Keep the previous session separate from posts found during this collection.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();

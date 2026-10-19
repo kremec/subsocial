@@ -1,8 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import { showErrorToast } from "@/components/ui/toast";
 import {
   listConnectedPlatforms,
@@ -10,11 +8,11 @@ import {
   listPostIds,
   pruneFeedItems,
 } from "@/db/database";
-import { collectionKnownKey } from "@/feed/collection";
 import { type CollectionResult } from "@/feed/feed-collector";
 import { type PlatformId, platformIdSchema } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
+import { useSettingsStore } from "@/stores/settings-store";
 
 interface RefreshRun {
   id: number;
@@ -32,10 +30,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [items, setItems] = useState(listFeedItems);
   const [connected, setConnected] = useState(listConnectedPlatforms);
   const [failed, setFailed] = useState<PlatformId[]>([]);
-  const [hidden, setHidden] = useState<PlatformId[]>(() => {
-    const value = Storage.getItemSync("hidden-platforms") || "[]";
-    return platformIdSchema.array().parse(JSON.parse(value));
-  });
+  const hidden = useSettingsStore((state) => state.hiddenPlatforms);
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
   );
@@ -93,7 +88,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       current.filter(
         (id) =>
           platforms.includes(id) ||
-          !!Storage.getItemSync(collectionKnownKey(id)),
+          !!useSettingsStore.getState().collectionBoundaries[id],
       ),
     );
     // Remove deleted posts without publishing a refresh that is still staged.
@@ -129,7 +124,13 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     const current = currentRun(platform);
     if (!current) return;
     setFailed((failed) => withMember(failed, platform, !!error));
-    if (!error) Storage.removeItemSync(collectionKnownKey(platform));
+    if (!error)
+      useSettingsStore.setState((state) => ({
+        collectionBoundaries: {
+          ...state.collectionBoundaries,
+          [platform]: undefined,
+        },
+      }));
     const next = {
       ...current,
       queue: current.queue.filter((id) => id !== platform),
@@ -156,8 +157,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
 
   const toggle = (platform: PlatformId) => {
     const next = withMember(hidden, platform, !hidden.includes(platform));
-    Storage.setItemSync("hidden-platforms", JSON.stringify(next));
-    setHidden(next);
+    useSettingsStore.setState({ hiddenPlatforms: next });
   };
 
   return {
