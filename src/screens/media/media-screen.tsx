@@ -99,7 +99,6 @@ export const MediaScreen: FC = () => {
                       <FullscreenImage
                         uri={item.url}
                         aspectRatio={item.aspectRatio}
-                        onClose={() => router.back()}
                         onZoomChange={
                           itemIndex === mediaIndex ? setZoomed : undefined
                         }

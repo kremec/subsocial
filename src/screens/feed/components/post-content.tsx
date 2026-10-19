@@ -1,5 +1,5 @@
 import { type FC } from "react";
-import { type GestureResponderEvent, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useRecyclingState } from "@legendapp/list/react-native";
 
@@ -25,10 +25,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
   const quote = variant === "quote";
   const paddingHorizontal = feed ? theme.spacing.lg : 0;
   const openPostUrl = () => void openPost(platform, post.url, post.androidUrl);
-  const onPress = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-    openPostUrl();
-  };
   const characters = Array.from(post.text || "");
   const longText = characters.length > 280;
   const text =
@@ -54,7 +50,10 @@ export const PostContent: FC<PostContentProps> = (props) => {
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={(event) => {
+        event.stopPropagation();
+        openPostUrl();
+      }}
       style={({ pressed }) => [
         quote && {
           marginTop: theme.spacing.md,
@@ -72,13 +71,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
           marginBottom: theme.spacing.sm,
         }}
       >
-        <PostHeader
-          platform={platform}
-          post={post}
-          showIcon={variant !== "thread"}
-          showContext={!quote}
-          iconSize={quote ? 16 : 19}
-        />
+        <PostHeader platform={platform} post={post} variant={variant} />
       </View>
       {!!post.title && variant !== "thread" && (
         <View
