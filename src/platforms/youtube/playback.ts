@@ -35,28 +35,25 @@ export type YouTubeResolution =
   | {
       status: "ready";
       url: string;
-      contentType: "hls" | "progressive";
+      contentType: "hls";
       preferredAudioTrack?: string;
     }
   | { status: "error" | "verification" };
 
 export function youtubeStream(url: string) {
   const source = new URL(url);
-  const contentType = /\/manifest\/hls_(?:playlist|variant)\//.test(
-    source.pathname,
-  )
-    ? "hls"
-    : source.pathname === "/videoplayback"
-      ? "progressive"
-      : undefined;
   if (
     source.protocol !== "https:" ||
     !source.hostname.endsWith(".googlevideo.com") ||
-    !contentType
+    !/\/manifest\/hls_(?:playlist|variant)\//.test(source.pathname)
   ) {
     throw new Error("Invalid YouTube stream");
   }
-  return { status: "ready", url, contentType } satisfies YouTubeResolution;
+  return {
+    status: "ready",
+    url,
+    contentType: "hls",
+  } satisfies YouTubeResolution;
 }
 
 // Streams expire, so they replace the saved poster only while playing.
@@ -118,8 +115,6 @@ export function selectYouTubePlaylist(
   streamingData: PlaybackResponse["streamingData"],
 ): YouTubeResolution {
   const master = youtubeStream(url);
-  if (master.contentType !== "hls")
-    throw new Error("Expected a YouTube HLS playlist");
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
   if (lines[0] !== "#EXTM3U") throw new Error("Invalid video playlist");
   const formats = [
@@ -160,7 +155,6 @@ export function selectYouTubePlaylist(
     const uri = lines[index + 1];
     if (!uri || uri.startsWith("#")) throw new Error("Invalid video variant");
     const source = youtubeStream(new URL(uri, url).href);
-    if (source.contentType !== "hls") throw new Error("Invalid video variant");
     const height = Number((tags.RESOLUTION || "").split("x")[1]);
     return [
       {
@@ -260,9 +254,7 @@ export async function resolveYouTubePlayback(
     throw new Error("YouTube returned a different video");
   const url = player.streamingData?.hlsManifestUrl;
   if (!url) throw new Error("YouTube did not return a playable stream");
-  const source = youtubeStream(url);
-  if (source.contentType !== "hls")
-    throw new Error("YouTube did not return a video playlist");
+  youtubeStream(url);
   const response = await load(url);
   const playlist = await response.text();
   checkAborted();
