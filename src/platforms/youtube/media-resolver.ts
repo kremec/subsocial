@@ -6,39 +6,34 @@ import {
   useEffect,
 } from "react";
 
-import { type FeedItem } from "@/feed/types";
 import { type YouTubeResolution } from "@/platforms/youtube/media";
 import { resolveYouTubePlayback } from "@/platforms/youtube/playback";
 
 export interface PlaybackResult {
-  id: string;
+  sourceId: string;
   resolution: YouTubeResolution;
 }
 
+// One shared result lets fullscreen playback reuse the feed's resolved stream.
 export const YouTubeMediaContext = createContext<{
   result?: PlaybackResult;
   setResult: Dispatch<SetStateAction<PlaybackResult | undefined>>;
 } | null>(null);
 
-export function useYouTubeMedia(
-  activeItem: Pick<FeedItem, "id" | "sourceId" | "platform"> | undefined,
-  visible: boolean,
-) {
+export function useYouTubeMedia(sourceId: string | undefined) {
   const { result, setResult } = useContext(YouTubeMediaContext)!;
-  const item = activeItem?.platform === "youtube" ? activeItem : undefined;
-  const id = item?.id;
-  const sourceId = item?.sourceId;
-  const resolution = result?.id === id ? result?.resolution : undefined;
+  const resolution =
+    sourceId && result?.sourceId === sourceId ? result.resolution : undefined;
 
   useEffect(() => {
-    if (!visible || !id || !sourceId || resolution) return;
+    if (!sourceId || resolution) return;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
     let active = true;
     void resolveYouTubePlayback(sourceId, controller.signal)
       .catch((): YouTubeResolution => ({ status: "error" }))
       .then((resolution) => {
-        if (active) setResult({ id, resolution });
+        if (active) setResult({ sourceId, resolution });
       })
       .finally(() => clearTimeout(timeout));
     return () => {
@@ -46,11 +41,13 @@ export function useYouTubeMedia(
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [visible, id, sourceId, resolution, setResult]);
+  }, [sourceId, resolution, setResult]);
 
   return {
     resolution,
     retry: () => setResult(undefined),
-    fail: (id: string) => setResult({ id, resolution: { status: "error" } }),
+    fail: () => {
+      if (sourceId) setResult({ sourceId, resolution: { status: "error" } });
+    },
   };
 }

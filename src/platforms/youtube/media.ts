@@ -1,4 +1,4 @@
-import { type FeedItem } from "@/feed/types";
+import { type FeedMedia } from "@/feed/types";
 
 export type YouTubeResolution =
   | {
@@ -28,32 +28,12 @@ export function youtubeStream(url: string) {
   return { status: "ready", url, contentType } satisfies YouTubeResolution;
 }
 
-export function youtubePlaybackStatus(
-  item: Pick<FeedItem, "platform">,
+// Streams expire, so they replace the saved poster only while playing.
+export function withYouTubeStream(
+  media: FeedMedia,
   resolution: YouTubeResolution | undefined,
-) {
-  if (item.platform !== "youtube") return undefined;
-  return resolution?.status === "ready"
-    ? undefined
-    : resolution?.status || "loading";
-}
-
-export function withYouTubeStream<
-  T extends Pick<FeedItem, "platform" | "media">,
->(item: T, resolution: YouTubeResolution | undefined): T {
-  if (item.platform !== "youtube" || resolution?.status !== "ready")
-    return item;
-  return {
-    ...item,
-    media: item.media.map((media, index) =>
-      index
-        ? media
-        : {
-            ...media,
-            url: resolution.url,
-            contentType: resolution.contentType,
-            preferredAudioTrack: resolution.preferredAudioTrack,
-          },
-    ),
-  };
+): FeedMedia {
+  if (resolution?.status !== "ready") return media;
+  const { url, contentType, preferredAudioTrack } = resolution;
+  return { ...media, url, contentType, preferredAudioTrack };
 }

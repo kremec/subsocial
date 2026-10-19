@@ -11,12 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { feedMediaSchema, type PlatformId } from "@/feed/types";
-import { openBrowser, openPost } from "@/platforms/open-post";
-import {
-  withYouTubeStream,
-  youtubePlaybackStatus,
-} from "@/platforms/youtube/media";
-import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
+import { openPost } from "@/platforms/open-post";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
 import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
@@ -39,18 +34,15 @@ export const MediaScreen: FC = () => {
     index: string;
     sourceId?: string;
   }>();
-  const routeMedia = feedMediaSchema.array().parse(JSON.parse(encodedMedia));
+  const media = feedMediaSchema.array().parse(JSON.parse(encodedMedia));
   const focused = useIsFocused();
-  const youtubeItem = sourceId
-    ? { id: `${platform}:${sourceId}`, sourceId, platform }
-    : undefined;
-  const youtube = useYouTubeMedia(youtubeItem, focused);
-  const media = withYouTubeStream(
-    { platform, media: routeMedia },
-    youtube.resolution,
-  ).media;
   const [mediaIndex, setMediaIndex] = useState(Number(index));
   const selectedMedia = media[mediaIndex]!;
+  // YouTube streams are HLS playlists, which cannot be saved as one file.
+  const downloadable =
+    platform !== "youtube" &&
+    (selectedMedia.type === "image" || !!selectedMedia.playable) &&
+    canDownloadMedia(selectedMedia);
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollView>(null);
@@ -131,27 +123,10 @@ export const MediaScreen: FC = () => {
                                 key={item.url}
                                 playbackKey={`${postUrl}:${itemIndex}`}
                                 media={item}
+                                platform={platform}
+                                postUrl={postUrl}
+                                sourceId={sourceId}
                                 fullscreen
-                                playbackStatus={
-                                  youtubeItem &&
-                                  youtubePlaybackStatus(
-                                    youtubeItem,
-                                    youtube.resolution,
-                                  )
-                                }
-                                onError={
-                                  platform === "youtube" && youtubeItem
-                                    ? () => youtube.fail(youtubeItem.id)
-                                    : undefined
-                                }
-                                onRetry={
-                                  platform === "youtube"
-                                    ? youtube.retry
-                                    : undefined
-                                }
-                                onVerification={() =>
-                                  openBrowser(platform, postUrl)
-                                }
                                 navigationGestures={navigationGestures}
                               />
                             ) : (
@@ -194,10 +169,7 @@ export const MediaScreen: FC = () => {
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <View>
-              {canDownloadMedia(selectedMedia) &&
-                (selectedMedia.type === "image" || selectedMedia.playable) && (
-                  <MediaDownloadButton media={selectedMedia} />
-                )}
+              {downloadable && <MediaDownloadButton media={selectedMedia} />}
             </View>
             <IconButton
               accessibilityLabel="Close fullscreen"

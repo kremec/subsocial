@@ -7,7 +7,6 @@ import { Typography } from "@/components/ui/typography";
 import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
-import { type PlaybackStatus } from "@/screens/feed/components/feed-video";
 import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
@@ -18,24 +17,10 @@ interface PostContentProps {
   variant: "feed" | "thread" | "quote";
   activePostUrl?: string;
   onActivate: (url: string) => void;
-  playbackStatus?: PlaybackStatus;
-  onRetry?: () => void;
-  onPlaybackError?: () => void;
-  onVerification?: () => void;
 }
 
 export const PostContent: FC<PostContentProps> = (props) => {
-  const {
-    post,
-    platform,
-    variant,
-    activePostUrl,
-    onActivate,
-    playbackStatus,
-    onRetry,
-    onPlaybackError,
-    onVerification,
-  } = props;
+  const { post, platform, variant, activePostUrl, onActivate } = props;
   const theme = useTheme();
   const [expanded, setExpanded] = useRecyclingState(false);
   const feed = variant === "feed";
@@ -65,11 +50,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
         sourceId={post.sourceId}
         media={post.media}
         active={activePostUrl === post.url}
-        playbackStatus={playbackStatus}
         onActivate={() => onActivate(post.url)}
-        onRetry={onRetry}
-        onPlaybackError={onPlaybackError}
-        onVerification={onVerification}
         onPress={openPostUrl}
       />
     </Pressable>

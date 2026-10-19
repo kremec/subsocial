@@ -25,7 +25,6 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { type FeedItem } from "@/feed/types";
-import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
 import { EmptyFeed } from "@/screens/feed/components/empty-feed";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
@@ -124,9 +123,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     });
     return () => listener.remove();
   }, []);
-  const visibleRow = rows.find((row) => row.id === activeVideo?.rowId);
-  const media = useYouTubeMedia(visibleRow?.item, visible);
-  const extraData = [activeVideo, media.resolution, visible];
+  const extraData = [activeVideo, visible];
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
@@ -191,13 +188,6 @@ export const FeedList: FC<FeedListProps> = (props) => {
               }
               onActivate={activatePost}
               onVideoView={onVideoView}
-              resolution={
-                row.item.id === visibleRow?.item.id
-                  ? media.resolution
-                  : undefined
-              }
-              onRetry={media.retry}
-              onPlaybackError={media.fail}
             />
           </FeedImageTransitionContext>
         )}

@@ -2,32 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type FeedItem } from "@/feed/types";
-import {
-  withYouTubeStream,
-  youtubePlaybackStatus,
-  youtubeStream,
-} from "@/platforms/youtube/media";
-
-const item = (
-  id: string,
-  platform: FeedItem["platform"] = "youtube",
-): FeedItem => ({
-  id: `${platform}:${id}`,
-  sourceId: id,
-  platform,
-  fetchedAt: 1,
-  publishedAt: 1,
-  url: `https://www.youtube.com/watch?v=${id}`,
-  media: [
-    {
-      type: "video",
-      url: `poster-${id}`,
-      posterUrl: `poster-${id}`,
-      playable: true,
-    },
-  ],
-});
+import { withYouTubeStream, youtubeStream } from "@/platforms/youtube/media";
 
 test("validates native YouTube sources and identifies their content type", () => {
   const sources = [
@@ -58,64 +33,28 @@ test("rejects unsupported and foreign native sources", () => {
   }
 });
 
-test("reports active YouTube resolution state", () => {
-  const video = item("video");
-  const instagram = item("instagram", "instagram");
-  assert.equal(youtubePlaybackStatus(video, undefined), "loading");
-  assert.equal(
-    youtubePlaybackStatus(video, { status: "verification" }),
-    "verification",
-  );
-  assert.equal(youtubePlaybackStatus(video, { status: "error" }), "error");
-  assert.equal(
-    youtubePlaybackStatus(video, {
+test("applies only a ready stream and keeps saved media fields", () => {
+  const poster = {
+    type: "video" as const,
+    url: "https://i.ytimg.com/vi/video/hqdefault.jpg",
+    posterUrl: "https://i.ytimg.com/vi/video/hqdefault.jpg",
+    playable: true,
+    aspectRatio: 16 / 9,
+  };
+  assert.equal(withYouTubeStream(poster, undefined), poster);
+  assert.equal(withYouTubeStream(poster, { status: "error" }), poster);
+  assert.deepEqual(
+    withYouTubeStream(poster, {
       status: "ready",
       url: "https://rr1.googlevideo.com/videoplayback?id=video",
       contentType: "progressive",
+      preferredAudioTrack: "English - original",
     }),
-    undefined,
-  );
-  assert.equal(youtubePlaybackStatus(instagram, undefined), undefined);
-});
-
-test("applies an ephemeral stream only to YouTube's first media item", () => {
-  const video = item("video");
-  video.media.push({ type: "image", url: "second" });
-  const resolved = withYouTubeStream(video, {
-    status: "ready",
-    url: "https://rr1.googlevideo.com/videoplayback?id=video",
-    contentType: "progressive",
-    preferredAudioTrack: "English - original",
-  });
-  assert.equal(
-    resolved.media[0].url,
-    "https://rr1.googlevideo.com/videoplayback?id=video",
-  );
-  assert.equal(resolved.media[0].contentType, "progressive");
-  assert.equal(resolved.media[0].preferredAudioTrack, "English - original");
-  assert.equal(resolved.media[0].aspectRatio, undefined);
-  assert.equal(resolved.media[1], video.media[1]);
-  assert.equal(withYouTubeStream(video, { status: "error" }), video);
-  const instagram = item("instagram", "instagram");
-  assert.equal(
-    withYouTubeStream(instagram, {
-      status: "ready",
+    {
+      ...poster,
       url: "https://rr1.googlevideo.com/videoplayback?id=video",
       contentType: "progressive",
-    }),
-    instagram,
-  );
-});
-
-test("preserves saved media dimensions when applying playback", () => {
-  const video = item("video");
-  video.media[0].aspectRatio = 16 / 9;
-  assert.equal(
-    withYouTubeStream(video, {
-      status: "ready",
-      url: "https://rr1.googlevideo.com/videoplayback?id=video",
-      contentType: "progressive",
-    }).media[0].aspectRatio,
-    16 / 9,
+      preferredAudioTrack: "English - original",
+    },
   );
 });
