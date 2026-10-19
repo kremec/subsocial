@@ -18,7 +18,6 @@ import Animated from "react-native-reanimated";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type FeedItem } from "@/feed/types";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
 import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
@@ -27,6 +26,7 @@ import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedItem } from "@/types/post";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 

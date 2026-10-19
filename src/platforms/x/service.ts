@@ -1,12 +1,12 @@
-import type { ExtractedItem, FeedMedia } from "@/feed/types";
 import { aspectRatio, type Json } from "@/platforms/json";
 import { paginate } from "@/platforms/paginate";
+import { feedResponseSchema, type Tweet } from "@/platforms/x/schema";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
-import { feedResponseSchema, type Tweet } from "@/platforms/x/schema";
+} from "@/types/platform";
+import type { ExtractedItem, FeedMedia } from "@/types/post";
 
 function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
   const tweet = value?.tweet || value;

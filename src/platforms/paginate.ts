@@ -1,4 +1,4 @@
-import { type FeedPage, type FeedRequest } from "@/platforms/types";
+import { type FeedPage, type FeedRequest } from "@/types/platform";
 
 // Follow continuation cursors until the feed ends or stops advancing.
 export async function* paginate(

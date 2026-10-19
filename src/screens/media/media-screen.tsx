@@ -10,7 +10,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { feedMediaSchema, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
@@ -19,6 +18,7 @@ import {
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
 import { useMediaStore } from "@/stores/media-store";
+import { feedMediaSchema, type PlatformId } from "@/types/post";
 
 export const MediaScreen: FC = () => {
   const {

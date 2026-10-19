@@ -1,4 +1,4 @@
-import { type FeedItem, type FeedPost } from "@/feed/types";
+import { type FeedItem, type FeedPost } from "@/types/post";
 
 const normalize = (text: string) =>
   text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");

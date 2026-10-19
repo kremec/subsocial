@@ -3,8 +3,8 @@ import { Linking, Platform } from "react-native";
 import { requireNativeModule } from "expo";
 import { router } from "expo-router";
 
-import { type PlatformId } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
+import { type PlatformId } from "@/types/post";
 
 interface PostLauncherModule {
   openPost: (

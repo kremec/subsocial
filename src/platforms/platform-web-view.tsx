@@ -3,8 +3,8 @@ import { type FC, type RefObject, useRef } from "react";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
 import { syncPlatformSession } from "@/platforms/session";
-import { type PlatformDefinition } from "@/platforms/types";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformDefinition } from "@/types/platform";
 
 interface PlatformWebViewProps {
   platform: PlatformDefinition;

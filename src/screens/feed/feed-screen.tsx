@@ -10,13 +10,13 @@ import { Typography } from "@/components/ui/typography";
 import { exportDatabase } from "@/db/export-database";
 import { importDatabase } from "@/db/import-database";
 import { FeedCollector } from "@/feed/feed-collector";
-import { type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
 import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
 export const FeedScreen: FC = () => {
   const theme = useTheme();

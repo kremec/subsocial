@@ -1,11 +1,11 @@
 import { type FC, memo } from "react";
 import { View } from "react-native";
 
-import { type FeedItem, type FeedPost } from "@/feed/types";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedItem, type FeedPost } from "@/types/post";
 
 interface FeedCardProps {
   rowId: string;

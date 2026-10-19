@@ -5,11 +5,11 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
 import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
 interface FeedMenuProps {
   visible: boolean;

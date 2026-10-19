@@ -4,8 +4,8 @@ import { createHash } from "node:crypto";
 import { test } from "node:test";
 
 import { CollectionProgress } from "@/feed/collection";
-import { FeedAccessError } from "@/platforms/types";
 import { youtubeFeed } from "@/platforms/youtube/service";
+import { FeedAccessError } from "@/types/platform";
 
 const initialData = (items: object[], mobile = false) => ({
   contents: {

@@ -6,13 +6,13 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
+import { xPlatform } from "@/platforms/x/config";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
   type PlatformDefinition,
-} from "@/platforms/types";
-import { xPlatform } from "@/platforms/x/config";
+} from "@/types/platform";
 
 const source = transpileModule(
   readFileSync(new URL("./service.ts", import.meta.url), "utf8"),

@@ -4,12 +4,12 @@ import { type GestureResponderEvent, Pressable, View } from "react-native";
 import { useRecyclingState } from "@legendapp/list/react-native";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
 import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedPost, type PlatformId } from "@/types/post";
 
 interface PostContentProps {
   post: FeedPost;

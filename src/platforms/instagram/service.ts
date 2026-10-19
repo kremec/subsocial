@@ -1,4 +1,3 @@
-import type { ExtractedItem, FeedMedia } from "@/feed/types";
 import {
   feedResponseSchema,
   tokenSchema,
@@ -11,7 +10,8 @@ import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
+} from "@/types/platform";
+import type { ExtractedItem, FeedMedia } from "@/types/post";
 
 const largest = (values: Variant[] | null | undefined) =>
   values

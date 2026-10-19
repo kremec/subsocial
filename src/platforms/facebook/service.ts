@@ -1,11 +1,4 @@
 import {
-  type ExtractedItem,
-  feedAttachmentSchema,
-  type FeedMedia,
-  feedMediaSchema,
-  type FeedPost,
-} from "@/feed/types";
-import {
   edgeSchema,
   groupSchema,
   type FacebookStory,
@@ -31,7 +24,14 @@ import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
+} from "@/types/platform";
+import {
+  type ExtractedItem,
+  feedAttachmentSchema,
+  type FeedMedia,
+  feedMediaSchema,
+  type FeedPost,
+} from "@/types/post";
 
 // Required presentation variables from Facebook's CometModernHomeFeedQuery.
 const presentationFlags = [

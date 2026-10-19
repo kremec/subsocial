@@ -20,12 +20,12 @@ import {
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
 import {
   canDownloadMedia,
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
+import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedVideoControlsProps {
   player: VideoPlayer;

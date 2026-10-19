@@ -4,8 +4,8 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 
 import { Icon } from "@/components/ui/icon";
-import { type FeedMedia } from "@/feed/types";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedMedia } from "@/types/post";
 
 interface FeedVideoPreviewProps {
   media: FeedMedia;

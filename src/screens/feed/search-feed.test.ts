@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type FeedItem } from "@/feed/types";
 import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
+import { type FeedItem } from "@/types/post";
 
 function item(id: string, content: Partial<FeedItem> = {}): FeedItem {
   return {

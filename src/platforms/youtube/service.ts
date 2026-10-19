@@ -2,7 +2,6 @@ import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
 
-import { type ExtractedItem } from "@/feed/types";
 import {
   type Json,
   type JsonObject,
@@ -12,17 +11,18 @@ import {
   bootstrap,
 } from "@/platforms/json";
 import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-} from "@/platforms/types";
-import {
   browseResponseSchema,
   configSchema,
   playerResponseSchema,
   type PlayerResponse,
   videoRendererSchema,
 } from "@/platforms/youtube/schema";
+import {
+  FeedAccessError,
+  type FeedPage,
+  type FeedRequest,
+} from "@/types/platform";
+import { type ExtractedItem } from "@/types/post";
 
 function videos(data: Json) {
   const found = new Map<string, JsonObject>();

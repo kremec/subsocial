@@ -1,12 +1,12 @@
 import { type Cookies } from "@preeternal/react-native-cookie-manager";
 
-import { type PlatformId } from "@/feed/types";
 import { facebookPlatform } from "@/platforms/facebook/config";
 import { instagramPlatform } from "@/platforms/instagram/config";
 import { redditPlatform } from "@/platforms/reddit/config";
-import { type PlatformDefinition } from "@/platforms/types";
 import { xPlatform } from "@/platforms/x/config";
 import { youtubePlatform } from "@/platforms/youtube/config";
+import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformId } from "@/types/post";
 
 export const platforms: PlatformDefinition[] = [
   instagramPlatform,

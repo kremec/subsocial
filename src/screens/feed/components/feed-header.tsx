@@ -8,11 +8,11 @@ import Animated, { useReducedMotion } from "react-native-reanimated";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type PlatformId } from "@/feed/types";
 import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
 import { RefreshPlatformIcon } from "@/screens/feed/components/refresh-platform-icon";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
 interface FeedHeaderProps {
   activePlatforms: PlatformId[];

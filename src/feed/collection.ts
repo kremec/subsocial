@@ -1,5 +1,5 @@
-import { type ExtractedItem, type ExtractedPost } from "@/feed/types";
-import { type FeedPage } from "@/platforms/types";
+import { type FeedPage } from "@/types/platform";
+import { type ExtractedItem, type ExtractedPost } from "@/types/post";
 
 export const feedItemLimit = 500;
 

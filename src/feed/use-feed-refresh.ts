@@ -9,10 +9,10 @@ import {
   pruneFeedItems,
 } from "@/db/repositories/feed-items-repository";
 import { type CollectionResult } from "@/feed/feed-collector";
-import { type PlatformId, platformIdSchema } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
+import { type PlatformId, platformIdSchema } from "@/types/post";
 
 interface RefreshRun {
   id: number;
