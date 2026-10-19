@@ -91,15 +91,18 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     </View>
   );
 
-  const renderMedia = (media: FeedMedia, index: number) =>
-    media.type === "video" ? (
+  const renderMedia = (media: FeedMedia, index: number) => {
+    if (media.type === "image")
+      return <FeedImage media={media} onPress={() => openAlbum(index)} />;
+    const playing = media.playable && active && index === mediaIndex;
+    return (
       <View style={{ flex: 1 }}>
         <FeedVideoPreview
           media={media}
           onPress={media.playable ? onActivate : onPress}
-          showPlayButton={!(media.playable && active && index === mediaIndex)}
+          showPlayButton={!playing}
         />
-        {media.playable && active && index === mediaIndex && (
+        {playing && (
           <Pressable
             onPress={(event) => event.stopPropagation()}
             style={{ position: "absolute", inset: 0 }}
@@ -117,9 +120,8 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
           </Pressable>
         )}
       </View>
-    ) : (
-      <FeedImage media={media} onPress={() => openAlbum(index)} />
     );
+  };
 
   return (
     <View
