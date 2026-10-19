@@ -48,10 +48,12 @@ To disconnect a platform or switch accounts, use the logout button in the browse
 This deletes that platform's saved posts and login cookies from subsocial. Logging out of YouTube
 also clears the Google sign-in cookies used by YouTube.
 
-#### Export data
+#### Export and import data
 
 Tap the export icon at the top of the feed menu to share a backup of the feed database.
 The backup includes saved posts and media metadata, but not login cookies or app preferences.
+Tap the import icon to replace the saved feed with a backup. Backups from versions before 0.1.4
+cannot be imported.
 
 The app keeps the newest 500 feed groups per platform, including complete threads.
 Older posts are removed as new ones arrive, so the saved feed is a recent cache rather than an archive.
