@@ -50,9 +50,7 @@ export const FeedScreen: FC = () => {
           open={
             attentionBrowser === platform && feed.attention.includes(platform)
           }
-          onAttention={(needed) =>
-            feed.needsAttention(feed.runId!, platform, needed)
-          }
+          onAttention={(needed) => feed.needsAttention(platform, needed)}
           onClose={() =>
             setAttentionBrowser((current) =>
               current === platform ? undefined : current,
@@ -62,7 +60,7 @@ export const FeedScreen: FC = () => {
             setAttentionBrowser((current) =>
               current === platform ? undefined : current,
             );
-            feed.finish(feed.runId!, result);
+            feed.finish(result);
           }}
         />
       ))}

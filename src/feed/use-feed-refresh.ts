@@ -56,6 +56,14 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     return () => listener.remove();
   }, []);
 
+  const update = (next?: RefreshRun) => {
+    running.current = next;
+    setRun(next);
+    // Publish saved posts once only login prompts remain.
+    if (!next || next.queue.every((id) => next.attention.includes(id)))
+      setItems(listFeedItems());
+  };
+
   const begin = (platforms: PlatformId[], restart = false) => {
     const current = running.current;
     const collecting = current?.queue.some(
@@ -64,16 +72,17 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     if (collecting && !restart) return;
     const waiting = collecting ? undefined : current;
     const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
-    running.current = queue.length
-      ? {
-          // Keep login collectors mounted while healthy platforms refresh again.
-          id: waiting?.id ?? performance.now(),
-          queue,
-          errors: [],
-          attention: waiting?.attention ?? [],
-        }
-      : undefined;
-    setRun(running.current);
+    update(
+      queue.length
+        ? {
+            // Keep login collectors mounted while healthy platforms refresh again.
+            id: waiting?.id ?? performance.now(),
+            queue,
+            errors: [],
+            attention: waiting?.attention ?? [],
+          }
+        : undefined,
+    );
   };
 
   const sync = useEffectEvent((platforms: PlatformId[]) => {
@@ -109,17 +118,15 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     };
   }, [focused, foreground, webKitReady]);
 
-  // Ignore late messages from collectors of a replaced or finished run.
-  const currentRun = (runId: number, platform: PlatformId) => {
+  // Collectors abort when unmounted, so only finished platforms can repeat.
+  const currentRun = (platform: PlatformId) => {
     const current = running.current;
-    return current?.id === runId && current.queue.includes(platform)
-      ? current
-      : undefined;
+    return current?.queue.includes(platform) ? current : undefined;
   };
 
-  const finish = (runId: number, result: CollectionResult) => {
+  const finish = (result: CollectionResult) => {
     const { platform, error } = result;
-    const current = currentRun(runId, platform);
+    const current = currentRun(platform);
     if (!current) return;
     setFailed((failed) => withMember(failed, platform, !!error));
     if (!error) Storage.removeItemSync(collectionKnownKey(platform));
@@ -131,34 +138,20 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
         : current.errors,
       attention: current.attention.filter((id) => id !== platform),
     };
-    running.current = next;
-    if (next.queue.length) {
-      if (next.queue.every((id) => next.attention.includes(id)))
-        setItems(listFeedItems());
-      setRun(next);
-      return;
-    }
+    if (next.queue.length) return update(next);
     pruneFeedItems();
-    setItems(listFeedItems());
     if (next.errors.length) showErrorToast(next.errors.join("\n"));
-    running.current = undefined;
-    setRun(undefined);
+    update(undefined);
   };
 
-  const needsAttention = (
-    runId: number,
-    platform: PlatformId,
-    needed: boolean,
-  ) => {
-    const current = currentRun(runId, platform);
+  const needsAttention = (platform: PlatformId, needed: boolean) => {
+    const current = currentRun(platform);
     if (!current) return;
     if (needed) setFailed((failed) => withMember(failed, platform, true));
-    const attention = withMember(current.attention, platform, needed);
-    const next = { ...current, attention };
-    running.current = next;
-    setRun(next);
-    if (next.queue.every((id) => attention.includes(id)))
-      setItems(listFeedItems());
+    update({
+      ...current,
+      attention: withMember(current.attention, platform, needed),
+    });
   };
 
   const toggle = (platform: PlatformId) => {
@@ -181,11 +174,9 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     finish,
     toggle,
     reload: () => {
-      running.current = undefined;
-      setRun(undefined);
+      update(undefined);
       setFailed([]);
       setConnected(listConnectedPlatforms());
-      setItems(listFeedItems());
     },
     refresh: () => begin(connected),
   };
