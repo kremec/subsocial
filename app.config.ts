@@ -81,7 +81,7 @@ export default {
     [
       "expo-dev-client",
       {
-        addGeneratedScheme: !!IS_DEV,
+        addGeneratedScheme: IS_DEV,
       },
     ],
   ],
@@ -93,7 +93,6 @@ export default {
     reactCompiler: true,
   },
   extra: {
-    staging: IS_DEV,
     eas: {
       projectId: "2236c731-2281-4d29-b10b-1338e1099ef7",
     },
