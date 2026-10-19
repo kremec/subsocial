@@ -17,7 +17,7 @@ const importedRowSchema = z.object({
   id: z.string().min(1),
   platform: platformIdSchema,
   source_id: z.string().min(1),
-  published_at: z.number().positive().nullable(),
+  published_at: z.number().positive(),
   fetched_at: z.number().nonnegative(),
   item_json: z.string(),
   thread_id: z.string().min(1),
@@ -27,13 +27,12 @@ export async function importDatabase(): Promise<boolean> {
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
   });
-  if (result.canceled || result.assets.length === 0) return false;
+  if (result.canceled) return false;
 
-  try {
-    await deleteDatabaseAsync(importDatabaseName, defaultDatabaseDirectory);
-  } catch {
-    // The temporary import does not exist before the first import.
-  }
+  // The temporary import does not exist before the first import.
+  await deleteDatabaseAsync(importDatabaseName, defaultDatabaseDirectory).catch(
+    () => undefined,
+  );
 
   await FileSystem.copyAsync({
     from: result.assets[0].uri,
@@ -86,10 +85,9 @@ export async function importDatabase(): Promise<boolean> {
     return true;
   } finally {
     imported.closeSync();
-    try {
-      await deleteDatabaseAsync(importDatabaseName, defaultDatabaseDirectory);
-    } catch {
-      // Ignore cleanup failures for temporary imports.
-    }
+    await deleteDatabaseAsync(
+      importDatabaseName,
+      defaultDatabaseDirectory,
+    ).catch(() => undefined);
   }
 }
