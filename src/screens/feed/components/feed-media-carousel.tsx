@@ -138,7 +138,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
           >
             <FeedVideo
               key={media.url}
-              playbackKey={`${postUrl}:${index}`}
+              index={index}
               media={media}
               platform={platform}
               postUrl={postUrl}
