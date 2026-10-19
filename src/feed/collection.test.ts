@@ -3,7 +3,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CollectionProgress, feedItemLimit } from "@/feed/collection";
+import {
+  CollectionProgress,
+  datedExtraction,
+  feedItemLimit,
+} from "@/feed/collection";
 import { type ExtractedItem, extractedItemSchema } from "@/feed/types";
 import { type FeedPage } from "@/platforms/types";
 
@@ -176,4 +180,29 @@ test("excluded posts do not trigger overlap and never appear in saved items", ()
     ["new"],
   );
   assert.deepEqual(result.excludedSourceIds, ["upcoming"]);
+});
+
+test("dates posts from saved dates and withholds posts without one", () => {
+  const dates = new Map([["known", 5]]);
+  const { items, failedSourceIds } = datedExtraction(
+    [
+      post("known"),
+      post("undated"),
+      { ...post("root"), thread: [post("reply", 7), post("root")] },
+    ],
+    dates,
+  );
+  assert.deepEqual(
+    items.map((item) => [item.sourceId, item.publishedAt]),
+    [
+      ["known", 5],
+      ["reply", 7],
+    ],
+  );
+  assert.deepEqual(
+    items[1].thread?.map((post) => post.sourceId),
+    ["reply"],
+  );
+  assert.deepEqual(failedSourceIds.sort(), ["root", "undated"]);
+  assert.equal(dates.get("reply"), 7);
 });
