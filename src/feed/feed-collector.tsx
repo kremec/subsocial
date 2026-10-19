@@ -13,6 +13,7 @@ import {
   saveExtraction,
 } from "@/feed/database";
 import { extractedItemSchema } from "@/feed/schemas";
+import { type ExtractedItem } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";
@@ -34,6 +35,50 @@ interface FeedCollectorProps {
   onFinish: (result: CollectionResult) => void;
 }
 
+interface CollectionState {
+  dates: Map<string, number>;
+  pendingItems: ExtractedItem[];
+  progress: CollectionProgress;
+  failures: Set<string>;
+}
+
+// Save pages until the feed reaches known posts, remembering undated posts.
+async function collectFeed(
+  platform: PlatformDefinition,
+  state: CollectionState,
+  signal: AbortSignal,
+) {
+  const { dates, pendingItems, progress, failures } = state;
+  for await (const page of platformFeed(
+    platform,
+    signal,
+    dates,
+    pendingItems,
+  )) {
+    if (signal.aborted) return;
+    const items = extractedItemSchema.array().parse(page.items);
+    const batch = progress.accept({ ...page, items });
+    const dated = datedExtraction(batch.items, dates);
+    for (const id of [
+      ...(page.failedSourceIds ?? []),
+      ...dated.failedSourceIds,
+    ])
+      failures.add(id);
+    for (const item of dated.items) {
+      failures.delete(item.sourceId);
+      for (const post of item.thread ?? []) failures.delete(post.sourceId);
+    }
+    if (dated.items.length || batch.excludedSourceIds.length)
+      saveExtraction(
+        platform.id,
+        dated.items,
+        batch.excludedSourceIds,
+        batch.fetchedAt,
+      );
+    if (batch.stop) return;
+  }
+}
+
 export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const {
     platform,
@@ -46,22 +91,25 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
     onFinish,
   } = props;
   const theme = useTheme();
-  const [dates] = useState(() => new Map(listPublicationDates(platform.id)));
-  const [pendingItems] = useState(() =>
-    platform.id === "youtube" ? listPendingYouTubeItems() : [],
+  const [state] = useState(
+    (): CollectionState => ({
+      dates: new Map(listPublicationDates(platform.id)),
+      pendingItems: platform.id === "youtube" ? listPendingYouTubeItems() : [],
+      progress: new CollectionProgress(new Set(known)),
+      failures: new Set(),
+    }),
   );
-  const [progress] = useState(() => new CollectionProgress(new Set(known)));
-  const failures = useRef(new Set<string>());
   const finished = useRef(false);
   const finish = useEffectEvent((error?: string) => {
     if (finished.current) return;
     finished.current = true;
+    const undated = state.failures.size;
     onFinish({
       platform: platform.id,
       error:
         error ||
-        (failures.current.size
-          ? `Publication dates unavailable for ${failures.current.size} posts. Pull to retry.`
+        (undated
+          ? `Publication dates unavailable for ${undated} posts. Pull to retry.`
           : undefined),
     });
   });
@@ -70,60 +118,28 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   useEffect(() => {
     if (!active || attention || open || finished.current) return;
     const controller = new AbortController();
+    const { signal } = controller;
     const timeout = setTimeout(() => {
       controller.abort();
       finish("Refresh timed out. Pull to retry.");
     }, collectionTimeout);
-    void (async () => {
-      try {
-        for await (const page of platformFeed(
-          platform,
-          controller.signal,
-          dates,
-          pendingItems,
-        )) {
-          if (controller.signal.aborted) return;
-          const items = extractedItemSchema.array().parse(page.items);
-          const batch = progress.accept({ ...page, items });
-          const dated = datedExtraction(batch.items, dates);
-          for (const id of [
-            ...(page.failedSourceIds ?? []),
-            ...dated.failedSourceIds,
-          ])
-            failures.current.add(id);
-          for (const item of dated.items) {
-            failures.current.delete(item.sourceId);
-            for (const post of item.thread ?? [])
-              failures.current.delete(post.sourceId);
-          }
-          if (dated.items.length || batch.excludedSourceIds.length)
-            saveExtraction(
-              platform.id,
-              dated.items,
-              batch.excludedSourceIds,
-              batch.fetchedAt,
-            );
-          if (batch.stop) break;
-        }
-        if (!controller.signal.aborted) finish();
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        if (error instanceof FeedAccessError) requireAttention();
-        else
-          finish(
-            error instanceof Error
-              ? error.message
-              : "Could not load posts. Try again later.",
-          );
-      } finally {
-        clearTimeout(timeout);
-      }
-    })();
+    void collectFeed(platform, state, signal)
+      .then(
+        () => {
+          if (!signal.aborted) finish();
+        },
+        (error: Error) => {
+          if (signal.aborted) return;
+          if (error instanceof FeedAccessError) requireAttention();
+          else finish(error.message);
+        },
+      )
+      .finally(() => clearTimeout(timeout));
     return () => {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [active, attention, open, platform, dates, pendingItems, progress]);
+  }, [active, attention, open, platform, state]);
 
   const close = () => {
     onClose();

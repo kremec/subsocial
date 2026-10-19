@@ -20,21 +20,14 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
       accessibilityState={{ busy }}
       disabled={busy}
       hitSlop={8}
-      onPress={async (event) => {
+      onPress={(event) => {
         event.stopPropagation();
         setBusy(true);
-        try {
-          await downloadMedia(media);
-        } catch (error) {
-          Alert.alert(
-            "Download failed",
-            error instanceof Error
-              ? error.message
-              : "Unable to save this media.",
-          );
-        } finally {
-          setBusy(false);
-        }
+        void downloadMedia(media)
+          .catch((error: Error) =>
+            Alert.alert("Download failed", error.message),
+          )
+          .finally(() => setBusy(false));
       }}
       style={({ pressed }) => ({
         width: 28,
