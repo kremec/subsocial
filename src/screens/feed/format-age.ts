@@ -6,6 +6,6 @@ export const formatAge = (publishedAt: number) => {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   if (days < 30) return `${Math.floor(days / 7)}w`;
-  if (days < 365) return `${Math.floor(days / 30)}m`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
   return `${Math.floor(days / 365)}y`;
 };
