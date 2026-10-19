@@ -10,7 +10,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
-import { RefreshPlatformIcon } from "@/screens/feed/components/refresh-platform-icon";
 import { useTheme } from "@/theme/use-theme";
 import { type PlatformId } from "@/types/post";
 
@@ -82,17 +81,41 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
               : "width 300ms cubic-bezier(0.33, 1, 0.68, 1)",
           }}
         >
-          {platforms.map((platform) => (
-            <RefreshPlatformIcon
-              key={platform.id}
-              platform={platform}
-              reducedMotion={reducedMotion}
-              count={pendingPlatforms.length}
-              position={pendingPlatforms.findIndex(
-                (item) => item.id === platform.id,
-              )}
-            />
-          ))}
+          {platforms.map((platform) => {
+            const position = pendingPlatforms.indexOf(platform);
+            const visible = position >= 0;
+            return (
+              <Animated.View
+                key={platform.id}
+                pointerEvents="none"
+                accessible={visible}
+                accessibilityLabel={`Refreshing ${platform.label}`}
+                style={{
+                  position: "absolute",
+                  left: visible
+                    ? `${((position + 0.5) / pendingPlatforms.length) * 100}%`
+                    : "50%",
+                  width: 36,
+                  height: 36,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: visible ? 1 : 0,
+                  transform: [{ translateX: -18 }],
+                  transition: reducedMotion
+                    ? "none"
+                    : visible
+                      ? "opacity 220ms ease-in-out, left 300ms cubic-bezier(0.33, 1, 0.68, 1)"
+                      : "opacity 160ms ease-in-out, left 0ms 160ms",
+                }}
+              >
+                <Icon
+                  name={`brand-${platform.id}`}
+                  color={platform.color}
+                  size={18}
+                />
+              </Animated.View>
+            );
+          })}
         </Animated.View>
       </View>
       <IconButton
