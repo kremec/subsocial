@@ -16,7 +16,7 @@ import { Typography } from "@/components/ui/typography";
 import { type FeedMedia, type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/media";
-import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
+import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
 import { MediaVideoContext } from "@/screens/media/media-video-provider";
 

@@ -15,7 +15,7 @@ import { useVideoPlayer, type VideoPlayer } from "expo-video";
 import {
   type PlaybackResult,
   YouTubeMediaContext,
-} from "@/platforms/youtube/media-resolver";
+} from "@/platforms/youtube/use-youtube-media";
 import {
   type MediaVideoSession,
   useMediaVideoPlayback,
