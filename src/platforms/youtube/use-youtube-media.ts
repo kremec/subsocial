@@ -6,8 +6,10 @@ import {
   useEffect,
 } from "react";
 
-import { type YouTubeResolution } from "@/platforms/youtube/media";
-import { resolveYouTubePlayback } from "@/platforms/youtube/playback";
+import {
+  resolveYouTubePlayback,
+  type YouTubeResolution,
+} from "@/platforms/youtube/playback";
 
 export interface PlaybackResult {
   sourceId: string;
