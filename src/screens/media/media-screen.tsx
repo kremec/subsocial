@@ -10,8 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { feedMediaSchema } from "@/feed/schemas";
-import { type PlatformId } from "@/feed/types";
+import { feedMediaSchema, type PlatformId } from "@/feed/types";
 import { openBrowser, openPost } from "@/platforms/open-post";
 import {
   withYouTubeStream,

@@ -8,8 +8,7 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
-import { extractedItemSchema } from "@/feed/schemas";
-import { type ExtractedItem } from "@/feed/types";
+import { type ExtractedItem, extractedItemSchema } from "@/feed/types";
 import { type FeedPage } from "@/platforms/types";
 import { rowsForItems } from "@/screens/feed/feed-rows";
 

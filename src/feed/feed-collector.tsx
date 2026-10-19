@@ -12,8 +12,7 @@ import {
   listPendingYouTubeItems,
   saveExtraction,
 } from "@/feed/database";
-import { extractedItemSchema } from "@/feed/schemas";
-import { type ExtractedItem } from "@/feed/types";
+import { type ExtractedItem, extractedItemSchema } from "@/feed/types";
 import { PlatformWebView } from "@/platforms/platform-web-view";
 import { platformFeed } from "@/platforms/service";
 import { FeedAccessError, type PlatformDefinition } from "@/platforms/types";

@@ -9,7 +9,7 @@ import { ModuleKind, transpileModule } from "typescript";
 import { z } from "zod";
 
 import { feedItemLimit } from "@/feed/collection";
-import { feedPostSchema, platformIdSchema } from "@/feed/schemas";
+import { feedPostSchema, platformIdSchema } from "@/feed/types";
 
 const importSource = transpileModule(
   readFileSync(new URL("./import-database.ts", import.meta.url), "utf8"),
@@ -117,7 +117,7 @@ function importHarness() {
           };
         case "@/feed/database":
           return { ...databaseExports, database: {} };
-        case "@/feed/schemas":
+        case "@/feed/types":
           return { feedPostSchema, platformIdSchema };
         case "zod":
           return { z };

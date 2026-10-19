@@ -13,8 +13,7 @@ import {
   pruneFeedItems,
 } from "@/feed/database";
 import { type CollectionResult } from "@/feed/feed-collector";
-import { platformIdSchema } from "@/feed/schemas";
-import { type PlatformId } from "@/feed/types";
+import { type PlatformId, platformIdSchema } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 

@@ -1,5 +1,10 @@
-import { feedAttachmentSchema, feedMediaSchema } from "@/feed/schemas";
-import type { ExtractedItem, FeedMedia, FeedPost } from "@/feed/types";
+import {
+  type ExtractedItem,
+  feedAttachmentSchema,
+  type FeedMedia,
+  feedMediaSchema,
+  type FeedPost,
+} from "@/feed/types";
 import {
   edgeSchema,
   groupSchema,
