@@ -21,8 +21,7 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
-        // Native player setters must not look like React state mutations.
-        Object.assign(player, { muted: !player.muted });
+        player.muted = !player.muted;
       }}
       style={({ pressed }) => ({
         ...(!inline && { position: "absolute", bottom: 8, right: 8 }),

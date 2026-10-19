@@ -10,7 +10,7 @@ import {
 import { Pressable, View } from "react-native";
 
 import { useEvent } from "expo";
-import { type VideoPlayer, VideoView } from "expo-video";
+import { VideoView } from "expo-video";
 
 import {
   Gesture,
@@ -25,10 +25,10 @@ import {
   canDownloadMedia,
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
+import { player } from "@/stores/media-store";
 import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedVideoControlsProps {
-  player: VideoPlayer;
   media: FeedMedia;
   platform: PlatformId;
   counter?: ReactNode;
@@ -46,7 +46,6 @@ const timeText = (seconds: number) => {
 
 export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   const {
-    player,
     media,
     platform,
     counter,
@@ -74,7 +73,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       if (!scrubbing.current) setCurrentTime(event.currentTime);
     });
     return () => listener.remove();
-  }, [player]);
+  }, []);
   useEffect(() => {
     if (!controlsVisible || !isPlaying || interacting) return;
     const timeout = setTimeout(() => setControlsVisible(false), 3000);
@@ -83,17 +82,15 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   const seekTo = useCallback(
     (position: number) => {
       const time = Math.max(0, Math.min(duration, position));
-      // VideoPlayer setters update the native player.
-      // oxlint-disable-next-line react/immutability
       player.currentTime = time;
       setCurrentTime(time);
     },
-    [player, duration],
+    [duration],
   );
   const togglePlayback = useCallback(() => {
     if (player.playing) player.pause();
     else player.play();
-  }, [player]);
+  }, []);
   const playPauseTap = useMemo(
     () =>
       Gesture.Tap()
@@ -127,7 +124,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           });
         return Gesture.Exclusive(double, single);
       }),
-    [player, seekTo, playPauseTap],
+    [seekTo, playPauseTap],
   );
   const scrubGesture = useMemo(() => {
     const seekAt = (x: number) => seekTo((x / trackWidth) * duration);
@@ -164,7 +161,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       tap.blocksExternalGesture(...navigationGestures);
     }
     return Gesture.Race(drag, tap);
-  }, [player, duration, trackWidth, seekTo, navigationGestures]);
+  }, [duration, trackWidth, seekTo, navigationGestures]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "black" }}>
@@ -325,7 +322,6 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
               hitSlop={8}
               onPress={() => {
                 const next = playbackRates.indexOf(playbackRate) + 1;
-                // oxlint-disable-next-line react/immutability
                 player.playbackRate =
                   playbackRates[next % playbackRates.length];
               }}
