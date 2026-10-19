@@ -1,6 +1,8 @@
 import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { router } from "expo-router";
+
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
@@ -10,7 +12,6 @@ import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
 import { MediaAlbumContext } from "@/screens/media/media-video-provider";
-import { openMedia } from "@/screens/media/open-media";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedMediaCarouselProps {
@@ -54,7 +55,17 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
     setSelection({ postUrl, index });
-    openMedia(media, platform, postUrl, index, androidUrl, sourceId);
+    router.push({
+      pathname: "/media",
+      params: {
+        media: encodeURIComponent(JSON.stringify(media)),
+        postUrl: encodeURIComponent(postUrl),
+        index: String(index),
+        platform,
+        androidUrl: androidUrl && encodeURIComponent(androidUrl),
+        sourceId,
+      },
+    });
   };
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
