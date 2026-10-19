@@ -15,11 +15,7 @@ import {
   type LegendListRef,
   type OnViewableItemsChangedInfo,
 } from "@legendapp/list/react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -92,13 +88,6 @@ export const FeedList: FC<FeedListProps> = (props) => {
   });
   const [showBackToTop, setShowBackToTop] = useState(false);
   const previousScrollY = useRef(0);
-  const pillOffset = useSharedValue(-70);
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: pillOffset.get() }],
-  }));
-  useEffect(() => {
-    pillOffset.set(withTiming(showBackToTop ? 0 : -70, { duration: 180 }));
-  }, [showBackToTop, pillOffset]);
   const savePosition = () => {
     if (!rememberPosition) return;
     const state = list.current?.getState();
@@ -230,10 +219,12 @@ export const FeedList: FC<FeedListProps> = (props) => {
         }}
       >
         <Animated.View
-          style={[
-            { alignSelf: "center", marginTop: theme.spacing.sm },
-            pillStyle,
-          ]}
+          style={{
+            alignSelf: "center",
+            marginTop: theme.spacing.sm,
+            transform: [{ translateY: showBackToTop ? 0 : -70 }],
+            transition: "transform 180ms",
+          }}
         >
           <IconButton
             disabled={!showBackToTop}
