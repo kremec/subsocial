@@ -59,12 +59,7 @@ async function collectFeed(
       for (const post of item.thread ?? []) failures.delete(post.sourceId);
     }
     if (dated.items.length || batch.excludedSourceIds.length)
-      saveExtraction(
-        platform.id,
-        dated.items,
-        batch.excludedSourceIds,
-        batch.fetchedAt,
-      );
+      saveExtraction(platform.id, dated.items, batch.excludedSourceIds);
     if (batch.stop) return;
   }
 }

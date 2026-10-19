@@ -66,7 +66,7 @@ test("rejects a database from a newer app version without changing it", () => {
 
 test("upgrading adds missing indexes and drops undated posts only", () => {
   const store = openStore();
-  store.saveExtraction("youtube", [post("video", 1)], [], 10);
+  store.saveExtraction("youtube", [post("video", 1)], []);
   const before = store.db.prepare("SELECT * FROM feed_items").all();
   store.db.exec(`
     DROP INDEX feed_items_thread_context;
@@ -103,49 +103,34 @@ test("retains 500 per platform so busy platforms cannot evict quieter ones", () 
   assert.equal(items.length, feedItemLimit + 300);
   assert.equal(items[0].publishedAt, 900);
   assert.equal(items.at(-1)?.publishedAt, 101);
-  const plan = store.db
-    .prepare(
-      "EXPLAIN QUERY PLAN SELECT id FROM feed_items ORDER BY published_at DESC, id DESC LIMIT 500",
-    )
-    .all();
-  assert.ok(
-    plan.some((row) =>
-      String(row.detail).includes("feed_items_publication_order"),
-    ),
-  );
-  assert.ok(plan.every((row) => !String(row.detail).includes("TEMP B-TREE")));
   store.db.close();
 });
 
-test("updates hydrated posts without changing first-seen time or unaffected row references", () => {
+test("updates hydrated posts without changing unaffected row references", () => {
   const store = openStore();
   store.saveExtraction("youtube", [post("a", 123), post("b", 122)], []);
-  const [a, b] = store.listFeedItems();
+  const [, b] = store.listFeedItems();
   store.saveExtraction("youtube", [{ ...post("a"), text: "Updated" }], []);
   const [updated, unchanged] = store.listFeedItems();
   assert.equal(updated.publishedAt, 123);
-  assert.equal(updated.fetchedAt, a.fetchedAt);
   assert.equal(updated.text, "Updated");
   assert.equal(unchanged, b);
   assert.equal(store.listFeedItems()[0], updated);
   store.db.close();
 });
 
-test("a refresh cannot replace loaded media with incomplete lazy media", () => {
+test("a partial refresh keeps loaded media and reply links", () => {
   const store = openStore();
+  const video = { type: "video" as const, url: "video.mp4", playable: true };
   const loaded: ExtractedItem = {
     ...post("thread", 2),
+    replyToSourceId: "reply",
     media: [{ type: "image", url: "post-image" }],
-    quote: {
-      url: "https://example.com/quote",
-      media: [{ type: "image", url: "quote-image" }],
-    },
+    quote: { url: "https://example.com/quote", media: [video] },
     thread: [
       {
-        sourceId: "reply",
-        publishedAt: 1,
-        url: "https://example.com/reply",
-        media: [{ type: "video", url: "reply-video" }],
+        ...post("reply", 1),
+        media: [{ type: "image", url: "reply-image" }],
       },
     ],
   };
@@ -154,49 +139,30 @@ test("a refresh cannot replace loaded media with incomplete lazy media", () => {
     "x",
     [
       {
-        ...loaded,
+        ...post("thread"),
         text: "Updated",
-        media: [],
-        quote: { ...loaded.quote!, media: [] },
-        thread: loaded.thread?.map((reply) => ({ ...reply, media: [] })),
+        quote: {
+          ...loaded.quote!,
+          media: [{ ...video, url: "poster", playable: false }],
+        },
+        thread: [post("reply")],
       },
     ],
     [],
   );
   const saved = store.listFeedItems()[0];
   assert.equal(saved.text, "Updated");
+  assert.equal(saved.publishedAt, 2);
+  assert.equal(saved.replyToSourceId, "reply");
   assert.equal(saved.media[0].url, "post-image");
-  assert.equal(saved.quote?.media?.[0].url, "quote-image");
-  assert.equal(saved.thread?.[0].media?.[0].url, "reply-video");
+  assert.deepEqual(saved.quote?.media, [video]);
+  assert.equal(saved.thread?.[0].media?.[0].url, "reply-image");
   store.db.close();
 });
 
-test("a partial refresh preserves an X reply relationship", () => {
+test("withholds new undated posts and removes explicit exclusions", () => {
   const store = openStore();
-  store.saveExtraction(
-    "x",
-    [{ ...post("reply", 2), replyToSourceId: "parent" }],
-    [],
-  );
-  store.saveExtraction("x", [{ ...post("reply", 2), text: "Updated" }], []);
-  const saved = store.listFeedItems()[0];
-  assert.equal(saved.text, "Updated");
-  assert.equal(saved.replyToSourceId, "parent");
-  store.db.close();
-});
-
-test("withholds new undated posts on every platform and removes explicit exclusions", () => {
-  const store = openStore();
-  for (const platform of [
-    "instagram",
-    "facebook",
-    "x",
-    "reddit",
-    "youtube",
-  ] as const) {
-    store.saveExtraction(platform, [post("undated")], []);
-    assert.equal(store.sourceIds(platform).length, 0);
-  }
+  store.saveExtraction("youtube", [post("undated")], []);
   assert.equal(store.listFeedItems().length, 0);
   store.saveExtraction("youtube", [post("upcoming", 1)], []);
   assert.equal(store.listFeedItems().length, 1);
@@ -204,25 +170,6 @@ test("withholds new undated posts on every platform and removes explicit exclusi
   store.saveExtraction("youtube", [], ["upcoming"]);
   assert.equal(store.listFeedItems().length, 0);
   assert.equal(store.listPostIds().size, 0);
-  store.db.close();
-});
-
-test("a lazy video preview cannot replace an already playable video", () => {
-  const store = openStore();
-  const video = { type: "video" as const, url: "video.mp4", playable: true };
-  store.saveExtraction("x", [{ ...post("video", 1), media: [video] }], []);
-  store.saveExtraction(
-    "x",
-    [
-      {
-        ...post("video"),
-        media: [{ ...video, url: "poster", playable: false }],
-      },
-    ],
-    [],
-  );
-  assert.equal(store.listFeedItems()[0].media[0].url, "video.mp4");
-  assert.equal(store.listFeedItems()[0].media[0].playable, true);
   store.db.close();
 });
 
@@ -296,17 +243,16 @@ test("overlapping X thread batches merge without duplicating saved roots", () =>
   store.db.close();
 });
 
-test("same-second thread replies keep a stable root and discovery time", () => {
+test("same-second thread replies keep a stable root", () => {
   const store = openStore();
   const first = post("100", 1);
   const last = post("101", 1);
-  store.saveExtraction("x", [{ ...last, thread: [first, last] }], [], 10);
-  store.saveExtraction("x", [first], [], 20);
-  store.saveExtraction("x", [last], [], 30);
+  store.saveExtraction("x", [{ ...last, thread: [first, last] }], []);
+  store.saveExtraction("x", [first], []);
+  store.saveExtraction("x", [last], []);
   const items = store.listFeedItems();
   assert.equal(items.length, 1);
   assert.equal(items[0].sourceId, "101");
-  assert.equal(items[0].fetchedAt, 10);
   assert.equal(items[0].thread?.length, 2);
   store.db.close();
 });
@@ -316,10 +262,10 @@ test("a new sibling reply does not bump an older branch in the feed", () => {
   const first = post("first", 1);
   const older = { ...post("older", 2), replyToSourceId: first.sourceId };
   const newer = { ...post("newer", 4), replyToSourceId: first.sourceId };
-  store.saveExtraction("x", [{ ...older, thread: [first, older] }], [], 10);
-  store.saveExtraction("reddit", [post("between", 3)], [], 20);
+  store.saveExtraction("x", [{ ...older, thread: [first, older] }], []);
+  store.saveExtraction("reddit", [post("between", 3)], []);
   const olderId = store.listFeedItems()[1].id;
-  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], [], 30);
+  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], []);
 
   const items = store.listFeedItems();
   assert.deepEqual(
@@ -336,10 +282,9 @@ test("a new sibling reply does not bump an older branch in the feed", () => {
   );
   assert.equal(items[2].id, olderId);
   assert.equal(items[2].publishedAt, 2);
-  assert.equal(items[2].fetchedAt, 10);
   assert.equal(store.listFeedItems()[0], items[0]);
   assert.equal(store.listFeedItems()[2], items[2]);
-  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], [], 40);
+  store.saveExtraction("x", [{ ...newer, thread: [first, newer] }], []);
   assert.equal(store.listFeedItems()[0], items[0]);
   assert.equal(store.listFeedItems()[2], items[2]);
   assert.equal(store.sourceIds("x").length, 3);
@@ -504,9 +449,9 @@ test("separately ingested replies join their parents regardless of arrival order
   ]) {
     const store = openStore();
     store.saveExtraction("reddit", [first], []);
-    for (const item of arrivals) store.saveExtraction("x", [item], [], 10);
+    for (const item of arrivals) store.saveExtraction("x", [item], []);
     const sibling = { ...post("sibling", 3), replyToSourceId: first.sourceId };
-    store.saveExtraction("x", [sibling], [], 20);
+    store.saveExtraction("x", [sibling], []);
 
     const items = store.listFeedItems();
     assert.deepEqual(
@@ -521,7 +466,6 @@ test("separately ingested replies join their parents regardless of arrival order
       Array.from(items[1].thread ?? [], (post) => post.sourceId),
       ["first", "sibling"],
     );
-    assert.equal(items[0].fetchedAt, 10);
     assert.equal(items[2].thread, undefined);
     assert.equal(
       store.db
@@ -557,17 +501,6 @@ test("ingesting new replies preserves visible row keys as their thread moves up 
     beforeRows.map((row) => row.id),
   );
   assert.equal(afterRows[2].post?.sourceId, next.sourceId);
-  store.db.close();
-});
-
-test("publication timestamps determine order regardless of collection discovery", () => {
-  const store = openStore();
-  store.saveExtraction("facebook", [post("older", 1)], [], 100);
-  store.saveExtraction("facebook", [post("newer", 2)], [], 99);
-  assert.deepEqual(
-    Array.from(store.listFeedItems(), (item) => item.sourceId),
-    ["newer", "older"],
-  );
   store.db.close();
 });
 

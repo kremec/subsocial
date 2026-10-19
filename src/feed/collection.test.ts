@@ -73,7 +73,6 @@ test("deduplicates overlapping API pages and stops only at an all-known boundary
   );
   assert.equal(next.stop, false);
   assert.deepEqual(progress.accept(batch("two", "three")).items, []);
-  assert.equal(first.fetchedAt - next.fetchedAt, 1);
   const end = progress.accept(batch("three", "old", "four"));
   assert.equal(end.stop, false);
   assert.deepEqual(

@@ -6,7 +6,6 @@ export const feedItemLimit = 500;
 // Keep the previous session separate from posts found during this collection.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();
-  private fetchedAt = Date.now();
 
   constructor(private readonly known: Set<string>) {}
 
@@ -34,7 +33,6 @@ export class CollectionProgress {
     }
 
     return {
-      fetchedAt: this.fetchedAt--,
       items,
       excludedSourceIds: [...excluded],
       stop: this.seen.size >= feedItemLimit || reachedKnown || page.end,
