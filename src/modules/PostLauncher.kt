@@ -1,4 +1,4 @@
-package subsocial.platforms
+package subsocial.modules
 
 import android.content.Intent
 import android.content.pm.PackageManager

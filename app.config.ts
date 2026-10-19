@@ -87,7 +87,7 @@ export default {
   ],
   experiments: {
     inlineModules: {
-      watchedDirectories: ["src/platforms"],
+      watchedDirectories: ["src/modules"],
     },
     typedRoutes: true,
     reactCompiler: true,
