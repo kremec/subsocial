@@ -61,10 +61,8 @@ const icons = {
   x: IconX,
 } satisfies Record<string, ComponentType<IconProps>>;
 
-export type IconName = keyof typeof icons;
-
 interface AppIconProps extends IconProps {
-  name: IconName;
+  name: keyof typeof icons;
   filled?: boolean;
 }
 
