@@ -6,10 +6,6 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
-import { z } from "zod";
-
-import { feedItemLimit } from "@/feed/collection";
-import { feedPostSchema, platformIdSchema } from "@/feed/types";
 
 const importSource = transpileModule(
   readFileSync(new URL("./import-database.ts", import.meta.url), "utf8"),
@@ -80,9 +76,7 @@ function importHarness() {
   runInNewContext(databaseSource, {
     exports: databaseExports,
     require(name: string) {
-      if (name === "expo-sqlite") return {};
-      if (name === "@/feed/collection") return { feedItemLimit };
-      throw new Error(name);
+      return name === "expo-sqlite" ? {} : require(name);
     },
   });
   const exports = {} as typeof import("./import-database");
@@ -117,12 +111,8 @@ function importHarness() {
           };
         case "@/feed/database":
           return { ...databaseExports, database: {} };
-        case "@/feed/types":
-          return { feedPostSchema, platformIdSchema };
-        case "zod":
-          return { z };
         default:
-          throw new Error(name);
+          return require(name);
       }
     },
   });

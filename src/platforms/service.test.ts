@@ -6,7 +6,6 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
-import { hasSession, ownsHost } from "@/platforms/platforms";
 import {
   FeedAccessError,
   type FeedPage,
@@ -133,12 +132,10 @@ function harness(options: HarnessOptions = {}) {
             },
           },
         };
-      if (name === "@/platforms/types") return { FeedAccessError };
-      if (name === "@/platforms/platforms") return { hasSession, ownsHost };
       const id = name.split("/").at(-2);
       if (["facebook", "instagram", "reddit", "x", "youtube"].includes(id!))
         return { [`${id}Feed`]: adapter };
-      throw new Error(name);
+      return require(name);
     },
   });
   return {
