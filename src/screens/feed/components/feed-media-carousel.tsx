@@ -11,7 +11,7 @@ import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
 import { FeedVideoLayoutContext } from "@/screens/feed/use-feed-video-visibility";
-import { MediaAlbumContext } from "@/screens/media/media-video-provider";
+import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
 
 interface FeedMediaCarouselProps {
@@ -42,7 +42,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
   const setVideoView = useContext(FeedVideoLayoutContext)!;
-  const { selection, setSelection } = useContext(MediaAlbumContext)!;
+  const selection = useMediaStore((state) => state.album);
   useLayoutEffect(() => {
     if (selection?.postUrl !== postUrl) return;
     // Fullscreen and inline views keep the same album position.
@@ -54,7 +54,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     });
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
-    setSelection({ postUrl, index });
+    useMediaStore.setState({ album: { postUrl, index } });
     router.push({
       pathname: "/media",
       params: {

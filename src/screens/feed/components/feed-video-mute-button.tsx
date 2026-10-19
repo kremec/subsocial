@@ -1,10 +1,10 @@
-import { type FC, useContext } from "react";
+import { type FC } from "react";
 import { Pressable } from "react-native";
 
 import { useEvent } from "expo";
 
 import { Icon } from "@/components/ui/icon";
-import { MediaVideoContext } from "@/screens/media/media-video-provider";
+import { player } from "@/stores/media-store";
 
 interface FeedVideoMuteButtonProps {
   inline?: boolean;
@@ -12,7 +12,6 @@ interface FeedVideoMuteButtonProps {
 
 export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
   const { inline } = props;
-  const { player } = useContext(MediaVideoContext)!;
   const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (

@@ -2,7 +2,6 @@ import {
   type FC,
   type ReactNode,
   useCallback,
-  useContext,
   useLayoutEffect,
   useState,
 } from "react";
@@ -18,7 +17,7 @@ import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
-import { MediaVideoContext } from "@/screens/media/media-video-provider";
+import { player, showVideo, useMediaStore } from "@/stores/media-store";
 
 interface FeedVideoProps {
   playbackKey: string;
@@ -44,8 +43,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
     navigationGestures,
     counter,
   } = props;
-  const playback = useContext(MediaVideoContext)!;
-  const { registerVideo } = playback;
+  const loaded = useMediaStore((state) => state.loaded);
   const youtube = useYouTubeMedia(
     platform === "youtube" ? sourceId : undefined,
   );
@@ -64,20 +62,19 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   // Load this video into the shared player while it can play.
   useLayoutEffect(() => {
     if (!status)
-      return registerVideo({
+      return showVideo({
         playbackKey,
         media: withYouTubeStream(media, resolution),
         onError: fail,
       });
-  }, [status, registerVideo, playbackKey, media, resolution, fail]);
+  }, [status, playbackKey, media, resolution, fail]);
 
   if (!status) {
-    const loaded = playback.loadedVideo;
     if (loaded?.playbackKey !== playbackKey || loaded.url !== video.url)
       return counter || null;
     return (
       <FeedVideoControls
-        player={playback.player}
+        player={player}
         media={video}
         platform={platform}
         counter={counter}
