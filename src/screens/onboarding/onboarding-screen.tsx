@@ -8,22 +8,21 @@ import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
-import { WebKitBootstrap } from "@/components/web-kit-bootstrap";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openBrowser } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 
 interface OnboardingScreenProps {
-  onContinue: () => void;
+  webKitReady: boolean;
 }
 
 export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
-  const { onContinue } = props;
+  const { webKitReady } = props;
   const theme = useTheme();
   const focused = useIsFocused();
-  const [webKitReady, setWebKitReady] = useState(false);
   const [connected, setConnected] = useState(listConnectedPlatforms);
   const [checking, setChecking] = useState(true);
 
@@ -57,7 +56,6 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
         paddingBottom: theme.spacing.lg,
       }}
     >
-      {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
       <View
         style={{
           flex: 1,
@@ -119,7 +117,6 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
                       ? `${platform.label}, connected. Manage connection`
                       : `Connect ${platform.label}`
                   }
-                  accessibilityState={{ disabled: !webKitReady }}
                   disabled={!webKitReady}
                   onPress={() => {
                     setChecking(true);
@@ -163,9 +160,8 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Continue to feed"
-          accessibilityState={{ disabled: !canContinue }}
           disabled={!canContinue}
-          onPress={onContinue}
+          onPress={() => useSettingsStore.setState({ onboarded: true })}
           style={({ pressed }) => ({
             minHeight: 52,
             alignItems: "center",
