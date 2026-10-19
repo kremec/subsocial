@@ -15,17 +15,10 @@ interface FeedImageProps {
 
 export const FeedImageTransitionContext = createContext(150);
 
-export const originalXImageUrl = (value: string) => {
-  if (!value.startsWith("https://pbs.twimg.com/media/")) return value;
-  const url = new URL(value);
-  url.searchParams.set("name", "orig");
-  return url.href;
-};
-
 export const FeedImage: FC<FeedImageProps> = (props) => {
   const { media, onPress } = props;
   const transition = useContext(FeedImageTransitionContext);
-  const url = originalXImageUrl(media.url);
+  const { url } = media;
   const [failedUrl, setFailedUrl] = useRecyclingState<string | undefined>(
     undefined,
   );

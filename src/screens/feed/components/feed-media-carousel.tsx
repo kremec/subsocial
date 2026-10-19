@@ -5,10 +5,7 @@ import { ScrollView } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
 import { type FeedMedia, type PlatformId } from "@/feed/types";
-import {
-  FeedImage,
-  originalXImageUrl,
-} from "@/screens/feed/components/feed-image";
+import { FeedImage } from "@/screens/feed/components/feed-image";
 import {
   FeedVideo,
   type PlaybackStatus,
@@ -69,18 +66,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
     album?.setSelection({ postUrl, index });
-    openMedia(
-      media.map((item) =>
-        item.type === "image"
-          ? { ...item, url: originalXImageUrl(item.url) }
-          : item,
-      ),
-      platform,
-      postUrl,
-      index,
-      androidUrl,
-      sourceId,
-    );
+    openMedia(media, platform, postUrl, index, androidUrl, sourceId);
   };
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
