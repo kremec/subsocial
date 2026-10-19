@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { extractedItemSchema } from "@/feed/schemas";
+import { extractedItemSchema } from "@/feed/types";
 import { facebookFeed, parseFacebookFeed } from "@/platforms/facebook/service";
 
 const story = {

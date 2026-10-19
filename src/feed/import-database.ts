@@ -10,7 +10,7 @@ import {
 import { z } from "zod";
 
 import { database, migrateDatabase } from "@/feed/database";
-import { feedPostSchema, platformIdSchema } from "@/feed/schemas";
+import { feedPostSchema, platformIdSchema } from "@/feed/types";
 
 const importDatabaseName = "subsocial-import.db";
 const importedRowSchema = z.object({
