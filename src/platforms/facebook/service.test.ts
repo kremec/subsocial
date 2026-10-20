@@ -771,7 +771,10 @@ for (const imageField of ["flexible_height_share_image", "large_share_image"]) {
                           imageField === "flexible_height_share_image"
                             ? { __typename: "ExternalWebLink", url }
                             : null,
-                        url: `https://l.facebook.com/l.php?u=${encodeURIComponent(url)}`,
+                        url:
+                          imageField === "large_share_image"
+                            ? `https://l.facebook.com/l.php?u=${encodeURIComponent(url)}`
+                            : null,
                       },
                     },
                   },
