@@ -198,8 +198,13 @@ function attachmentFor(attachments: Json) {
   for (const entry of nestedObjects(attachments)) {
     const media = asObject(entry.media);
     const event = asObject(entry.target);
+    const link = asObject(
+      asObject(entry.story_attachment_link_renderer).attachment,
+    );
     const rawUrl =
       asString(media.external_url) ||
+      asString(asObject(link.web_link).url) ||
+      asString(link.url) ||
       asString(entry.url) ||
       asString(event.url);
     if (!rawUrl) continue;
@@ -232,7 +237,11 @@ function attachmentFor(attachments: Json) {
         : undefined,
     });
     if (!parsed.success) continue;
-    const image = asObject(media.image);
+    const image = asObject(
+      media.flexible_height_share_image ||
+        media.large_share_image ||
+        media.image,
+    );
     const preview = feedMediaSchema.safeParse({
       type: "image",
       url: image.uri,
