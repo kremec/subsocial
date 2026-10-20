@@ -736,3 +736,66 @@ test("reads link preview images while preserving commentary and normal photos", 
   assert.equal(pageFor(story).attachment, undefined);
   assert.equal(pageFor(story).media[0].url, "https://example.com/photo.jpg");
 });
+
+for (const imageField of ["flexible_height_share_image", "large_share_image"]) {
+  test(`reads a shared link's nested destination and ${imageField}`, () => {
+    const url =
+      "https://www.avto.net/Ads/details.asp?id=22997226&display=Mercedes-Benz%20Atego%201529%204x4";
+    const title = "Mercedes-Benz Atego 1529 4x4, 127000 EUR";
+    const item = pageFor({
+      ...story,
+      post_id: "29475218058730791",
+      comet_sections: {
+        ...story.comet_sections,
+        content: {
+          story: {
+            message: { text: "Prodamo če koga zanima.\n\n" },
+            attachments: [
+              {
+                styles: {
+                  attachment: {
+                    title_with_entities: { text: title },
+                    media: {
+                      __typename: "GenericAttachmentMedia",
+                      flexible_height_share_image: null,
+                      [imageField]: {
+                        uri: "https://example.com/truck.jpg",
+                        width: 500,
+                        height: 261,
+                      },
+                    },
+                    story_attachment_link_renderer: {
+                      __typename: "StoryAttachmentGenericLinkRenderer",
+                      attachment: {
+                        web_link:
+                          imageField === "flexible_height_share_image"
+                            ? { __typename: "ExternalWebLink", url }
+                            : null,
+                        url: `https://l.facebook.com/l.php?u=${encodeURIComponent(url)}`,
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+    assert.equal(item.text, "Prodamo če koga zanima.\n\n");
+    assert.equal(item.attachment?.title, title);
+    assert.equal(item.attachment?.type, "link");
+    assert.equal(item.attachment?.url, url);
+    assert.deepEqual(item.media, [
+      {
+        type: "image",
+        url: "https://example.com/truck.jpg",
+        aspectRatio: 500 / 261,
+      },
+    ]);
+    assert.deepEqual(
+      extractedItemSchema.parse(item).attachment,
+      item.attachment,
+    );
+  });
+}
