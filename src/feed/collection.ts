@@ -1,17 +1,11 @@
-import { type ExtractedItem, type ExtractedPost } from "@/feed/types";
-import { type FeedPage } from "@/platforms/types";
+import { type FeedPage } from "@/types/platform";
+import { type ExtractedItem, type ExtractedPost } from "@/types/post";
 
 export const feedItemLimit = 500;
-export const collectionTimeout = 120_000;
-export const collectorConcurrency = 5;
-
-export const collectionKnownKey = (platform: string) =>
-  `collection-known:${platform}`;
 
 // Keep the previous session separate from posts found during this collection.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();
-  private fetchedAt = Date.now();
 
   constructor(private readonly known: Set<string>) {}
 
@@ -39,7 +33,6 @@ export class CollectionProgress {
     }
 
     return {
-      fetchedAt: this.fetchedAt--,
       items,
       excludedSourceIds: [...excluded],
       stop: this.seen.size >= feedItemLimit || reachedKnown || page.end,

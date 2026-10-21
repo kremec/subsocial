@@ -3,8 +3,8 @@ import { Linking, Platform } from "react-native";
 import { requireNativeModule } from "expo";
 import { router } from "expo-router";
 
-import { type PlatformId } from "@/feed/types";
-import { getPlatform, platforms } from "@/platforms/platforms";
+import { getPlatform } from "@/platforms/platforms";
+import { type PlatformId } from "@/types/post";
 
 interface PostLauncherModule {
   openPost: (
@@ -33,15 +33,6 @@ export function canOpenPlatformApp(id: PlatformId) {
 
 export function openPlatformApp(id: PlatformId) {
   return Linking.openURL(getPlatformAppUrl(id));
-}
-
-export async function getInstalledPlatformIds() {
-  const installed = await Promise.all(
-    platforms.map(async ({ id }) =>
-      (await canOpenPlatformApp(id)) ? [id] : [],
-    ),
-  );
-  return installed.flat();
 }
 
 export async function openPost(

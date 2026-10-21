@@ -3,9 +3,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type FeedItem } from "@/feed/types";
-import { findPositionIndex, positionFor } from "@/screens/feed/feed-position";
-import { rowsForItems } from "@/screens/feed/feed-rows";
+import {
+  findPositionIndex,
+  positionFor,
+  rowsForItems,
+} from "@/screens/feed/feed-rows";
+import { type FeedItem } from "@/types/post";
 
 function branch(...sourceIds: number[]): FeedItem {
   const posts = sourceIds.map((id, index) => ({
@@ -19,7 +22,6 @@ function branch(...sourceIds: number[]): FeedItem {
     ...last,
     id: `x:${last.sourceId}`,
     platform: "x",
-    fetchedAt: last.publishedAt,
     media: [],
     thread: posts.length > 1 ? posts : undefined,
   };
@@ -87,8 +89,6 @@ test("bookmarks made with tip-based row keys recover the same branch occurrence"
   for (const [index, row] of before.entries()) {
     assert.equal(findPositionIndex(after, positionFor(row, -12)), index);
   }
-  assert.equal(findPositionIndex(after, { id: "x:3:0:1", viewOffset: 0 }), 2);
-  assert.equal(findPositionIndex(after, { id: "x:3:1:1", viewOffset: 0 }), 0);
 });
 
 test("branch keys are assigned before search filters out an older occurrence", () => {
@@ -97,4 +97,73 @@ test("branch keys are assigned before search filters out an older occurrence", (
   const all = rowsForItems([newer, older]);
   const matchingRows = [newer].flatMap((item) => all.get(item)!);
   assert.equal(matchingRows[0].id, "x:1:reply:3");
+});
+
+function positionRows(sourceIds: string[], publishedAt: number) {
+  const sourceId = sourceIds.at(-1)!;
+  const item: FeedItem = {
+    id: `x:${sourceId}`,
+    sourceId,
+    platform: "x",
+    publishedAt,
+    url: `https://x.com/user/status/${sourceId}`,
+    media: [],
+    thread: sourceIds.map((id) => ({
+      sourceId: id,
+      url: `https://x.com/user/status/${id}`,
+    })),
+  };
+  return item.thread!.map((post) => ({
+    id: `${item.id}:0:${post.sourceId}`,
+    item,
+    post,
+  }));
+}
+
+const rows = [...positionRows(["A", "C"], 3), ...positionRows(["A", "B"], 2)];
+
+test("new bookmarks round-trip each repeated parent and preserve its offset", () => {
+  for (const [index, row] of rows.entries()) {
+    const position = JSON.parse(JSON.stringify(positionFor(row, -24)));
+    assert.equal(position.viewOffset, -24);
+    assert.equal(findPositionIndex(rows, position), index);
+  }
+});
+
+test("new bookmarks follow their branch when a later reply changes its tip", () => {
+  const continued = [
+    ...positionRows(["A", "C", "D"], 4),
+    ...positionRows(["A", "B"], 2),
+  ];
+  assert.equal(findPositionIndex(continued, positionFor(rows[0], -12)), 0);
+  assert.equal(findPositionIndex(continued, positionFor(rows[1], -12)), 1);
+  assert.equal(findPositionIndex(continued, positionFor(rows[2], -12)), 3);
+});
+
+test("standalone bookmarks retain their row and follow it into a thread", () => {
+  const standalone = { id: "x:A", item: positionRows(["A"], 1)[0].item };
+  assert.equal(
+    findPositionIndex([standalone], { id: "x:A", viewOffset: 0 }),
+    0,
+  );
+  assert.equal(findPositionIndex([standalone], positionFor(standalone, 0)), 0);
+  assert.equal(
+    findPositionIndex(positionRows(["A", "B"], 2), positionFor(standalone, 0)),
+    0,
+  );
+});
+
+test("removed branches fall back to a surviving occurrence of the saved post", () => {
+  const remaining = positionRows(["A", "C"], 3);
+  assert.equal(findPositionIndex(remaining, positionFor(rows[2], -12)), 0);
+  assert.equal(findPositionIndex(remaining, positionFor(rows[3], -12)), -1);
+});
+
+test("position fallback does not match another platform's source ID", () => {
+  const other = {
+    ...rows[3],
+    id: "reddit:B",
+    item: { ...rows[3].item, platform: "reddit" as const },
+  };
+  assert.equal(findPositionIndex([other], positionFor(rows[3], 0)), -1);
 });

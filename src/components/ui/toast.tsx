@@ -14,7 +14,12 @@ export const showErrorToast = (message: string): void => {
   });
 };
 
-export const Toast: FC = () => {
+interface ToastProps {
+  topOffset?: number;
+}
+
+export const Toast: FC<ToastProps> = (props) => {
+  const { topOffset = 56 } = props;
   const { colors } = useTheme();
   const config: ToastConfig = {
     error: (params) => {
@@ -22,6 +27,7 @@ export const Toast: FC = () => {
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`${text1}. ${text2}. Dismiss`}
           onPress={onPress}
           style={{
             width: "92%",
@@ -35,11 +41,16 @@ export const Toast: FC = () => {
           <Text style={{ color: colors.danger, fontWeight: "600" }}>
             {text1}
           </Text>
-          <Text style={{ color: colors.text, lineHeight: 20 }}>{text2}</Text>
+          <Text
+            accessibilityRole="alert"
+            style={{ color: colors.text, lineHeight: 20 }}
+          >
+            {text2}
+          </Text>
         </Pressable>
       );
     },
   };
 
-  return <ToastMessage config={config} topOffset={56} />;
+  return <ToastMessage config={config} topOffset={topOffset} />;
 };

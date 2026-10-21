@@ -2,29 +2,116 @@ import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
 
-import { type ExtractedItem } from "@/feed/types";
 import {
   type Json,
   type JsonObject,
-  object,
-  string,
-  objects,
+  asObject,
+  asString,
+  nestedObjects,
   bootstrap,
-} from "@/platforms/json";
+} from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
-import { browseResponseSchema } from "@/platforms/youtube/schemas/browse-response-schema";
-import { configSchema } from "@/platforms/youtube/schemas/config-schema";
-import {
-  playerResponseSchema,
-  type PlayerResponse,
-} from "@/platforms/youtube/schemas/player-response-schema";
-import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-schema";
+} from "@/types/platform";
+import { type ExtractedItem } from "@/types/post";
 
-function videos(data: Json) {
+const configSchema = z.object({
+  SESSION_INDEX: z.union([z.string(), z.number()]).optional(),
+  USER_SESSION_ID: z.string().optional(),
+  DELEGATED_SESSION_ID: z.string().optional(),
+  LOGGED_IN: z.boolean().optional(),
+  INNERTUBE_CONTEXT: z.record(z.string(), z.json()).optional(),
+});
+
+// Renderer trees vary between desktop, mobile, and continuation responses.
+// Keep the tree intact and validate individual video renderers when traversing it.
+const roots = [
+  "contents",
+  "onResponseReceivedActions",
+  "onResponseReceivedEndpoints",
+  "continuationContents",
+];
+const browseResponseSchema = z
+  .record(z.string(), z.json())
+  .refine(
+    (response) => roots.some((key) => response[key] !== undefined),
+    "YouTube feed response was incomplete.",
+  );
+
+const textSchema = z
+  .object({
+    content: z.string().optional(),
+    simpleText: z.string().optional(),
+    runs: z.array(z.object({ text: z.string() })).optional(),
+  })
+  .transform(
+    (value) =>
+      value.content ||
+      value.simpleText ||
+      value.runs?.map((run) => run.text).join("") ||
+      "",
+  );
+
+const videoRendererSchema = z.object({
+  contentId: z.string().optional(),
+  videoId: z.string().optional(),
+  headline: textSchema.optional(),
+  title: textSchema.optional(),
+  shortBylineText: textSchema.optional(),
+  metadata: z
+    .object({
+      lockupMetadataViewModel: z.object({
+        title: textSchema.optional(),
+        metadata: z
+          .object({
+            contentMetadataViewModel: z.object({
+              metadataRows: z.array(
+                z.object({
+                  metadataParts: z.array(
+                    z.object({ text: textSchema.optional() }),
+                  ),
+                }),
+              ),
+            }),
+          })
+          .optional(),
+      }),
+    })
+    .optional(),
+});
+
+const playerResponseSchema = z.object({
+  videoDetails: z
+    .object({
+      author: z.string().optional(),
+      title: z.string().optional(),
+      isLive: z.boolean().optional(),
+      isUpcoming: z.boolean().optional(),
+    })
+    .optional(),
+  microformat: z
+    .object({
+      playerMicroformatRenderer: z
+        .object({
+          publishDate: z.string().optional(),
+          uploadDate: z.string().optional(),
+          liveBroadcastDetails: z
+            .object({
+              isLiveNow: z.boolean().optional(),
+              endTimestamp: z.string().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+type PlayerResponse = z.infer<typeof playerResponseSchema>;
+
+function videos(response: JsonObject) {
   const found = new Map<string, JsonObject>();
   let continuation = "";
   const visit = (value: Json | undefined) => {
@@ -33,36 +120,36 @@ function videos(data: Json) {
       for (const item of value) visit(item);
       return;
     }
-    const node = object(value);
-    const lockup = object(node.lockupViewModel);
-    const renderer = object(
+    const node = asObject(value);
+    const lockup = asObject(node.lockupViewModel);
+    const renderer = asObject(
       node.videoRenderer || node.videoWithContextRenderer,
     );
     const video =
       lockup.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" ? lockup : renderer;
-    const id = string(video.contentId) || string(video.videoId);
+    const id = asString(video.contentId) || asString(video.videoId);
     if (id) {
       found.set(id, video);
       return;
     }
-    const token = string(
-      object(
-        object(object(node.continuationItemRenderer).continuationEndpoint)
+    const token = asString(
+      asObject(
+        asObject(asObject(node.continuationItemRenderer).continuationEndpoint)
           .continuationCommand,
       ).token,
     );
     if (token) continuation = token;
-    const browse = object(
+    const browse = asObject(
       node.twoColumnBrowseResultsRenderer ||
         node.singleColumnBrowseResultsRenderer,
     );
     if (Array.isArray(browse.tabs)) {
       for (const tab of browse.tabs) {
-        const renderer = object(object(tab).tabRenderer);
+        const renderer = asObject(asObject(tab).tabRenderer);
         if (renderer.selected === true) visit(renderer.content);
       }
     }
-    visit(object(node.richItemRenderer).content);
+    visit(asObject(node.richItemRenderer).content);
     // Follow feed containers only. Featured and Shorts shelves are not chronological.
     for (const key of [
       "richGridRenderer",
@@ -76,15 +163,11 @@ function videos(data: Json) {
       "appendContinuationItemsAction",
       "reloadContinuationItemsCommand",
     ]) {
-      const renderer = object(node[key]);
+      const renderer = asObject(node[key]);
       visit(renderer.contents || renderer.items || renderer.continuationItems);
     }
   };
-  const response = object(data);
-  visit(response.contents);
-  visit(response.onResponseReceivedActions);
-  visit(response.onResponseReceivedEndpoints);
-  visit(response.continuationContents);
+  for (const key of roots) visit(response[key]);
   return { found, continuation };
 }
 
@@ -93,9 +176,6 @@ export async function* youtubeFeed(
 ): AsyncGenerator<FeedPage> {
   const response = await request.fetch(
     "https://www.youtube.com/feed/subscriptions",
-    {
-      signal: request.signal,
-    },
   );
   const html = await response.text();
   const config = configSchema.parse(bootstrap(html, "ytcfg.set({"));
@@ -104,7 +184,7 @@ export async function* youtubeFeed(
   const context = config.INNERTUBE_CONTEXT;
   if (!context) throw new Error("YouTube feed context was incomplete.");
   const origin = new URL(response.url).origin;
-  let data: Json = browseResponseSchema.parse(
+  let data: JsonObject = browseResponseSchema.parse(
     bootstrap(html, "var ytInitialData = "),
   );
   const api = async (
@@ -149,7 +229,6 @@ export async function* youtubeFeed(
         method: "POST",
         headers,
         body: JSON.stringify({ context, ...body }),
-        signal: request.signal,
       },
     );
     const data = z.record(z.string(), z.json()).parse(await response.json());
@@ -157,29 +236,14 @@ export async function* youtubeFeed(
       throw new Error("YouTube API request failed. Try again later.");
     return data;
   };
-  let pending = request.pendingItems ?? [];
   const seen = new Set<string>();
   const cursors = new Set<string>();
   while (!request.signal.aborted) {
     const page = videos(data);
-    if (pending.length) {
-      page.found = new Map([
-        ...pending.map((item): [string, JsonObject] => [
-          item.sourceId,
-          {
-            videoId: item.sourceId,
-            title: { simpleText: item.text || "" },
-            shortBylineText: { simpleText: item.authorName || "" },
-          },
-        ]),
-        ...page.found,
-      ]);
-      pending = [];
-    }
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);
-      const live = [...objects(video)].some(
+      const live = [...nestedObjects(video)].some(
         (node) =>
           node.style === "LIVE" ||
           node.style === "BADGE_STYLE_TYPE_LIVE_NOW" ||
@@ -208,7 +272,7 @@ export async function* youtubeFeed(
           microformat?.publishDate,
           microformat?.uploadDate,
         ]
-          .map((value) => Date.parse(string(value)))
+          .map((value) => Date.parse(asString(value)))
           .find((value) => value > 0);
         if (!publishedAt) {
           yield { items: [], failedSourceIds: [sourceId], end: false };
@@ -235,7 +299,6 @@ export async function* youtubeFeed(
         sourceId,
         url: `https://www.youtube.com/watch?v=${sourceId}`,
         authorName: author,
-        authorHandle: author,
         text: title,
         publishedAt,
         media: [

@@ -1,31 +1,113 @@
-import { feedAttachmentSchema, feedMediaSchema } from "@/feed/schemas";
-import type { ExtractedItem, FeedMedia, FeedPost } from "@/feed/types";
+import { z } from "zod";
+
 import {
-  edgeSchema,
-  groupSchema,
-  type FacebookStory,
-  pageInfoSchema,
-  partSchema,
-  rootDataSchema,
-  pageDataSchema,
-  mediaSchema,
-  tokenSchema,
-  webLiteTokenSchema,
-} from "@/platforms/facebook/schemas/feed-response-schema";
-import {
+  aspectRatio,
   bootstrap,
-  object,
-  objects,
-  string,
+  asObject,
+  nestedObjects,
+  asString,
   type Json,
   type JsonObject,
-} from "@/platforms/json";
+  paginate,
+} from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
+} from "@/types/platform";
+import {
+  type ExtractedItem,
+  feedAttachmentSchema,
+  type FeedMedia,
+  feedMediaSchema,
+  type FeedPost,
+} from "@/types/post";
 
+const nameSchema = z.object({ name: z.string().nullish() });
+const storySchema = z.object({
+  id: z.string().nullish(),
+  __typename: z.string().optional(),
+  post_id: z.string().nullish(),
+  creation_time: z.number().nullish(),
+  url: z.string().nullish(),
+  permalink_url: z.string().nullish(),
+  wwwURL: z.string().nullish(),
+  to: nameSchema.extend({ __typename: z.string().optional() }).nullish(),
+  message: z.object({ text: z.string().nullish() }).nullish(),
+  target_group: nameSchema.nullish(),
+  sponsored_data: z.json().optional(),
+  actors: z.array(nameSchema).nullish(),
+  attachments: z.json().optional(),
+  short_form_video_context: z.json().optional(),
+  feedback: z.object({ associated_group: nameSchema.nullish() }).nullish(),
+  get attached_story() {
+    return storySchema.nullish();
+  },
+  get comet_sections() {
+    return z
+      .object({
+        content: z.object({ story: storySchema.nullish() }).nullish(),
+        context_layout: z.object({ story: z.json().optional() }).nullish(),
+        timestamp: z
+          .object({ story: z.object({ url: z.string().nullish() }).nullish() })
+          .nullish(),
+      })
+      .nullish();
+  },
+});
+type FacebookStory = z.infer<typeof storySchema>;
+const edgeSchema = z.object({
+  category: z.string().optional(),
+  node: storySchema,
+});
+const pageInfoSchema = z.object({
+  has_next_page: z.boolean(),
+  end_cursor: z.string().nullish(),
+});
+const feedSchema = z.object({
+  edges: z.array(z.json().optional()).optional(),
+  page_info: pageInfoSchema,
+});
+const partSchema = z.object({
+  errors: z.array(z.json()).optional(),
+  path: z.array(z.union([z.string(), z.number()])).optional(),
+  data: z.json().optional(),
+});
+const imageSchema = z.object({
+  uri: z.string().nullish(),
+  width: z.number().nullish(),
+  height: z.number().nullish(),
+});
+const playbackSchema = z.object({
+  browser_native_hd_url: z.string().nullish(),
+  browser_native_sd_url: z.string().nullish(),
+  playable_url_quality_hd: z.string().nullish(),
+  playable_url: z.string().nullish(),
+});
+const mediaNodeSchema = playbackSchema.extend({
+  __typename: z.enum(["Video", "Photo"]),
+  id: z.string().nullish(),
+  image: imageSchema.nullish(),
+  photo_image: imageSchema.nullish(),
+  preferred_thumbnail: imageSchema
+    .extend({ image: imageSchema.nullish() })
+    .nullish(),
+  width: z.number().positive().nullish(),
+  height: z.number().positive().nullish(),
+  aspect_ratio: z.number().positive().nullish(),
+  videoDeliveryLegacyFields: playbackSchema.nullish(),
+});
+const mediaSchema = z.union([
+  mediaNodeSchema,
+  z
+    .object({
+      __typename: z.literal("VideoAttachmentGridRenderer"),
+      video: mediaNodeSchema.extend({
+        __typename: z.literal("Video").default("Video"),
+      }),
+    })
+    .transform((value) => value.video),
+]);
 // Required presentation variables from Facebook's CometModernHomeFeedQuery.
 const presentationFlags = [
   "GHLShouldChangeAdIdFieldName",
@@ -59,9 +141,19 @@ const presentationFlags = [
   "StoriesShouldIncludeFbNotes",
 ];
 
+// Best quality first. Fields may sit on the video or its legacy delivery data.
+const playbackKeys = [
+  "browser_native_hd_url",
+  "playable_url_quality_hd",
+  "browser_native_sd_url",
+  "playable_url",
+] as const;
+
+const isFacebook = (url: URL) => /(^|\.)facebook\.com$/.test(url.hostname);
+
 function mediaFor(attachments: Json): FeedMedia[] {
   const media = new Map<string, FeedMedia>();
-  for (const entry of objects(attachments)) {
+  for (const entry of nestedObjects(attachments)) {
     const parsed = mediaSchema.safeParse(entry);
     if (!parsed.success) continue;
     const data = parsed.data;
@@ -72,17 +164,10 @@ function mediaFor(attachments: Json): FeedMedia[] {
       data.preferred_thumbnail?.image ||
       data.preferred_thumbnail;
     const poster = image?.uri || "";
-    const playback = data.videoDeliveryLegacyFields;
     const playable =
-      playback?.browser_native_hd_url ||
-      data.browser_native_hd_url ||
-      playback?.playable_url_quality_hd ||
-      data.playable_url_quality_hd ||
-      playback?.browser_native_sd_url ||
-      data.browser_native_sd_url ||
-      playback?.playable_url ||
-      data.playable_url ||
-      "";
+      playbackKeys
+        .map((key) => data.videoDeliveryLegacyFields?.[key] || data[key])
+        .find(Boolean) || "";
     const candidateUrl = video ? playable || poster : poster;
     const id = data.id || candidateUrl;
     const previous = media.get(id);
@@ -90,19 +175,14 @@ function mediaFor(attachments: Json): FeedMedia[] {
       ? previous.url
       : candidateUrl || previous?.url;
     if (!url) continue;
-    const width = Number(image?.width);
-    const height = Number(image?.height);
-    const aspectRatio = video
-      ? data.aspect_ratio ||
-        (data.width && data.height ? data.width / data.height : undefined)
-      : undefined;
     media.set(id, {
       type: video ? "video" : "image",
       url,
       aspectRatio:
-        aspectRatio ||
+        (video &&
+          (data.aspect_ratio || aspectRatio(data.width, data.height))) ||
         previous?.aspectRatio ||
-        (width && height ? width / height : undefined),
+        aspectRatio(image?.width, image?.height),
       ...(video
         ? {
             posterUrl: poster || previous?.posterUrl,
@@ -115,58 +195,57 @@ function mediaFor(attachments: Json): FeedMedia[] {
 }
 
 function attachmentFor(attachments: Json) {
-  for (const entry of objects(attachments)) {
-    const media = object(entry.media);
-    const event = object(entry.target);
+  for (const entry of nestedObjects(attachments)) {
+    const media = asObject(entry.media);
+    const event = asObject(entry.target);
+    const link = asObject(
+      asObject(entry.story_attachment_link_renderer).attachment,
+    );
     const rawUrl =
-      string(media.external_url) || string(entry.url) || string(event.url);
+      asString(media.external_url) ||
+      asString(asObject(link.web_link).url) ||
+      asString(link.url) ||
+      asString(entry.url) ||
+      asString(event.url);
     if (!rawUrl) continue;
     let url: URL;
     try {
       url = new URL(rawUrl);
-      if (
-        /(^|\.)facebook\.com$/.test(url.hostname) &&
-        url.pathname === "/l.php"
-      )
+      // Unwrap Facebook's outbound link redirect.
+      if (isFacebook(url) && url.pathname === "/l.php")
         url = new URL(url.searchParams.get("u") || rawUrl);
     } catch {
       continue;
     }
     const isEvent =
       event.__typename === "Event" ||
-      (/^(www\.)?facebook\.com$/.test(url.hostname) &&
-        /^\/events\/\d+/.test(url.pathname));
+      (isFacebook(url) && /^\/events\/\d+/.test(url.pathname));
     const title =
-      string(object(entry.title_with_entities).text) ||
-      string(object(entry.title).text) ||
-      string(entry.title) ||
-      (isEvent ? string(event.name) : "");
-    if (
-      !isEvent &&
-      media.__typename !== "ExternalUrl" &&
-      /(^|\.)facebook\.com$/.test(url.hostname)
-    )
+      asString(asObject(entry.title_with_entities).text) ||
+      asString(asObject(entry.title).text) ||
+      asString(entry.title) ||
+      (isEvent ? asString(event.name) : "");
+    if (!isEvent && media.__typename !== "ExternalUrl" && isFacebook(url))
       continue;
     const parsed = feedAttachmentSchema.safeParse({
       type: isEvent ? "event" : "link",
       title,
       url: url.href,
-      description: string(object(entry.description).text) || undefined,
+      description: asString(asObject(entry.description).text) || undefined,
       startsAtText: isEvent
-        ? string(event.capitalized_day_time_sentence) || undefined
+        ? asString(event.capitalized_day_time_sentence) || undefined
         : undefined,
     });
     if (!parsed.success) continue;
-    const image = object(media.image);
+    const image = asObject(
+      media.flexible_height_share_image ||
+        media.large_share_image ||
+        media.image,
+    );
     const preview = feedMediaSchema.safeParse({
       type: "image",
       url: image.uri,
-      aspectRatio:
-        typeof image.width === "number" &&
-        typeof image.height === "number" &&
-        image.height > 0
-          ? image.width / image.height
-          : undefined,
+      aspectRatio: aspectRatio(Number(image.width), Number(image.height)),
     });
     return {
       attachment: parsed.data,
@@ -197,15 +276,15 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     permalink.searchParams.get("story_fbid") ||
     undefined;
   const context = sections?.context_layout?.story;
-  const contextGroup = [...objects(context || {})]
-    .map((entry) => groupSchema.safeParse(entry))
-    .find((entry) => entry.success && entry.data.name);
+  const contextGroup = [...nestedObjects(context || {})].find(
+    (entry) => entry.__typename === "Group" && asString(entry.name),
+  );
   const authorName =
     (node.to?.__typename === "Group" ? node.to.name : undefined) ||
     content?.target_group?.name ||
     node.target_group?.name ||
     node.feedback?.associated_group?.name ||
-    (contextGroup?.success ? contextGroup.data.name : undefined) ||
+    asString(contextGroup?.name) ||
     node.actors?.[0]?.name ||
     content?.actors?.[0]?.name ||
     undefined;
@@ -225,7 +304,6 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     androidUrl: node.id ? `fb://native_post/${node.id}` : undefined,
     publishedAt: node.creation_time ? node.creation_time * 1000 : undefined,
     authorName,
-    authorHandle: authorName,
     text: content?.message?.text || node.message?.text || undefined,
     media,
     attachment: preview?.attachment,
@@ -240,7 +318,7 @@ function applyPatch(
 ): Json {
   if (!path.length) {
     if (patch && typeof patch === "object" && !Array.isArray(patch))
-      return { ...object(value), ...patch };
+      return { ...asObject(value), ...patch };
     return patch;
   }
   const [key, ...rest] = path;
@@ -249,50 +327,28 @@ function applyPatch(
     result[key] = applyPatch(result[key], rest, patch);
     return result;
   }
-  const result = object(value);
+  const result = asObject(value);
   result[key] = applyPatch(result[key], rest, patch);
   return result;
 }
 
 export function parseFacebookFeed(response: string) {
-  const edges = new Map<number, Json>();
-  let pageInfo;
+  // The response streams the feed as patches into one JSON tree.
+  let data: Json = {};
   for (const line of response.trim().split("\n")) {
     const part = partSchema.parse(JSON.parse(line));
     if (part.errors?.length)
       throw new Error(
         "Facebook feed request failed. Open Facebook to check your session.",
       );
-    const root =
-      part.data === undefined ? undefined : rootDataSchema.parse(part.data);
-    const feed = root?.viewer?.news_feed;
-    feed?.edges?.forEach((edge, index) => edges.set(index, edge));
-    const path = part.path || [];
-    if (path[0] === "viewer" && path[1] === "news_feed") {
-      if (
-        path[2] === "edges" &&
-        typeof path[3] === "number" &&
-        part.data !== undefined
-      ) {
-        const index = path[3];
-        edges.set(
-          index,
-          applyPatch(edges.get(index), path.slice(4), part.data),
-        );
-      } else {
-        const page = pageDataSchema.safeParse(part.data);
-        if (page.success) pageInfo = page.data.page_info;
-      }
-    }
-    if (feed?.page_info) pageInfo = feed.page_info;
+    if (part.data !== undefined)
+      data = applyPatch(data, part.path || [], part.data);
   }
-  const pagination = pageInfoSchema.safeParse(pageInfo);
-  if (!pagination.success)
-    throw new Error("Facebook feed response was incomplete.");
+  const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
+  if (!feed.success) throw new Error("Facebook feed response was incomplete.");
   const items: ExtractedItem[] = [];
-  for (const [, rawEdge] of [...edges].sort(
-    ([left], [right]) => left - right,
-  )) {
+  for (const rawEdge of feed.data.edges || []) {
+    if (!rawEdge) continue;
     const edge = edgeSchema.parse(rawEdge);
     const node = edge.node;
     if (
@@ -301,7 +357,7 @@ export function parseFacebookFeed(response: string) {
       node.sponsored_data
     )
       continue;
-    const context = object(node.comet_sections?.context_layout?.story);
+    const context = asObject(node.comet_sections?.context_layout?.story);
     if (context.unconnected_waist_data) continue;
     const post = postFor(node);
     if (!post?.sourceId || !post.publishedAt) continue;
@@ -309,8 +365,8 @@ export function parseFacebookFeed(response: string) {
   }
   return {
     items,
-    cursor: pagination.data.end_cursor || "",
-    end: pagination.data.has_next_page === false,
+    cursor: feed.data.page_info.end_cursor || "",
+    end: !feed.data.page_info.has_next_page,
   };
 }
 
@@ -329,10 +385,10 @@ export async function* facebookFeed(
   ].find((value) => html.includes(value));
   if (!marker) throw new Error("Facebook web API configuration unavailable.");
   const config = bootstrap(html.slice(html.lastIndexOf(marker)), marker);
-  const token =
-    marker === "wlct.init("
-      ? webLiteTokenSchema.parse(config)
-      : tokenSchema.parse(config);
+  const token = z
+    .string()
+    .min(1)
+    .parse(marker === "wlct.init(" ? config.dtsg : config.token);
   const variables: JsonObject = {
     RELAY_INCREMENTAL_DELIVERY: true,
     connectionClass: "EXCELLENT",
@@ -357,9 +413,7 @@ export async function* facebookFeed(
   };
   for (const name of presentationFlags)
     variables[`__relay_internal__pv__${name}relayprovider`] = false;
-  let cursor = "";
-  const cursors = new Set<string>();
-  do {
+  yield* paginate(request, "Facebook", async (cursor) => {
     if (cursor) variables.feedEndCursor = cursor;
     const response = await request.fetch(
       "https://www.facebook.com/api/graphql/",
@@ -375,12 +429,6 @@ export async function* facebookFeed(
         }).toString(),
       },
     );
-    const page = parseFacebookFeed(await response.text());
-    if (!page.end && (!page.cursor || cursors.has(page.cursor)))
-      throw new Error("Facebook did not advance the feed.");
-    yield { items: page.items, end: page.end };
-    if (page.end) return;
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return parseFacebookFeed(await response.text());
+  });
 }

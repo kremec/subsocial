@@ -1,70 +1,57 @@
-import { type FC, useMemo, useState } from "react";
-import { View } from "react-native";
+import { type FC, useState } from "react";
+import { Pressable, View } from "react-native";
 
 import { useIsFocused } from "expo-router";
 
+import { Icon } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
-import { collectorConcurrency } from "@/feed/collection";
-import { exportDatabase } from "@/feed/export-database";
+import { Typography } from "@/components/ui/typography";
+import { exportDatabase } from "@/db/export-database";
+import { importDatabase } from "@/db/import-database";
 import { FeedCollector } from "@/feed/feed-collector";
-import { importDatabase } from "@/feed/import-database";
-import { type PlatformId } from "@/feed/types";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { getPlatform } from "@/platforms/platforms";
-import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
-import { FeedAttentionNotice } from "@/screens/feed/components/feed-attention-notice";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
-export const FeedScreen: FC = () => {
+interface FeedScreenProps {
+  webKitReady: boolean;
+}
+
+export const FeedScreen: FC<FeedScreenProps> = (props) => {
+  const { webKitReady } = props;
   const theme = useTheme();
   const focused = useIsFocused();
-  const [webKitReady, setWebKitReady] = useState(false);
   const [attentionBrowser, setAttentionBrowser] = useState<PlatformId>();
   const feed = useFeedRefresh(focused, webKitReady);
-  const {
-    items,
-    connected: connectedPlatforms,
-    active: activePlatforms,
-    collection,
-  } = feed;
   const visible = focused && feed.foreground;
-  const browserShown =
-    !!attentionBrowser && feed.attention.includes(attentionBrowser);
-  const feedVisible = visible && !browserShown;
-  const visibleItems = useMemo(
-    () => items.filter((item) => activePlatforms.includes(item.platform)),
-    [items, activePlatforms],
-  );
+  const shownBrowser =
+    attentionBrowser && feed.attention.includes(attentionBrowser)
+      ? attentionBrowser
+      : undefined;
+  const closeBrowser = (platform: PlatformId) =>
+    setAttentionBrowser((current) =>
+      current === platform ? undefined : current,
+    );
 
   return (
-    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
-      {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
-
-      {feed.collectors.slice(0, collectorConcurrency).map((platform) => (
+    <Screen>
+      {feed.collectors.map((platform) => (
         <FeedCollector
           key={`${feed.runId}:${platform}`}
           platform={getPlatform(platform)}
-          known={feed.known[platform]!}
           active={visible}
           attention={feed.attention.includes(platform)}
-          open={
-            attentionBrowser === platform && feed.attention.includes(platform)
-          }
+          open={shownBrowser === platform}
           onAttention={(needed) =>
             feed.needsAttention(feed.runId!, platform, needed)
           }
-          onClose={() =>
-            setAttentionBrowser((current) =>
-              current === platform ? undefined : current,
-            )
-          }
+          onClose={() => closeBrowser(platform)}
           onFinish={(result) => {
-            setAttentionBrowser((current) =>
-              current === platform ? undefined : current,
-            );
+            closeBrowser(platform);
             feed.finish(feed.runId!, result);
           }}
         />
@@ -78,10 +65,10 @@ export const FeedScreen: FC = () => {
         }}
       >
         <FeedHeader
-          activePlatforms={activePlatforms}
-          connectedPlatforms={connectedPlatforms}
+          activePlatforms={feed.active}
+          connectedPlatforms={feed.connected}
           failedPlatforms={feed.failed}
-          loadingPlatforms={collection}
+          loadingPlatforms={feed.collection}
           onImportData={() => {
             void importDatabase()
               .then((imported) => {
@@ -98,18 +85,34 @@ export const FeedScreen: FC = () => {
         />
 
         {feed.attention.map((platform) => (
-          <FeedAttentionNotice
+          <Pressable
             key={platform}
-            platformName={getPlatform(platform).label}
+            accessibilityRole="button"
             onPress={() => setAttentionBrowser(platform)}
-          />
+            style={({ pressed }) => ({
+              minHeight: 48,
+              paddingHorizontal: theme.spacing.lg,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: theme.spacing.sm,
+              backgroundColor: theme.colors.surface,
+              opacity: pressed ? 0.55 : 1,
+            })}
+          >
+            <Typography style={{ flex: 1 }}>
+              {getPlatform(platform).label} needs attention
+            </Typography>
+            <Icon name="world" color={theme.colors.text} size={22} />
+          </Pressable>
         ))}
 
         <FeedList
-          items={visibleItems}
-          visible={feedVisible}
+          items={feed.items.filter((item) =>
+            feed.active.includes(item.platform),
+          )}
+          visible={visible && !shownBrowser}
           rememberPosition
-          refreshing={collection.length > 0}
+          refreshing={feed.collection.length > 0}
           onRefresh={feed.refresh}
         />
       </View>

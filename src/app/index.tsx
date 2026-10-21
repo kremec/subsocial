@@ -1,35 +1,40 @@
-import { type FC, useState } from "react";
+import { type FC, Fragment, useState } from "react";
 
-import Storage from "expo-sqlite/kv-store";
+import { WebView } from "react-native-webview";
 
-import { listConnectedPlatforms, listFeedItems } from "@/feed/database";
 import { FeedScreen } from "@/screens/feed/feed-screen";
 import { OnboardingScreen } from "@/screens/onboarding/onboarding-screen";
+import { useSettingsStore } from "@/stores/settings-store";
 
 const FeedRoute: FC = () => {
-  const [onboardingComplete, setOnboardingComplete] = useState(() => {
-    const status = Storage.getItemSync("onboarding-status");
-    if (status) return status === "complete";
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const [webKitReady, setWebKitReady] = useState(false);
 
-    const complete =
-      listConnectedPlatforms().length > 0 || listFeedItems().length > 0;
-    // Preserve unfinished setup even after sign-in saves the first connection.
-    Storage.setItemSync("onboarding-status", complete ? "complete" : "pending");
-    return complete;
-  });
-
-  if (!onboardingComplete) {
-    return (
-      <OnboardingScreen
-        onContinue={() => {
-          Storage.setItemSync("onboarding-status", "complete");
-          setOnboardingComplete(true);
-        }}
-      />
-    );
-  }
-
-  return <FeedScreen />;
+  return (
+    <Fragment>
+      {/* Mount WebKit before reading cookies saved by a previous app session. */}
+      {!webKitReady && (
+        <WebView
+          pointerEvents="none"
+          source={{ html: "" }}
+          onLoadEnd={() => setWebKitReady(true)}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
+        />
+      )}
+      {onboarded ? (
+        <FeedScreen webKitReady={webKitReady} />
+      ) : (
+        <OnboardingScreen webKitReady={webKitReady} />
+      )}
+    </Fragment>
+  );
 };
 
 export default FeedRoute;

@@ -1,23 +1,19 @@
 import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { Image } from "expo-image";
+import { router } from "expo-router";
+
 import { ScrollView } from "react-native-gesture-handler";
 
+import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia, type PlatformId } from "@/feed/types";
-import {
-  FeedImage,
-  originalXImageUrl,
-} from "@/screens/feed/components/feed-image";
-import {
-  FeedVideo,
-  type PlaybackStatus,
-} from "@/screens/feed/components/feed-video";
-import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
-import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
-import { MediaAlbumContext } from "@/screens/media/media-video-provider";
-import { openMedia } from "@/screens/media/open-media";
+import { FeedImage } from "@/screens/feed/components/feed-image";
+import { FeedVideo } from "@/screens/feed/components/feed-video";
+import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
+import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedMedia, type PlatformId } from "@/types/post";
 
 interface FeedMediaCarouselProps {
   postUrl: string;
@@ -25,38 +21,20 @@ interface FeedMediaCarouselProps {
   androidUrl?: string;
   sourceId?: string;
   media: FeedMedia[];
-  active: boolean;
-  playbackStatus?: PlaybackStatus;
-  onActivate: () => void;
-  onRetry?: () => void;
-  onPlaybackError?: () => void;
-  onVerification?: () => void;
   onPress: () => void;
 }
 
 export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
-  const {
-    postUrl,
-    platform,
-    androidUrl,
-    sourceId,
-    media,
-    active,
-    playbackStatus,
-    onActivate,
-    onRetry,
-    onPlaybackError,
-    onVerification,
-    onPress,
-  } = props;
+  const { postUrl, platform, androidUrl, sourceId, media, onPress } = props;
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
-  const setVideoView = useContext(FeedVideoLayoutContext);
-  const album = useContext(MediaAlbumContext);
-  const selection = album?.selection;
+  const { activePostUrl, activate, setVideoView } =
+    useContext(FeedVideoContext)!;
+  const active = activePostUrl === postUrl;
+  const selection = useMediaStore((state) => state.album);
   useLayoutEffect(() => {
     if (selection?.postUrl !== postUrl) return;
     // Fullscreen and inline views keep the same album position.
@@ -68,26 +46,25 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     });
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
-    album?.setSelection({ postUrl, index });
-    openMedia(
-      media.map((item) =>
-        item.type === "image"
-          ? { ...item, url: originalXImageUrl(item.url) }
-          : item,
-      ),
-      platform,
-      postUrl,
-      index,
-      androidUrl,
-      sourceId,
-    );
+    useMediaStore.setState({ album: { postUrl, index } });
+    router.push({
+      pathname: "/media",
+      params: {
+        media: encodeURIComponent(JSON.stringify(media)),
+        postUrl: encodeURIComponent(postUrl),
+        index: String(index),
+        platform,
+        androidUrl: androidUrl && encodeURIComponent(androidUrl),
+        sourceId,
+      },
+    });
   };
   const selectedMedia = media[mediaIndex];
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
   useLayoutEffect(() => {
     if (!playable || !view.current) return;
-    setVideoView?.(postUrl, view.current);
-    return () => setVideoView?.(postUrl, null);
+    setVideoView(postUrl, view.current);
+    return () => setVideoView(postUrl, null);
   }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
@@ -116,36 +93,64 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     </View>
   );
 
-  const renderMedia = (media: FeedMedia, index: number) =>
-    media.type === "video" ? (
+  const renderMedia = (media: FeedMedia, index: number) => {
+    if (media.type === "image")
+      return <FeedImage media={media} onPress={() => openAlbum(index)} />;
+    const playing = media.playable && active && index === mediaIndex;
+    return (
       <View style={{ flex: 1 }}>
-        <FeedVideoPreview
-          media={media}
-          onPress={media.playable ? onActivate : onPress}
-          showPlayButton={!(media.playable && active && index === mediaIndex)}
-        />
-        {media.playable && active && index === mediaIndex && (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            if (media.playable) activate(postUrl);
+            else onPress();
+          }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          {!!media.posterUrl && (
+            <Image
+              source={{ uri: media.posterUrl }}
+              recyclingKey={media.posterUrl}
+              cachePolicy="memory-disk"
+              contentFit="cover"
+              style={{ position: "absolute", inset: 0 }}
+            />
+          )}
+          {!playing && (
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: theme.radius.full,
+                backgroundColor: "rgba(0, 0, 0, 0.62)",
+              }}
+            >
+              <Icon name="player-play" color="#FFFFFF" size={25} filled />
+            </View>
+          )}
+        </Pressable>
+        {playing && (
           <Pressable
             onPress={(event) => event.stopPropagation()}
             style={{ position: "absolute", inset: 0 }}
           >
             <FeedVideo
               key={media.url}
-              playbackKey={`${postUrl}:${index}`}
+              index={index}
               media={media}
+              platform={platform}
+              postUrl={postUrl}
+              sourceId={sourceId}
               counter={counter}
-              playbackStatus={playbackStatus}
-              onRetry={onRetry}
-              onError={onPlaybackError}
-              onVerification={onVerification}
               onFullscreen={() => openAlbum(index)}
             />
           </Pressable>
         )}
       </View>
-    ) : (
-      <FeedImage media={media} onPress={() => openAlbum(index)} />
     );
+  };
 
   return (
     <View
@@ -153,7 +158,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView?.(postUrl, view.current);
+        if (playable) setVideoView(postUrl, view.current);
       }}
       style={{
         width: "100%",

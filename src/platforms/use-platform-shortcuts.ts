@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
 
 import {
   type Action,
@@ -9,10 +9,7 @@ import {
   setItems,
 } from "expo-quick-actions";
 
-import {
-  getInstalledPlatformIds,
-  openPlatformApp,
-} from "@/platforms/open-post";
+import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 
 const shortcutId = (platformId: string) => `platform:${platformId}`;
@@ -24,15 +21,14 @@ function openShortcut(action: Action) {
 }
 
 async function updatePlatformShortcuts() {
-  const installedPlatformIds =
-    Platform.OS === "android" ? undefined : await getInstalledPlatformIds();
-  const shortcutPlatforms = platforms.filter(
-    ({ id }) => !installedPlatformIds || installedPlatformIds.includes(id),
+  const installed = await Promise.all(
+    platforms.map((platform) => canOpenPlatformApp(platform.id)),
   );
 
   await setItems(
-    shortcutPlatforms
-      .slice(0, Platform.OS === "android" ? undefined : maxCount)
+    platforms
+      .filter((_platform, index) => installed[index])
+      .slice(0, maxCount)
       .map((platform) => ({
         id: shortcutId(platform.id),
         title: platform.label,

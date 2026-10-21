@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { instagramFeed, instagramPage } from "@/platforms/instagram/service";
-import { type JsonObject } from "@/platforms/json";
-import { FeedAccessError } from "@/platforms/types";
+import { FeedAccessError } from "@/types/platform";
 
 describe("Instagram API feed", () => {
   it("maps coauthors, timestamps, carousel media and pagination", () => {
@@ -103,25 +102,16 @@ describe("Instagram API feed", () => {
   });
 });
 
-it("rejects missing pagination and unfinished pages without a cursor", () => {
-  const pageInfos: JsonObject[] = [
-    {},
-    { has_next_page: true, end_cursor: null },
-  ];
-  for (const pageInfo of pageInfos) {
-    assert.throws(
-      () =>
-        instagramPage({
-          data: {
-            xdt_api__v1__feed__timeline__connection: {
-              edges: [],
-              page_info: pageInfo,
-            },
-          },
-        }),
-      /pagination unavailable/,
-    );
-  }
+it("rejects missing pagination", () => {
+  assert.throws(
+    () =>
+      instagramPage({
+        data: {
+          xdt_api__v1__feed__timeline__connection: { edges: [], page_info: {} },
+        },
+      }),
+    /Instagram feed unavailable/,
+  );
 });
 
 it("stops on alternating continuation cursors", async () => {

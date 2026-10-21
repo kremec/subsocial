@@ -1,48 +1,46 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import { showErrorToast } from "@/components/ui/toast";
-import { collectionKnownKey, collectorConcurrency } from "@/feed/collection";
+import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import {
-  listConnectedPlatforms,
   listFeedItems,
-  listSourceIds,
+  listPostIds,
   pruneFeedItems,
-} from "@/feed/database";
+} from "@/db/repositories/feed-items-repository";
 import { type CollectionResult } from "@/feed/feed-collector";
-import { platformIdSchema } from "@/feed/schemas";
-import { type PlatformId } from "@/feed/types";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
+import {
+  setCollectionBoundary,
+  useSettingsStore,
+} from "@/stores/settings-store";
+import { type PlatformId, platformIdSchema } from "@/types/post";
 
 interface RefreshRun {
-  startedAt: number;
+  id: number;
   queue: PlatformId[];
-  known: Partial<Record<PlatformId, string[]>>;
-  results: CollectionResult[];
+  errors: string[];
   attention: PlatformId[];
 }
+
+const withMember = (list: PlatformId[], id: PlatformId, member: boolean) => [
+  ...list.filter((item) => item !== id),
+  ...(member ? [id] : []),
+];
 
 export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   const [items, setItems] = useState(listFeedItems);
   const [connected, setConnected] = useState(listConnectedPlatforms);
   const [failed, setFailed] = useState<PlatformId[]>([]);
-  const [hidden, setHidden] = useState<PlatformId[]>(() => {
-    const value = Storage.getItemSync("hidden-platforms") || "[]";
-    return platformIdSchema.array().parse(JSON.parse(value));
-  });
+  const hidden = useSettingsStore((state) => state.hiddenPlatforms);
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
   );
   const [run, setRun] = useState<RefreshRun>();
   const running = useRef<RefreshRun>(undefined);
   const refreshOnForeground = useRef(true);
-  const active = useMemo(
-    () => platformIdSchema.options.filter((id) => !hidden.includes(id)),
-    [hidden],
-  );
+  const active = platformIdSchema.options.filter((id) => !hidden.includes(id));
   const attention = run?.attention ?? [];
   const collection = (run?.queue ?? []).filter((id) => !attention.includes(id));
 
@@ -56,6 +54,14 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     return () => listener.remove();
   }, []);
 
+  const update = (next?: RefreshRun) => {
+    running.current = next;
+    setRun(next);
+    // Publish saved posts once only login prompts remain.
+    if (!next || next.queue.every((id) => next.attention.includes(id)))
+      setItems(listFeedItems());
+  };
+
   const begin = (platforms: PlatformId[], restart = false) => {
     const current = running.current;
     const collecting = current?.queue.some(
@@ -64,30 +70,17 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     if (collecting && !restart) return;
     const waiting = collecting ? undefined : current;
     const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
-    const known = Object.fromEntries(
-      queue.map((id) => {
-        if (waiting?.queue.includes(id)) return [id, waiting.known[id]];
-        // Preserve even an empty boundary so interrupted initial collections can finish.
-        const key = collectionKnownKey(id);
-        const previous = Storage.getItemSync(key);
-        const value = previous
-          ? (JSON.parse(previous) as string[])
-          : listSourceIds(id);
-        Storage.setItemSync(key, JSON.stringify(value));
-        return [id, value];
-      }),
+    update(
+      queue.length
+        ? {
+            // Keep login collectors mounted while healthy platforms refresh again.
+            id: waiting?.id ?? performance.now(),
+            queue,
+            errors: [],
+            attention: waiting?.attention ?? [],
+          }
+        : undefined,
     );
-    running.current = queue.length
-      ? {
-          // Keep login collectors mounted while healthy platforms refresh again.
-          startedAt: waiting?.startedAt ?? performance.now(),
-          queue,
-          known,
-          results: [],
-          attention: waiting?.attention ?? [],
-        }
-      : undefined;
-    setRun(running.current);
   };
 
   const sync = useEffectEvent((platforms: PlatformId[]) => {
@@ -98,17 +91,11 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       current.filter(
         (id) =>
           platforms.includes(id) ||
-          !!Storage.getItemSync(collectionKnownKey(id)),
+          !!useSettingsStore.getState().collectionBoundaries[id],
       ),
     );
     // Remove deleted posts without publishing a refresh that is still staged.
-    const savedIds = new Set(
-      listFeedItems().flatMap((item) =>
-        (item.thread ?? [item]).map(
-          (post) => `${item.platform}:${post.sourceId}`,
-        ),
-      ),
-    );
+    const savedIds = listPostIds();
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
     if (added || refreshOnForeground.current) begin(platforms, added);
     refreshOnForeground.current = false;
@@ -129,59 +116,32 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     };
   }, [focused, foreground, webKitReady]);
 
-  const finish = (runId: number, result: CollectionResult) => {
+  // A replaced run's collectors may still report before they unmount.
+  const currentRun = (runId: number, platform: PlatformId) => {
     const current = running.current;
-    if (
-      !current ||
-      current.startedAt !== runId ||
-      !current.queue.includes(result.platform)
-    )
-      return;
-    setFailed((failed) => {
-      const next = failed.filter((id) => id !== result.platform);
-      if (result.error) next.push(result.platform);
-      return next;
-    });
-    if (!result.error)
-      Storage.removeItemSync(collectionKnownKey(result.platform));
+    return current?.id === runId && current.queue.includes(platform)
+      ? current
+      : undefined;
+  };
+
+  const finish = (runId: number, result: CollectionResult) => {
+    const { platform, error } = result;
+    const current = currentRun(runId, platform);
+    if (!current) return;
+    setFailed((failed) => withMember(failed, platform, !!error));
+    if (!error) setCollectionBoundary(platform);
     const next = {
       ...current,
-      queue: current.queue.filter((id) => id !== result.platform),
-      results: [...current.results, result],
-      attention: current.attention.filter((id) => id !== result.platform),
+      queue: current.queue.filter((id) => id !== platform),
+      errors: error
+        ? [...current.errors, `${getPlatform(platform).label}: ${error}`]
+        : current.errors,
+      attention: current.attention.filter((id) => id !== platform),
     };
-    running.current = next;
-    if (next.queue.length) {
-      if (next.queue.every((id) => next.attention.includes(id)))
-        setItems(listFeedItems());
-      setRun(next);
-      return;
-    }
+    if (next.queue.length) return update(next);
     pruneFeedItems();
-    const incoming = listFeedItems();
-    setItems(incoming);
-    const errors = next.results.filter((result) => result.error);
-    if (errors.length)
-      showErrorToast(
-        errors
-          .map(
-            (result) =>
-              `${getPlatform(result.platform).label}: ${result.error}`,
-          )
-          .join("\n"),
-      );
-    if (__DEV__) {
-      console.info(
-        "[refresh]",
-        JSON.stringify({
-          totalMs: Math.round(result.finishedAt - next.startedAt),
-          concurrency: collectorConcurrency,
-          platforms: next.results,
-        }),
-      );
-    }
-    running.current = undefined;
-    setRun(undefined);
+    if (next.errors.length) showErrorToast(next.errors.join("\n"));
+    update(undefined);
   };
 
   const needsAttention = (
@@ -189,32 +149,18 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     platform: PlatformId,
     needed: boolean,
   ) => {
-    const current = running.current;
-    if (
-      !current ||
-      current.startedAt !== runId ||
-      !current.queue.includes(platform)
-    )
-      return;
-    if (needed)
-      setFailed((failed) =>
-        failed.includes(platform) ? failed : [...failed, platform],
-      );
-    const attention = current.attention.filter((id) => id !== platform);
-    if (needed) attention.push(platform);
-    const next = { ...current, attention };
-    running.current = next;
-    setRun(next);
-    if (next.queue.every((id) => attention.includes(id)))
-      setItems(listFeedItems());
+    const current = currentRun(runId, platform);
+    if (!current) return;
+    if (needed) setFailed((failed) => withMember(failed, platform, true));
+    update({
+      ...current,
+      attention: withMember(current.attention, platform, needed),
+    });
   };
 
   const toggle = (platform: PlatformId) => {
-    const next = hidden.includes(platform)
-      ? hidden.filter((id) => id !== platform)
-      : [...hidden, platform];
-    Storage.setItemSync("hidden-platforms", JSON.stringify(next));
-    setHidden(next);
+    const next = withMember(hidden, platform, !hidden.includes(platform));
+    useSettingsStore.setState({ hiddenPlatforms: next });
   };
 
   return {
@@ -227,16 +173,13 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     attention,
     needsAttention,
     foreground,
-    runId: run?.startedAt,
-    known: run?.known ?? {},
+    runId: run?.id,
     finish,
     toggle,
     reload: () => {
-      running.current = undefined;
-      setRun(undefined);
+      update(undefined);
       setFailed([]);
       setConnected(listConnectedPlatforms());
-      setItems(listFeedItems());
     },
     refresh: () => begin(connected),
   };

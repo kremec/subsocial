@@ -15,35 +15,11 @@ export const radius = {
   sm: 10,
   md: 14,
   lg: 18,
-  xl: 24,
   full: 999,
 } as const;
 
-export const typography = {
-  display: 32,
-  title: 24,
-  titleSmall: 18,
-  body: 16,
-  bodySmall: 14,
-  caption: 12,
-} as const;
+export const fonts = {
+  rounded: Platform.select({ ios: "ui-rounded", default: "normal" }),
+};
 
-export const fonts = Platform.select({
-  ios: {
-    sans: "system-ui",
-    serif: "ui-serif",
-    rounded: "ui-rounded",
-    mono: "ui-monospace",
-  },
-  default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
-    mono: "monospace",
-  },
-});
-
-export const layout = {
-  screenMaxWidth: 820,
-  bottomInset: 0,
-} as const;
+export const typography = { bodyWeight: "500" } as const;

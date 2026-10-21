@@ -1,51 +1,30 @@
 import { type FC } from "react";
-import { type GestureResponderEvent, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useRecyclingState } from "@legendapp/list/react-native";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel";
-import { type PlaybackStatus } from "@/screens/feed/components/feed-video";
 import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedPost, type PlatformId } from "@/types/post";
 
 interface PostContentProps {
   post: FeedPost;
   platform: PlatformId;
   variant: "feed" | "thread" | "quote";
-  activePostUrl?: string;
-  onActivate: (url: string) => void;
-  playbackStatus?: PlaybackStatus;
-  onRetry?: () => void;
-  onPlaybackError?: () => void;
-  onVerification?: () => void;
 }
 
 export const PostContent: FC<PostContentProps> = (props) => {
-  const {
-    post,
-    platform,
-    variant,
-    activePostUrl,
-    onActivate,
-    playbackStatus,
-    onRetry,
-    onPlaybackError,
-    onVerification,
-  } = props;
+  const { post, platform, variant } = props;
   const theme = useTheme();
   const [expanded, setExpanded] = useRecyclingState(false);
   const feed = variant === "feed";
   const quote = variant === "quote";
   const paddingHorizontal = feed ? theme.spacing.lg : 0;
   const openPostUrl = () => void openPost(platform, post.url, post.androidUrl);
-  const onPress = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-    openPostUrl();
-  };
   const characters = Array.from(post.text || "");
   const longText = characters.length > 280;
   const text =
@@ -64,12 +43,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
         androidUrl={post.androidUrl}
         sourceId={post.sourceId}
         media={post.media}
-        active={activePostUrl === post.url}
-        playbackStatus={playbackStatus}
-        onActivate={() => onActivate(post.url)}
-        onRetry={onRetry}
-        onPlaybackError={onPlaybackError}
-        onVerification={onVerification}
         onPress={openPostUrl}
       />
     </Pressable>
@@ -77,7 +50,10 @@ export const PostContent: FC<PostContentProps> = (props) => {
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={(event) => {
+        event.stopPropagation();
+        openPostUrl();
+      }}
       style={({ pressed }) => [
         quote && {
           marginTop: theme.spacing.md,
@@ -95,13 +71,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
           marginBottom: theme.spacing.sm,
         }}
       >
-        <PostHeader
-          platform={platform}
-          post={post}
-          showIcon={variant !== "thread"}
-          showContext={!quote}
-          iconSize={quote ? 16 : 19}
-        />
+        <PostHeader platform={platform} post={post} variant={variant} />
       </View>
       {!!post.title && variant !== "thread" && (
         <View
@@ -165,8 +135,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
             post={post.quote}
             platform={platform}
             variant="quote"
-            activePostUrl={activePostUrl}
-            onActivate={onActivate}
           />
         </View>
       )}

@@ -25,9 +25,9 @@ Scroll through posts, threads, images, and videos from your visible platforms.
 Tap Show more to expand long posts, or tap an image to open it full screen.
 Open an original post in the platform's app when installed, or in the built-in browser.
 
-The feed refreshes automatically on the first app open each day. Pull down to refresh it manually.
-Saved posts remain readable while new posts load. Open the feed menu to see which platforms are
-still refreshing.
+The feed refreshes automatically whenever you open the app. Pull down to refresh it manually.
+Saved posts remain readable while new posts load. The header shows which platforms are still
+refreshing.
 
 Feed refreshes use direct requests with your on-device login session. If a platform needs you to
 sign in again, a "needs attention" notice appears below the header. Tap its globe icon to handle
@@ -48,10 +48,12 @@ To disconnect a platform or switch accounts, use the logout button in the browse
 This deletes that platform's saved posts and login cookies from subsocial. Logging out of YouTube
 also clears the Google sign-in cookies used by YouTube.
 
-#### Export data
+#### Export and import data
 
 Tap the export icon at the top of the feed menu to share a backup of the feed database.
 The backup includes saved posts and media metadata, but not login cookies or app preferences.
+Tap the import icon to replace the saved feed with a backup. Backups from versions before 0.1.4
+cannot be imported.
 
 The app keeps the newest 500 feed groups per platform, including complete threads.
 Older posts are removed as new ones arrive, so the saved feed is a recent cache rather than an archive.
@@ -62,3 +64,7 @@ Bun patches LegendList 3.6.0 so Fabric updates the content dimensions together w
 and the scroll anchor. Separate animated dimension updates caused a brief jump when platforms
 were shown or hidden. Keep the patch until an upstream release fixes this behavior, and check
 scrolled platform toggles frame by frame before removing it.
+
+Bun also patches expo-quick-actions 6.0.2 so an Android shortcut with a `targetUrl` param opens
+that URL in the platform's own app, using the app's icon. Upstream shortcuts can only reopen
+subsocial. Keep the patch until upstream supports external shortcut targets.

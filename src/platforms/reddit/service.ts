@@ -1,21 +1,77 @@
-import {
-  type ExtractedItem,
-  type ExtractedPost,
-  type FeedMedia,
-} from "@/feed/types";
-import {
-  listingSchema,
-  type RedditPost,
-} from "@/platforms/reddit/schemas/listing-schema";
-import { type FeedPage, type FeedRequest } from "@/platforms/types";
+import { z } from "zod";
 
-const aspectRatio = (width: number | undefined, height: number | undefined) =>
-  typeof width === "number" &&
-  typeof height === "number" &&
-  width > 0 &&
-  height > 0
-    ? width / height
-    : undefined;
+import { aspectRatio, paginate } from "@/platforms/web-api";
+import { type FeedRequest } from "@/types/platform";
+import { type ExtractedItem, type FeedMedia } from "@/types/post";
+
+const imageSchema = z.object({
+  url: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+const videoSchema = z.object({
+  hls_url: z.string().optional(),
+  fallback_url: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+const mediaSchema = z.object({ reddit_video: videoSchema.nullish() });
+const redditPostSchema = z.object({
+  name: z.string().min(1),
+  permalink: z.string().startsWith("/"),
+  author: z.string().optional(),
+  subreddit_name_prefixed: z.string().optional(),
+  title: z.string().optional(),
+  selftext: z.string().optional(),
+  created_utc: z.number().optional(),
+  promoted: z.boolean().optional(),
+  is_promoted: z.boolean().optional(),
+  url_overridden_by_dest: z.string().optional(),
+  url: z.string().optional(),
+  preview: z
+    .object({ images: z.array(z.object({ source: imageSchema })).optional() })
+    .nullish(),
+  secure_media: mediaSchema.nullish(),
+  media: mediaSchema.nullish(),
+  gallery_data: z
+    .object({ items: z.array(z.object({ media_id: z.string() })) })
+    .nullish(),
+  media_metadata: z
+    .record(
+      z.string(),
+      z.object({
+        status: z.string().optional(),
+        s: z
+          .object({
+            mp4: z.string().optional(),
+            u: z.string().optional(),
+            gif: z.string().optional(),
+            x: z.number().optional(),
+            y: z.number().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .nullish(),
+  get crosspost_parent_list() {
+    return z.array(redditPostSchema).optional();
+  },
+});
+type RedditPost = z.infer<typeof redditPostSchema>;
+const listingSchema = z.object({
+  kind: z.literal("Listing"),
+  data: z.object({
+    after: z.string().nullable(),
+    children: z
+      .array(z.object({ kind: z.string(), data: z.json() }))
+      .transform((children) =>
+        children
+          .filter((child) => child.kind === "t3")
+          .map((child) => child.data),
+      )
+      .pipe(z.array(redditPostSchema)),
+  }),
+});
 
 function mediaFor(post: RedditPost): FeedMedia[] {
   const preview = post.preview?.images?.[0]?.source;
@@ -69,12 +125,9 @@ function mediaFor(post: RedditPost): FeedMedia[] {
   ];
 }
 
-function postFor(post: RedditPost): ExtractedPost | undefined {
-  const sourceId = post.name;
-  const permalink = post.permalink;
-  if (!sourceId || !permalink.startsWith("/")) return;
+function postFor(post: RedditPost): ExtractedItem {
   const crosspost = post.crosspost_parent_list?.[0];
-  const quote = crosspost ? postFor(crosspost) : undefined;
+  const quote = crosspost && postFor(crosspost);
   const media = quote ? [] : mediaFor(post);
   const text = media.length
     ? post.selftext
@@ -84,50 +137,37 @@ function postFor(post: RedditPost): ExtractedPost | undefined {
         .trim()
     : post.selftext;
   return {
-    sourceId,
-    url: `https://www.reddit.com${permalink}`,
+    sourceId: post.name,
+    url: `https://www.reddit.com${post.permalink}`,
     authorName: post.author,
     authorHandle: post.subreddit_name_prefixed,
     title: post.title,
     text: text || undefined,
-    publishedAt:
-      typeof post.created_utc === "number"
-        ? post.created_utc * 1000
-        : undefined,
+    publishedAt: post.created_utc ? post.created_utc * 1000 : undefined,
     media,
     quote,
   };
 }
 
-export async function* redditFeed(
-  request: FeedRequest,
-): AsyncGenerator<FeedPage> {
-  let after = "";
-  const cursors = new Set<string>();
-  while (!request.signal.aborted) {
+export const redditFeed = (request: FeedRequest) =>
+  paginate(request, "Reddit", async (after) => {
     const url = new URL("https://www.reddit.com/new.json?limit=25&raw_json=1");
     if (after) url.searchParams.set("after", after);
-    const response = await request.fetch(url.href, { signal: request.signal });
+    const response = await request.fetch(url.href);
     const listing = listingSchema.safeParse(await response.json());
     if (!listing.success)
       throw new Error(
         "Could not read Reddit feed. Open Reddit to check your login.",
       );
     const { data } = listing.data;
-    const items: ExtractedItem[] = [];
-    const excludedSourceIds: string[] = [];
-    for (const post of data.children) {
-      if (post.promoted || post.is_promoted) {
-        if (post.name) excludedSourceIds.push(post.name);
-        continue;
-      }
-      const item = postFor(post);
-      if (item) items.push({ ...item, media: item.media ?? [] });
-    }
-    after = data.after || "";
-    const end = !after || cursors.has(after);
-    yield { items, excludedSourceIds, end };
-    if (end) return;
-    cursors.add(after);
-  }
-}
+    const promoted = (post: RedditPost) => post.promoted || post.is_promoted;
+    const cursor = data.after || "";
+    return {
+      items: data.children.filter((post) => !promoted(post)).map(postFor),
+      excludedSourceIds: data.children
+        .filter(promoted)
+        .map((post) => post.name),
+      end: !cursor,
+      cursor,
+    };
+  });
