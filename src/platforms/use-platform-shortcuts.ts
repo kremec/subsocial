@@ -13,7 +13,7 @@ import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 
 const shortcutId = (platformId: string) => `platform:${platformId}`;
-let handledInitialShortcut = false;
+let pendingInitialShortcut = initial;
 
 function openShortcut(action: Action) {
   const platform = platforms.find(({ id }) => action.id === shortcutId(id));
@@ -21,28 +21,25 @@ function openShortcut(action: Action) {
 }
 
 async function updatePlatformShortcuts() {
-  const installed = await Promise.all(
-    platforms.map((platform) => canOpenPlatformApp(platform.id)),
-  );
-
-  await setItems(
-    platforms
-      .filter((_platform, index) => installed[index])
-      .slice(0, maxCount)
-      .map((platform) => ({
+  const items = await Promise.all(
+    platforms.map(async (platform) => {
+      if (!(await canOpenPlatformApp(platform.id))) return;
+      return {
         id: shortcutId(platform.id),
         title: platform.label,
         params: { targetUrl: platform.androidAppUrl },
-      })),
+      };
+    }),
   );
+
+  await setItems(items.filter((item) => item !== undefined).slice(0, maxCount));
 }
 
 export function usePlatformShortcuts() {
   useEffect(() => {
-    if (initial && !handledInitialShortcut) {
-      handledInitialShortcut = true;
-      openShortcut(initial);
-    }
+    const action = pendingInitialShortcut;
+    pendingInitialShortcut = undefined;
+    if (action) openShortcut(action);
 
     void updatePlatformShortcuts().catch(() => undefined);
     const appStateSubscription = AppState.addEventListener(
