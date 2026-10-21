@@ -1,0 +1,11 @@
+{
+  "connectionsCheckFailed": "Could not check platform connections.",
+  "onboardingTitle": "Your feeds, together.",
+  "onboardingDescription": "Connect at least one platform to continue.",
+  "managePlatformConnection": "%{platform}, connected. Manage connection",
+  "connectPlatform": "Connect %{platform}",
+  "connected": "Connected",
+  "connect": "Connect",
+  "continueToFeed": "Continue to feed",
+  "continue": "Continue"
+}
