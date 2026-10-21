@@ -1,8 +1,8 @@
 import { type FC, useEffectEvent, useEffect, useRef, useState } from "react";
 import { BackHandler, View } from "react-native";
 
+import { ModalHeader } from "@/components/modal-header";
 import { PlatformWebView } from "@/components/platform-web-view";
-import { ModalHeader } from "@/components/ui/modal-header";
 import {
   listPublicationDates,
   saveExtraction,
