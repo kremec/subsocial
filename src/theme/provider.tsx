@@ -2,12 +2,13 @@ import { createContext, type FC, type ReactNode, useContext } from "react";
 import { useColorScheme } from "react-native";
 
 import { palette, type ThemeName } from "@/theme/palette";
-import { fonts, radius, spacing } from "@/theme/tokens";
+import { fonts, radius, spacing, typography } from "@/theme/tokens";
 
 const createTheme = (themeName: ThemeName) => ({
   themeName,
   colors: palette[themeName],
   spacing,
+  typography,
   radius,
   fonts,
 });

@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 export const spacing = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -20,3 +21,5 @@ export const radius = {
 export const fonts = {
   rounded: Platform.select({ ios: "ui-rounded", default: "normal" }),
 };
+
+export const typography = { bodyWeight: "500" } as const;
