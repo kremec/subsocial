@@ -167,38 +167,36 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: theme.colors.backgroundElement,
       }}
     >
-      {media.length === 1
-        ? renderMedia(media[0], 0)
-        : mediaWidth > 0 && (
-            <ScrollView
-              ref={carousel}
-              horizontal
-              pagingEnabled
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={false}
-              onContentSizeChange={(width) =>
-                carousel.current?.scrollTo({
-                  x: (mediaIndex * width) / media.length,
-                  animated: false,
-                })
-              }
-              onMomentumScrollEnd={(event) => {
-                setMediaIndex(
-                  Math.round(event.nativeEvent.contentOffset.x / mediaWidth),
-                );
-              }}
+      {media.length === 1 && renderMedia(media[0], 0)}
+      {media.length !== 1 && mediaWidth > 0 && (
+        <ScrollView
+          ref={carousel}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          onContentSizeChange={(width) =>
+            carousel.current?.scrollTo({
+              x: (mediaIndex * width) / media.length,
+              animated: false,
+            })
+          }
+          onMomentumScrollEnd={(event) => {
+            setMediaIndex(
+              Math.round(event.nativeEvent.contentOffset.x / mediaWidth),
+            );
+          }}
+        >
+          {media.map((media, index) => (
+            <View
+              key={`${media.url}:${index}`}
+              style={{ width: mediaWidth, height: "100%" }}
             >
-              {media.map((media, index) => (
-                <View
-                  key={`${media.url}:${index}`}
-                  style={{ width: mediaWidth, height: "100%" }}
-                >
-                  {Math.abs(index - mediaIndex) <= 1 &&
-                    renderMedia(media, index)}
-                </View>
-              ))}
-            </ScrollView>
-          )}
+              {Math.abs(index - mediaIndex) <= 1 && renderMedia(media, index)}
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
       {!(active && playable) && counter}
     </View>

@@ -81,11 +81,8 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      {busy ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <Icon name="download" color="#FFFFFF" size={20} />
-      )}
+      {busy && <ActivityIndicator color="#FFFFFF" />}
+      {!busy && <Icon name="download" color="#FFFFFF" size={20} />}
     </Pressable>
   );
 };

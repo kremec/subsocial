@@ -99,13 +99,14 @@ export const BrowserScreen: FC = () => {
           <Icon name="external-link" color={theme.colors.text} size={22} />
         </IconButton>
       </ModalHeader>
-      {resetting ? (
+      {resetting && (
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
           <ActivityIndicator color={theme.colors.accent} />
         </View>
-      ) : (
+      )}
+      {!resetting && (
         <PlatformWebView
           platform={platform}
           uri={params.url || platform.loginUrl}

@@ -95,7 +95,7 @@ export const MediaScreen: FC = () => {
                   style={{ width, height: "100%" }}
                 >
                   {Math.abs(itemIndex - mediaIndex) <= 1 &&
-                    (item.type === "image" ? (
+                    item.type === "image" && (
                       <FullscreenImage
                         uri={item.url}
                         aspectRatio={item.aspectRatio}
@@ -103,7 +103,9 @@ export const MediaScreen: FC = () => {
                           itemIndex === mediaIndex ? setZoomed : undefined
                         }
                       />
-                    ) : (
+                    )}
+                  {Math.abs(itemIndex - mediaIndex) <= 1 &&
+                    item.type !== "image" && (
                       <View style={{ flex: 1 }}>
                         {!!item.posterUrl && (
                           <Image
@@ -114,7 +116,7 @@ export const MediaScreen: FC = () => {
                         )}
                         {focused && itemIndex === mediaIndex && (
                           <SafeAreaView style={{ flex: 1 }}>
-                            {item.playable ? (
+                            {item.playable && (
                               <FeedVideo
                                 key={item.url}
                                 index={itemIndex}
@@ -126,7 +128,8 @@ export const MediaScreen: FC = () => {
                                 onFullscreen={() => router.back()}
                                 navigationGestures={navigationGestures}
                               />
-                            ) : (
+                            )}
+                            {!item.playable && (
                               <Pressable
                                 accessibilityRole="button"
                                 onPress={() =>
@@ -152,7 +155,7 @@ export const MediaScreen: FC = () => {
                           </SafeAreaView>
                         )}
                       </View>
-                    ))}
+                    )}
                 </View>
               ))}
             </ScrollView>
