@@ -51,6 +51,7 @@
     },
   },
   "patchedDependencies": {
+    "@expo/ui@57.0.25": "patches/@expo%2Fui@57.0.25.patch",
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
     "@legendapp/list@3.6.0": "patches/@legendapp%2Flist@3.6.0.patch",
   },

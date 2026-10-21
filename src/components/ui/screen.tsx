@@ -1,33 +1,47 @@
 import { type FC, type PropsWithChildren } from "react";
-import { type StyleProp, View, type ViewStyle } from "react-native";
+import { ScrollView, type StyleProp, View, type ViewStyle } from "react-native";
 
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  type SafeAreaViewProps,
+} from "react-native-safe-area-context";
 
 import { useTheme } from "@/theme/use-theme";
 
 interface ScreenProps {
+  scroll?: boolean;
+  edges?: SafeAreaViewProps["edges"];
   style?: StyleProp<ViewStyle>;
 }
 
 export const Screen: FC<PropsWithChildren<ScreenProps>> = (props) => {
-  const { children, style } = props;
+  const { children, scroll = false, edges, style } = props;
   const theme = useTheme();
+  const contentStyle = {
+    width: "100%" as const,
+    maxWidth: 820,
+    alignSelf: "center" as const,
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View
-        style={[
-          {
-            flex: 1,
-            width: "100%",
-            maxWidth: 820,
-            alignSelf: "center",
-          },
-          style,
-        ]}
+    <SafeAreaProvider>
+      <SafeAreaView
+        edges={edges}
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
-        {children}
-      </View>
-    </SafeAreaView>
+        {scroll ? (
+          <ScrollView
+            contentContainerStyle={[contentStyle, style]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[contentStyle, { flex: 1 }, style]}>{children}</View>
+        )}
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
