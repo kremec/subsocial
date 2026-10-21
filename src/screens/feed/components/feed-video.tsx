@@ -95,9 +95,8 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
       }}
     >
       {counter}
-      {status === "loading" ? (
-        <ActivityIndicator color="white" />
-      ) : (
+      {status === "loading" && <ActivityIndicator color="white" />}
+      {status !== "loading" && (
         <Pressable
           accessibilityRole="button"
           style={{ padding: 16 }}

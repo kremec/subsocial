@@ -41,7 +41,7 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
         setVideoView: (postUrl, view) => onVideoView(rowId, postUrl, view),
       }}
     >
-      {post ? (
+      {post && (
         <ThreadCard
           post={post}
           platform={item.platform}
@@ -49,7 +49,8 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
           end={!!threadEnd}
           gapBefore={!!threadGapBefore}
         />
-      ) : (
+      )}
+      {!post && (
         <View
           style={{
             paddingVertical: theme.spacing.lg,

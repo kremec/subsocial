@@ -28,11 +28,8 @@ const FeedRoute: FC = () => {
           }}
         />
       )}
-      {onboarded ? (
-        <FeedScreen webKitReady={webKitReady} />
-      ) : (
-        <OnboardingScreen webKitReady={webKitReady} />
-      )}
+      {onboarded && <FeedScreen webKitReady={webKitReady} />}
+      {!onboarded && <OnboardingScreen webKitReady={webKitReady} />}
     </Fragment>
   );
 };
