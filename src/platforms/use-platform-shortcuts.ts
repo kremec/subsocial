@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
 
 import {
   type Action,
@@ -21,16 +21,14 @@ function openShortcut(action: Action) {
 }
 
 async function updatePlatformShortcuts() {
-  // iOS shows only a few shortcuts, so offer just the installed apps there.
-  const installed =
-    Platform.OS === "android"
-      ? platforms.map(() => true)
-      : await Promise.all(platforms.map(({ id }) => canOpenPlatformApp(id)));
+  const installed = await Promise.all(
+    platforms.map((platform) => canOpenPlatformApp(platform.id)),
+  );
 
   await setItems(
     platforms
       .filter((_platform, index) => installed[index])
-      .slice(0, Platform.OS === "android" ? undefined : maxCount)
+      .slice(0, maxCount)
       .map((platform) => ({
         id: shortcutId(platform.id),
         title: platform.label,
