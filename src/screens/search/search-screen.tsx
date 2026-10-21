@@ -5,9 +5,9 @@ import { router, useFocusEffect, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
+import { ModalHeader } from "@/components/modal-header";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
-import { ModalHeader } from "@/components/ui/modal-header";
 import { Screen } from "@/components/ui/screen";
 import { listFeedItems } from "@/db/repositories/feed-items-repository";
 import { FeedList } from "@/screens/feed/components/feed-list";
