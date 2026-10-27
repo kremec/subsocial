@@ -1,14 +1,148 @@
-import type { ExtractedItem, FeedMedia, ExtractedPost } from "@/feed/types";
-import { type Json } from "@/platforms/json";
+import { z } from "zod";
+
+import { aspectRatio, type Json, paginate } from "@/platforms/web-api";
 import {
   FeedAccessError,
   type FeedPage,
   type FeedRequest,
-} from "@/platforms/types";
+} from "@/types/platform";
+import type { ExtractedItem, FeedMedia } from "@/types/post";
 
-import { feedResponseSchema, type Tweet } from "./schemas/feed-response-schema";
+// Hermes only guarantees ISO date parsing, not X's "Tue Nov 14 ... 2023" format.
+const createdAtSchema = z.string().transform((value) => {
+  const parts = value.match(
+    /^\w{3} (\w{3}) (\d{2}) (\d{2}:\d{2}:\d{2}) ([+-]\d{2})(\d{2}) (\d{4})$/,
+  );
+  if (!parts) return undefined;
+  const month =
+    "JanFebMarAprMayJunJulAugSepOctNovDec".indexOf(parts[1]) / 3 + 1;
+  if (!Number.isInteger(month)) return undefined;
+  return (
+    Date.parse(
+      `${parts[6]}-${String(month).padStart(2, "0")}-${parts[2]}T${parts[3]}${parts[4]}:${parts[5]}`,
+    ) || undefined
+  );
+});
 
-function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
+const identitySchema = z.object({
+  name: z.string().nullish(),
+  screen_name: z.string().nullish(),
+});
+const mediaSchema = z.object({
+  type: z.string(),
+  media_url_https: z.string().nullish(),
+  original_info: z.object({ width: z.number(), height: z.number() }).nullish(),
+  video_info: z
+    .object({
+      aspect_ratio: z.tuple([z.number(), z.number()]).nullish(),
+      variants: z.array(
+        z.object({
+          content_type: z.string(),
+          bitrate: z.number().nullish(),
+          url: z.string(),
+        }),
+      ),
+    })
+    .nullish(),
+});
+const textSchema = z.object({
+  text: z.string().nullish(),
+  full_text: z.string().nullish(),
+  display_text_range: z.tuple([z.number(), z.number()]).nullish(),
+});
+const tweetSchema = z.object({
+  rest_id: z.string().nullish(),
+  core: z
+    .object({
+      user_results: z
+        .object({
+          result: z
+            .object({
+              core: identitySchema.nullish(),
+              legacy: identitySchema.nullish(),
+            })
+            .nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
+  note_tweet: z
+    .object({
+      note_tweet_results: z.object({ result: textSchema.nullish() }).nullish(),
+    })
+    .nullish(),
+  get legacy() {
+    return textSchema
+      .extend({
+        id_str: z.string().nullish(),
+        created_at: createdAtSchema.nullish(),
+        in_reply_to_status_id_str: z.string().nullish(),
+        extended_entities: z
+          .object({ media: z.array(mediaSchema).nullish() })
+          .nullish(),
+        entities: z
+          .object({
+            urls: z
+              .array(z.object({ expanded_url: z.string().nullish() }))
+              .nullish(),
+          })
+          .nullish(),
+        retweeted_status_result: z
+          .object({ result: tweetSchema.nullish() })
+          .nullish(),
+      })
+      .nullish();
+  },
+  get tweet() {
+    return tweetSchema.nullish();
+  },
+  get quoted_status_result() {
+    return z.object({ result: tweetSchema.nullish() }).nullish();
+  },
+});
+const itemSchema = z.object({
+  promotedMetadata: z.object({}).nullish(),
+  tweet_results: z.object({ result: tweetSchema.nullish() }).nullish(),
+});
+const feedResponseSchema = z
+  .object({
+    errors: z.never().optional(),
+    data: z.object({
+      home: z.object({
+        home_timeline_urt: z.object({
+          instructions: z.array(
+            z.object({
+              entries: z
+                .array(
+                  z.object({
+                    content: z.object({
+                      cursorType: z.string().nullish(),
+                      value: z.string().nullish(),
+                      itemContent: itemSchema.nullish(),
+                      items: z
+                        .array(
+                          z.object({
+                            item: z.object({
+                              itemContent: itemSchema.nullish(),
+                            }),
+                          }),
+                        )
+                        .nullish(),
+                    }),
+                  }),
+                )
+                .nullish(),
+            }),
+          ),
+        }),
+      }),
+    }),
+  })
+  .transform((response) => response.data.home.home_timeline_urt.instructions);
+
+type Tweet = z.infer<typeof tweetSchema>;
+
+function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
   const tweet = value?.tweet || value;
   const legacy = tweet?.legacy;
   const sourceId = tweet?.rest_id || legacy?.id_str;
@@ -29,17 +163,18 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
   const media: FeedMedia[] = [];
   for (const item of legacy.extended_entities?.media || []) {
     const poster = item.media_url_https;
-    const dimensions = item.original_info;
-    const aspectRatio =
-      (dimensions?.width || 0) / (dimensions?.height || 0) || undefined;
+    const ratio = aspectRatio(
+      item.original_info?.width,
+      item.original_info?.height,
+    );
     if (item.type === "photo" && poster) {
       const url = new URL(poster);
       url.searchParams.set("name", "orig");
-      media.push({ type: "image", url: url.href, aspectRatio });
+      media.push({ type: "image", url: url.href, aspectRatio: ratio });
     } else {
       const variant = (item.video_info?.variants || [])
         .filter((entry) => entry.content_type === "video/mp4")
-        .sort((a, b) => Number(b.bitrate || 0) - Number(a.bitrate || 0))[0];
+        .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
       if (variant?.url)
         media.push({
           type: "video",
@@ -47,8 +182,10 @@ function postFor(value: Tweet | null | undefined): ExtractedPost | undefined {
           posterUrl: poster || undefined,
           playable: true,
           aspectRatio:
-            (item.video_info?.aspect_ratio?.[0] || 0) /
-              (item.video_info?.aspect_ratio?.[1] || 0) || aspectRatio,
+            aspectRatio(
+              item.video_info?.aspect_ratio?.[0],
+              item.video_info?.aspect_ratio?.[1],
+            ) || ratio,
         });
     }
   }
@@ -91,8 +228,9 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         const original = retweet?.tweet || retweet || tweet;
         const post = postFor(original);
         if (!post) continue;
+        // Live broadcasts and spaces are not posts with lasting content.
         if (
-          (original?.legacy?.entities?.urls || []).some((link) =>
+          original?.legacy?.entities?.urls?.some((link) =>
             /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\//.test(
               link.expanded_url || "",
             ),
@@ -104,11 +242,8 @@ export function xPage(value: Json): FeedPage & { cursor: string } {
         if (!retweet) boundarySourceIds.push(post.sourceId);
         if (seen.has(post.sourceId)) continue;
         seen.add(post.sourceId);
-        if (retweet) {
-          const by = postFor(tweet);
-          post.context = by?.authorHandle;
-        }
-        group.push({ ...post, media: post.media || [] });
+        if (retweet) post.context = postFor(tweet)?.authorHandle;
+        group.push(post);
       }
       if (group.length) {
         for (const [index, post] of group.entries()) {
@@ -175,28 +310,21 @@ const features = {
 export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
   if (!request.cookies.ct0)
     throw new FeedAccessError("Open X to renew your login.");
-  const html = await (
-    await request.fetch("https://x.com/home", { signal: request.signal })
-  ).text();
+  const html = await (await request.fetch("https://x.com/home")).text();
   const scriptUrl = html.match(
     /https:\/\/abs\.twimg\.com\/responsive-web\/client-web[^"\s]*\/main\.[^"\s]+\.js/,
   )?.[0];
   if (!scriptUrl) throw new Error("X web API configuration unavailable.");
-  const script = await (
-    await request.fetch(scriptUrl, { signal: request.signal })
-  ).text();
+  const script = await (await request.fetch(scriptUrl)).text();
   const bearer = script.match(/AAAAA[A-Za-z0-9%]+/)?.[0];
   if (!bearer) throw new Error("X web API configuration unavailable.");
   // Query and feature flags observed on X's chronological following feed.
   const queryId = "iv-dlEyuey-JlgeP5u6rPw";
-  let cursor = "";
-  const cursors = new Set<string>();
-  do {
+  yield* paginate(request, "X", async (cursor) => {
     const response = await request.fetch(
       `https://x.com/i/api/graphql/${queryId}/HomeLatestTimeline`,
       {
         method: "POST",
-        signal: request.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${bearer}`,
@@ -217,12 +345,6 @@ export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
         }),
       },
     );
-    const page = xPage(await response.json());
-    yield page;
-    if (page.end) return;
-    if (cursors.has(page.cursor))
-      throw new Error("X did not advance the feed.");
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return xPage(await response.json());
+  });
 }

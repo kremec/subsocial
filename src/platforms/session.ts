@@ -1,28 +1,25 @@
 import { Platform } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
-import { collectionKnownKey } from "@/feed/collection";
+import { database } from "@/db/client";
 import {
   connectPlatform,
   disconnectPlatform,
-  deletePlatformData,
   listConnectedPlatforms,
-} from "@/feed/database";
-import { type PlatformId } from "@/feed/types";
-import { type PlatformDefinition, platforms } from "@/platforms/platforms";
+} from "@/db/repositories/connections-repository";
+import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
+import { hasSession, platforms } from "@/platforms/platforms";
+import { setCollectionBoundary } from "@/stores/settings-store";
+import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformId } from "@/types/post";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,
 ): Promise<boolean | undefined> {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
-    const connected = platform.sessionCookieGroups.every((group) =>
-      group.some((name) => !!cookies[name]?.value),
-    );
-
+    const connected = hasSession(platform, cookies);
     if (connected) connectPlatform(platform.id);
     else disconnectPlatform(platform.id);
     return connected;
@@ -41,7 +38,7 @@ export async function resetPlatformSession(
 ): Promise<void> {
   const urls = new Set([
     platform.startUrl,
-    platform.loginUrl || platform.startUrl,
+    platform.loginUrl,
     ...platform.dataDomains.map((domain) => `https://${domain}`),
   ]);
   for (const useWebKit of Platform.OS === "ios" ? [false, true] : [true]) {
@@ -54,6 +51,9 @@ export async function resetPlatformSession(
       );
     }
   }
-  deletePlatformData(platform.id);
-  Storage.removeItemSync(collectionKnownKey(platform.id));
+  database.withTransactionSync(() => {
+    deletePlatformPosts(platform.id);
+    disconnectPlatform(platform.id);
+  });
+  setCollectionBoundary(platform.id);
 }

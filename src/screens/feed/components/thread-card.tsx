@@ -3,11 +3,11 @@ import { Pressable, View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedPost, type PlatformId } from "@/types/post";
 
 interface ThreadCardProps {
   post: FeedPost;
@@ -15,13 +15,10 @@ interface ThreadCardProps {
   start: boolean;
   end: boolean;
   gapBefore: boolean;
-  activePostUrl?: string;
-  onActivate: (url: string) => void;
 }
 
 export const ThreadCard: FC<ThreadCardProps> = (props) => {
-  const { post, platform, start, end, gapBefore, activePostUrl, onActivate } =
-    props;
+  const { post, platform, start, end, gapBefore } = props;
   const definition = getPlatform(platform);
   const theme = useTheme();
 
@@ -99,13 +96,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <PostContent
-            post={post}
-            platform={platform}
-            variant="thread"
-            activePostUrl={activePostUrl}
-            onActivate={onActivate}
-          />
+          <PostContent post={post} platform={platform} variant="thread" />
         </View>
       </View>
     </View>

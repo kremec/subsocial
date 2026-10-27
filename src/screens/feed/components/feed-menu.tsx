@@ -1,15 +1,15 @@
 import { type FC } from "react";
 import { View } from "react-native";
 
+import { PlatformIcon } from "@/components/platform-icon";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type PlatformId } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
-import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
+import { type PlatformId } from "@/types/post";
 
 interface FeedMenuProps {
   visible: boolean;
@@ -58,20 +58,22 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
             Platforms
           </Typography>
           <IconButton
+            size={36}
+            accessibilityLabel="Import data"
             onPress={() => {
               onClose();
               onImportData();
             }}
-            style={{ width: 36, height: 36 }}
           >
             <Icon name="file-import" color={theme.colors.text} size={20} />
           </IconButton>
           <IconButton
+            size={36}
+            accessibilityLabel="Export data"
             onPress={() => {
               onClose();
               onExportData();
             }}
-            style={{ width: 36, height: 36 }}
           >
             <Icon name="file-export" color={theme.colors.text} size={20} />
           </IconButton>
@@ -107,11 +109,9 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               </Typography>
 
               <IconButton
+                size={36}
+                accessibilityLabel={`${active ? "Hide" : "Show"} ${platform.label}`}
                 onPress={() => onTogglePlatform(platform.id)}
-                style={{
-                  width: 36,
-                  height: 36,
-                }}
               >
                 <Icon
                   name={active ? "eye" : "eye-off"}
@@ -121,16 +121,15 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               </IconButton>
 
               <IconButton
+                size={36}
+                accessibilityLabel={`Open ${platform.label}`}
                 onPress={() => {
                   onClose();
                   openBrowser(
                     platform.id,
-                    connected
-                      ? platform.startUrl
-                      : platform.loginUrl || platform.startUrl,
+                    connected ? platform.startUrl : platform.loginUrl,
                   );
                 }}
-                style={{ width: 36, height: 36 }}
               >
                 <Icon
                   name="world"

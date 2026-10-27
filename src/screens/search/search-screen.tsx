@@ -1,24 +1,24 @@
-import { type FC, useCallback, useEffect, useRef, useState } from "react";
-import { AppState, TextInput, View } from "react-native";
+import { type FC, useRef, useState } from "react";
+import { TextInput, View } from "react-native";
 
 import { router, useFocusEffect, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
+import { ModalHeader } from "@/components/modal-header";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
-import { listFeedItems } from "@/feed/database";
+import { listFeedItems } from "@/db/repositories/feed-items-repository";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 
 export const SearchScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [foreground, setForeground] = useState(
-    AppState.currentState === "active",
-  );
   const [items, setItems] = useState(listFeedItems);
+  // Logging out from a browser opened here deletes posts.
+  useFocusEffect(() => setItems(listFeedItems()));
   const [query, setQuery] = useState("");
   const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {
@@ -26,37 +26,10 @@ export const SearchScreen: FC = () => {
       void list.current.scrollToOffset({ offset: 0, animated: false });
     setQuery(text);
   };
-  useFocusEffect(
-    useCallback(() => {
-      const next = listFeedItems();
-      setItems((current) =>
-        current.length === next.length &&
-        current.every((item, index) => item === next[index])
-          ? current
-          : next,
-      );
-    }, []),
-  );
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setForeground(state === "active"),
-    );
-    return () => subscription.remove();
-  }, []);
 
   return (
-    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
-      <View
-        style={{
-          height: 56,
-          paddingHorizontal: theme.spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.spacing.sm,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
-      >
+    <Screen>
+      <ModalHeader closeLabel="Close search" onClose={() => router.back()}>
         <View
           style={{
             flex: 1,
@@ -80,20 +53,16 @@ export const SearchScreen: FC = () => {
             style={{
               flex: 1,
               color: theme.colors.text,
-              fontSize: theme.typography.body,
+              fontSize: 16,
               paddingVertical: theme.spacing.sm,
             }}
           />
           {!!query && (
             <IconButton
+              plain
+              size={36}
               accessibilityLabel="Clear search"
               onPress={() => changeQuery("")}
-              style={{
-                borderWidth: 0,
-                backgroundColor: "transparent",
-                width: 36,
-                height: 36,
-              }}
             >
               <Icon
                 name="circle-x"
@@ -103,29 +72,8 @@ export const SearchScreen: FC = () => {
             </IconButton>
           )}
         </View>
-        <IconButton
-          accessibilityLabel="Close search"
-          onPress={() => router.back()}
-          style={({ pressed }) => ({
-            borderWidth: 0,
-            backgroundColor: "transparent",
-            opacity: pressed ? 0.45 : 1,
-          })}
-        >
-          <Icon
-            name="x"
-            color={theme.colors.text}
-            size={24}
-            strokeWidth={1.8}
-          />
-        </IconButton>
-      </View>
-      <FeedList
-        items={items}
-        visible={focused && foreground}
-        query={query}
-        listRef={list}
-      />
+      </ModalHeader>
+      <FeedList items={items} visible={focused} query={query} listRef={list} />
     </Screen>
   );
 };

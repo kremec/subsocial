@@ -2,8 +2,8 @@ import { type FC } from "react";
 import { View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedAttachment } from "@/feed/types";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedAttachment } from "@/types/post";
 
 interface PostAttachmentProps {
   attachment: FeedAttachment;

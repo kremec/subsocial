@@ -1,8 +1,10 @@
-import { type FC, useContext, useEffect, useState } from "react";
+import { type FC } from "react";
 import { Pressable } from "react-native";
 
+import { useEvent } from "expo";
+
 import { Icon } from "@/components/ui/icon";
-import { FeedVideoPlayerContext } from "@/screens/feed/feed-video-player";
+import { player } from "@/stores/media-store";
 
 interface FeedVideoMuteButtonProps {
   inline?: boolean;
@@ -10,15 +12,7 @@ interface FeedVideoMuteButtonProps {
 
 export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
   const { inline } = props;
-  const player = useContext(FeedVideoPlayerContext);
-  const [muted, setMuted] = useState(player?.muted ?? true);
-  useEffect(() => {
-    if (!player) return;
-    const listener = player.addListener("mutedChange", (event) =>
-      setMuted(event.muted),
-    );
-    return () => listener.remove();
-  }, [player]);
+  const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (
     <Pressable
@@ -27,11 +21,7 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
-        if (player) {
-          // VideoPlayer is a mutable native object; this setter emits mutedChange.
-          // oxlint-disable-next-line react/immutability
-          player.muted = !player.muted;
-        }
+        player.muted = !player.muted;
       }}
       style={({ pressed }) => ({
         ...(!inline && { position: "absolute", bottom: 8, right: 8 }),

@@ -1,14 +1,70 @@
 import { toByteArray } from "base64-js";
+import { z } from "zod";
 
-import {
-  youtubeStream,
-  type YouTubeResolution,
-} from "@/platforms/youtube/media";
-import {
-  playbackResponseSchema,
-  playbackVisitorSchema,
-  type PlaybackResponse,
-} from "@/platforms/youtube/schemas/playback-response-schema";
+import { type FeedMedia } from "@/types/post";
+
+const formatSchema = z.object({
+  audioTrack: z
+    .object({
+      id: z.string(),
+      displayName: z.string().optional(),
+      isAutoDubbed: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+const playbackVisitorSchema = z.object({
+  responseContext: z.object({ visitorData: z.string().min(1) }),
+});
+
+const playbackResponseSchema = z.object({
+  playabilityStatus: z.object({ status: z.string() }),
+  videoDetails: z.object({ videoId: z.string() }).optional(),
+  streamingData: z
+    .object({
+      hlsManifestUrl: z.string().optional(),
+      formats: z.array(formatSchema).optional(),
+      adaptiveFormats: z.array(formatSchema).optional(),
+    })
+    .optional(),
+});
+
+type PlaybackResponse = z.infer<typeof playbackResponseSchema>;
+
+export type YouTubeResolution =
+  | {
+      status: "ready";
+      url: string;
+      contentType: "hls";
+      preferredAudioTrack?: string;
+    }
+  | { status: "error" | "verification" };
+
+export function youtubeStream(url: string) {
+  const source = new URL(url);
+  if (
+    source.protocol !== "https:" ||
+    !source.hostname.endsWith(".googlevideo.com") ||
+    !/\/manifest\/hls_(?:playlist|variant)\//.test(source.pathname)
+  ) {
+    throw new Error("Invalid YouTube stream");
+  }
+  return {
+    status: "ready",
+    url,
+    contentType: "hls",
+  } satisfies YouTubeResolution;
+}
+
+// Streams expire, so they replace the saved poster only while playing.
+export function withYouTubeStream(
+  media: FeedMedia,
+  resolution: YouTubeResolution | undefined,
+): FeedMedia {
+  if (resolution?.status !== "ready") return media;
+  const { url, contentType, preferredAudioTrack } = resolution;
+  return { ...media, url, contentType, preferredAudioTrack };
+}
 
 // Keep this client aligned with NewPipeExtractor's ClientsConstants.
 const client = {
@@ -59,8 +115,6 @@ export function selectYouTubePlaylist(
   streamingData: PlaybackResponse["streamingData"],
 ): YouTubeResolution {
   const master = youtubeStream(url);
-  if (master.contentType !== "hls")
-    throw new Error("Expected a YouTube HLS playlist");
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
   if (lines[0] !== "#EXTM3U") throw new Error("Invalid video playlist");
   const formats = [
@@ -101,7 +155,6 @@ export function selectYouTubePlaylist(
     const uri = lines[index + 1];
     if (!uri || uri.startsWith("#")) throw new Error("Invalid video variant");
     const source = youtubeStream(new URL(uri, url).href);
-    if (source.contentType !== "hls") throw new Error("Invalid video variant");
     const height = Number((tags.RESOLUTION || "").split("x")[1]);
     return [
       {
@@ -201,9 +254,7 @@ export async function resolveYouTubePlayback(
     throw new Error("YouTube returned a different video");
   const url = player.streamingData?.hlsManifestUrl;
   if (!url) throw new Error("YouTube did not return a playable stream");
-  const source = youtubeStream(url);
-  if (source.contentType !== "hls")
-    throw new Error("YouTube did not return a video playlist");
+  youtubeStream(url);
   const response = await load(url);
   const playlist = await response.text();
   checkAborted();

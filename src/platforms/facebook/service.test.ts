@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { extractedItemSchema } from "@/feed/schemas";
 import { facebookFeed, parseFacebookFeed } from "@/platforms/facebook/service";
+import { extractedItemSchema } from "@/types/post";
 
 const story = {
   __typename: "Story",
@@ -389,7 +389,7 @@ function pageFor(node: object) {
   ).items[0];
 }
 
-test("uses context group names for both author fields", () => {
+test("uses context group names as the author", () => {
   const item = pageFor({
     ...story,
     comet_sections: {
@@ -409,7 +409,6 @@ test("uses context group names for both author fields", () => {
     },
   });
   assert.equal(item.authorName, "Developers");
-  assert.equal(item.authorHandle, "Developers");
 });
 
 test("keeps node reel media when content attachments are empty", () => {
@@ -514,7 +513,7 @@ for (const urlField of ["url", "wwwURL"]) {
       });
       assert.equal(item.sourceId, "123");
       assert.equal(item.publishedAt, 1780000000000);
-      assert.equal(item.authorHandle, "Developers");
+      assert.equal(item.authorName, "Developers");
       assert.equal(item.text, text);
       assert.deepEqual(item.media, []);
       assert.equal(item.quote?.authorName, "Original author");
@@ -549,7 +548,6 @@ test("reads the destination group directly from Facebook story.to", () => {
       comet_sections: { ...story.comet_sections, content: { story: {} } },
     });
     assert.equal(item.authorName, name);
-    assert.equal(item.authorHandle, name);
   }
 });
 
