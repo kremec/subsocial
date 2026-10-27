@@ -88,17 +88,17 @@ export function findPositionIndex(
   const exact = rows.findIndex((row) => row.id === position.id);
   if (exact >= 0 || !position.postId) return exact;
   // Row keys change when branches grow, so find the post in its saved branch.
-  const candidates = rows
-    .map((row, index) => ({ row, index }))
-    .filter((candidate) => postIdFor(candidate.row) === position.postId);
-  const branch = candidates.find(
-    (candidate) =>
-      candidate.row.item.id === position.branchId ||
-      candidate.row.item.thread?.some(
-        (post) =>
-          `${candidate.row.item.platform}:${post.sourceId}` ===
-          position.branchId,
-      ),
-  );
-  return branch?.index ?? candidates[0]?.index ?? -1;
+  let firstPost = -1;
+  for (const [index, row] of rows.entries()) {
+    if (postIdFor(row) !== position.postId) continue;
+    if (firstPost < 0) firstPost = index;
+    if (
+      row.item.id === position.branchId ||
+      row.item.thread?.some(
+        (post) => `${row.item.platform}:${post.sourceId}` === position.branchId,
+      )
+    )
+      return index;
+  }
+  return firstPost;
 }

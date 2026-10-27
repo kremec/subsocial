@@ -32,17 +32,19 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<View>(null);
   const carousel = useRef<ScrollView>(null);
-  const { activePostUrl, activate, setVideoView } =
+  const { rowId, activePostUrl, activate, setVideoView } =
     useContext(FeedVideoContext)!;
   const active = activePostUrl === postUrl;
-  const selection = useMediaStore((state) => state.album);
+  const selection = useMediaStore((state) =>
+    state.album?.postUrl === postUrl ? state.album.index : undefined,
+  );
   useLayoutEffect(() => {
-    if (selection?.postUrl !== postUrl) return;
+    if (selection === undefined) return;
     // Fullscreen and inline views keep the same album position.
     // oxlint-disable-next-line react/set-state-in-effect
-    setMediaIndex(selection.index);
+    setMediaIndex(selection);
     carousel.current?.scrollTo({
-      x: selection.index * mediaWidth,
+      x: selection * mediaWidth,
       animated: false,
     });
   }, [selection, postUrl, mediaWidth]);
@@ -64,9 +66,9 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const playable = selectedMedia?.type === "video" && selectedMedia.playable;
   useLayoutEffect(() => {
     if (!playable || !view.current) return;
-    setVideoView(postUrl, view.current);
-    return () => setVideoView(postUrl, null);
-  }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
+    setVideoView(rowId, postUrl, view.current);
+    return () => setVideoView(rowId, postUrl, null);
+  }, [setVideoView, rowId, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
   const counter = media.length > 1 && (
@@ -97,7 +99,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         <Pressable
           onPress={(event) => {
             event.stopPropagation();
-            if (media.playable) activate(postUrl);
+            if (media.playable) activate(rowId, postUrl);
             else onPress();
           }}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
@@ -153,7 +155,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView(postUrl, view.current);
+        if (playable) setVideoView(rowId, postUrl, view.current);
       }}
       style={{
         width: "100%",

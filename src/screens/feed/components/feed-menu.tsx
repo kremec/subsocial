@@ -9,6 +9,7 @@ import { Typography } from "@/components/ui/typography";
 import { openBrowser } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type PlatformId } from "@/types/platform-id";
 
 interface FeedMenuProps {
@@ -55,11 +56,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
           }}
         >
           <Typography variant="title" numberOfLines={1} style={{ flex: 1 }}>
-            Platforms
+            {t("feedPlatforms")}
           </Typography>
           <IconButton
             size={36}
-            accessibilityLabel="Import data"
+            accessibilityLabel={t("feedImport")}
             onPress={() => {
               onClose();
               onImportData();
@@ -69,7 +70,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
           </IconButton>
           <IconButton
             size={36}
-            accessibilityLabel="Export data"
+            accessibilityLabel={t("feedExport")}
             onPress={() => {
               onClose();
               onExportData();
@@ -110,7 +111,10 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
 
               <IconButton
                 size={36}
-                accessibilityLabel={`${active ? "Hide" : "Show"} ${platform.label}`}
+                accessibilityLabel={t(
+                  active ? "feedHidePlatform" : "feedShowPlatform",
+                  { platform: platform.label },
+                )}
                 onPress={() => onTogglePlatform(platform.id)}
               >
                 <Icon
@@ -122,7 +126,9 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
 
               <IconButton
                 size={36}
-                accessibilityLabel={`Open ${platform.label}`}
+                accessibilityLabel={t("feedOpenPlatform", {
+                  platform: platform.label,
+                })}
                 onPress={() => {
                   onClose();
                   openBrowser(
