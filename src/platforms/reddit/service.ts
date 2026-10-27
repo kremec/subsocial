@@ -1,78 +1,11 @@
-import { z } from "zod";
-
-import { aspectRatio, paginate } from "@/platforms/web-api";
+import { aspectRatio } from "@/platforms/aspect-ratio";
+import { paginateFeed } from "@/platforms/paginate-feed";
+import { listingSchema } from "@/platforms/reddit/schemas/listing-schema";
+import { type RedditPost } from "@/platforms/reddit/schemas/reddit-post-schema";
+import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { type FeedMedia } from "@/types/feed-media";
 import { type FeedRequest } from "@/types/feed-request";
-
-const imageSchema = z.object({
-  url: z.string().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-});
-const videoSchema = z.object({
-  hls_url: z.string().optional(),
-  fallback_url: z.string().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-});
-const mediaSchema = z.object({ reddit_video: videoSchema.nullish() });
-const redditPostSchema = z.object({
-  name: z.string().min(1),
-  permalink: z.string().startsWith("/"),
-  author: z.string().optional(),
-  subreddit_name_prefixed: z.string().optional(),
-  title: z.string().optional(),
-  selftext: z.string().optional(),
-  created_utc: z.number().optional(),
-  promoted: z.boolean().optional(),
-  is_promoted: z.boolean().optional(),
-  url_overridden_by_dest: z.string().optional(),
-  url: z.string().optional(),
-  preview: z
-    .object({ images: z.array(z.object({ source: imageSchema })).optional() })
-    .nullish(),
-  secure_media: mediaSchema.nullish(),
-  media: mediaSchema.nullish(),
-  gallery_data: z
-    .object({ items: z.array(z.object({ media_id: z.string() })) })
-    .nullish(),
-  media_metadata: z
-    .record(
-      z.string(),
-      z.object({
-        status: z.string().optional(),
-        s: z
-          .object({
-            mp4: z.string().optional(),
-            u: z.string().optional(),
-            gif: z.string().optional(),
-            x: z.number().optional(),
-            y: z.number().optional(),
-          })
-          .optional(),
-      }),
-    )
-    .nullish(),
-  get crosspost_parent_list() {
-    return z.array(redditPostSchema).optional();
-  },
-});
-type RedditPost = z.infer<typeof redditPostSchema>;
-const listingSchema = z.object({
-  kind: z.literal("Listing"),
-  data: z.object({
-    after: z.string().nullable(),
-    children: z
-      .array(z.object({ kind: z.string(), data: z.json() }))
-      .transform((children) =>
-        children
-          .filter((child) => child.kind === "t3")
-          .map((child) => child.data),
-      )
-      .pipe(z.array(redditPostSchema)),
-  }),
-});
 
 function mediaFor(post: RedditPost): FeedMedia[] {
   const preview = post.preview?.images?.[0]?.source;
@@ -151,23 +84,23 @@ function postFor(post: RedditPost): ExtractedItem {
 }
 
 export const redditFeed = (request: FeedRequest) =>
-  paginate(request, "Reddit", async (after) => {
+  paginateFeed(request, t("platformReddit"), async (after) => {
     const url = new URL("https://www.reddit.com/new.json?limit=25&raw_json=1");
     if (after) url.searchParams.set("after", after);
     const response = await request.fetch(url.href);
     const listing = listingSchema.safeParse(await response.json());
-    if (!listing.success)
-      throw new Error(
-        "Could not read Reddit feed. Open Reddit to check your login.",
-      );
+    if (!listing.success) throw new Error(t("redditFeedUnreadable"));
     const { data } = listing.data;
-    const promoted = (post: RedditPost) => post.promoted || post.is_promoted;
+    const items: ExtractedItem[] = [];
+    const excludedSourceIds: string[] = [];
+    for (const post of data.children) {
+      if (post.promoted || post.is_promoted) excludedSourceIds.push(post.name);
+      else items.push(postFor(post));
+    }
     const cursor = data.after || "";
     return {
-      items: data.children.filter((post) => !promoted(post)).map(postFor),
-      excludedSourceIds: data.children
-        .filter(promoted)
-        .map((post) => post.name),
+      items,
+      excludedSourceIds,
       end: !cursor,
       cursor,
     };

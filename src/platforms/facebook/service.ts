@@ -1,15 +1,22 @@
 import { z } from "zod";
 
+import { aspectRatio } from "@/platforms/aspect-ratio";
+import { facebookFeedPresentationFlags } from "@/platforms/facebook/config";
+import { edgeSchema } from "@/platforms/facebook/schemas/edge-schema";
+import { feedSchema } from "@/platforms/facebook/schemas/feed-schema";
+import { mediaSchema } from "@/platforms/facebook/schemas/media-schema";
+import { partSchema } from "@/platforms/facebook/schemas/part-schema";
+import { type FacebookStory } from "@/platforms/facebook/schemas/story-schema";
 import {
-  aspectRatio,
-  bootstrap,
   asObject,
   nestedObjects,
   asString,
   type Json,
   type JsonObject,
-  paginate,
-} from "@/platforms/web-api";
+} from "@/platforms/json";
+import { paginateFeed } from "@/platforms/paginate-feed";
+import { readBootstrap } from "@/platforms/read-bootstrap";
+import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { feedAttachmentSchema } from "@/types/feed-attachment";
@@ -17,124 +24,6 @@ import { type FeedMedia, feedMediaSchema } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedPost } from "@/types/feed-post";
 import { type FeedRequest } from "@/types/feed-request";
-
-const nameSchema = z.object({ name: z.string().nullish() });
-const storySchema = z.object({
-  id: z.string().nullish(),
-  __typename: z.string().optional(),
-  post_id: z.string().nullish(),
-  creation_time: z.number().nullish(),
-  url: z.string().nullish(),
-  permalink_url: z.string().nullish(),
-  wwwURL: z.string().nullish(),
-  to: nameSchema.extend({ __typename: z.string().optional() }).nullish(),
-  message: z.object({ text: z.string().nullish() }).nullish(),
-  target_group: nameSchema.nullish(),
-  sponsored_data: z.json().optional(),
-  actors: z.array(nameSchema).nullish(),
-  attachments: z.json().optional(),
-  short_form_video_context: z.json().optional(),
-  feedback: z.object({ associated_group: nameSchema.nullish() }).nullish(),
-  get attached_story() {
-    return storySchema.nullish();
-  },
-  get comet_sections() {
-    return z
-      .object({
-        content: z.object({ story: storySchema.nullish() }).nullish(),
-        context_layout: z.object({ story: z.json().optional() }).nullish(),
-        timestamp: z
-          .object({ story: z.object({ url: z.string().nullish() }).nullish() })
-          .nullish(),
-      })
-      .nullish();
-  },
-});
-type FacebookStory = z.infer<typeof storySchema>;
-const edgeSchema = z.object({
-  category: z.string().optional(),
-  node: storySchema,
-});
-const pageInfoSchema = z.object({
-  has_next_page: z.boolean(),
-  end_cursor: z.string().nullish(),
-});
-const feedSchema = z.object({
-  edges: z.array(z.json().optional()).optional(),
-  page_info: pageInfoSchema,
-});
-const partSchema = z.object({
-  errors: z.array(z.json()).optional(),
-  path: z.array(z.union([z.string(), z.number()])).optional(),
-  data: z.json().optional(),
-});
-const imageSchema = z.object({
-  uri: z.string().nullish(),
-  width: z.number().nullish(),
-  height: z.number().nullish(),
-});
-const playbackSchema = z.object({
-  browser_native_hd_url: z.string().nullish(),
-  browser_native_sd_url: z.string().nullish(),
-  playable_url_quality_hd: z.string().nullish(),
-  playable_url: z.string().nullish(),
-});
-const mediaNodeSchema = playbackSchema.extend({
-  __typename: z.enum(["Video", "Photo"]),
-  id: z.string().nullish(),
-  image: imageSchema.nullish(),
-  photo_image: imageSchema.nullish(),
-  preferred_thumbnail: imageSchema
-    .extend({ image: imageSchema.nullish() })
-    .nullish(),
-  width: z.number().positive().nullish(),
-  height: z.number().positive().nullish(),
-  aspect_ratio: z.number().positive().nullish(),
-  videoDeliveryLegacyFields: playbackSchema.nullish(),
-});
-const mediaSchema = z.union([
-  mediaNodeSchema,
-  z
-    .object({
-      __typename: z.literal("VideoAttachmentGridRenderer"),
-      video: mediaNodeSchema.extend({
-        __typename: z.literal("Video").default("Video"),
-      }),
-    })
-    .transform((value) => value.video),
-]);
-// Required presentation variables from Facebook's CometModernHomeFeedQuery.
-const presentationFlags = [
-  "GHLShouldChangeAdIdFieldName",
-  "GHLShouldChangeSponsoredAuctionDistanceFieldName",
-  "GHLShouldUseSponsoredAuctionLabelFieldNameV1",
-  "GHLShouldUseSponsoredAuctionLabelFieldNameV2",
-  "GHLShouldChangeSponsoredDataFieldName",
-  "CometFeedStory_enable_reactor_facepile",
-  "CometFeedStory_enable_social_bubbles",
-  "CometFeedStory_enable_post_permalink_white_space_click",
-  "CometUFICommentActionLinksRewriteEnabled",
-  "CometUFICommentAvatarStickerAnimatedImage",
-  "IsWorkUser",
-  "TestPilotShouldIncludeDemoAdUseCase",
-  "FBReels_deprecate_short_form_video_context_gk",
-  "FBReels_enable_view_dubbed_audio_type_gk",
-  "CometFeedShareMedia_shouldPrefetchShareImage",
-  "CometImmersivePhotoCanUserDisable3DMotion",
-  "WorkCometIsEmployeeGKProvider",
-  "IsMergQAPolls",
-  "FBReelsMediaFooter_comet_enable_reels_ads_gk",
-  "CometUFIReactionsEnableShortName",
-  "CometUFIShareActionMigration",
-  "CometUFISingleLineUFI",
-  "relay_provider_comet_ufi_ssr_seo_defer",
-  "CometUFI_dedicated_comment_routable_dialog_gk",
-  "ReelsIFUCard_reelsIFULikeCount",
-  "FBReelsIFUTileContent_reelsIFUPlayOnHover",
-  "StoriesShouldEnablePhotosensitiveContentWarning",
-  "ShouldEnableBakedInTextStories",
-  "StoriesShouldIncludeFbNotes",
-];
 
 // Best quality first. Fields may sit on the video or its legacy delivery data.
 const playbackKeys = [
@@ -332,15 +221,12 @@ export function parseFacebookFeed(response: string) {
   let data: Json = {};
   for (const line of response.trim().split("\n")) {
     const part = partSchema.parse(JSON.parse(line));
-    if (part.errors?.length)
-      throw new Error(
-        "Facebook feed request failed. Open Facebook to check your session.",
-      );
+    if (part.errors?.length) throw new Error(t("facebookFeedFailed"));
     if (part.data !== undefined)
       data = applyPatch(data, part.path || [], part.data);
   }
   const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
-  if (!feed.success) throw new Error("Facebook feed response was incomplete.");
+  if (!feed.success) throw new Error(t("facebookFeedIncomplete"));
   const items: ExtractedItem[] = [];
   for (const rawEdge of feed.data.edges || []) {
     if (!rawEdge) continue;
@@ -372,14 +258,19 @@ export async function* facebookFeed(
     await request.fetch("https://www.facebook.com/?filter=all&sk=h_chr")
   ).text();
   if (/<form[^>]+action=["'][^"']*\/(?:login|checkpoint)/i.test(html))
-    throw new FeedAccessError("Open Facebook to check your login.");
+    throw new FeedAccessError(t("facebookCheckLogin"));
   const marker = [
     "wlct.init(",
     '["DTSGInitData",[],',
     '["DTSGInitialData",[],',
   ].find((value) => html.includes(value));
-  if (!marker) throw new Error("Facebook web API configuration unavailable.");
-  const config = bootstrap(html.slice(html.lastIndexOf(marker)), marker);
+  if (!marker)
+    throw new Error(
+      t("platformConfigurationUnavailable", {
+        platform: t("platformFacebook"),
+      }),
+    );
+  const config = readBootstrap(html.slice(html.lastIndexOf(marker)), marker);
   const token = z
     .string()
     .min(1)
@@ -406,9 +297,9 @@ export async function* facebookFeed(
       "ORIGINAL",
     __relay_internal__pv__GroupsCometGYSJFeedItemHeightrelayprovider: 150,
   };
-  for (const name of presentationFlags)
+  for (const name of facebookFeedPresentationFlags)
     variables[`__relay_internal__pv__${name}relayprovider`] = false;
-  yield* paginate(request, "Facebook", async (cursor) => {
+  yield* paginateFeed(request, t("platformFacebook"), async (cursor) => {
     if (cursor) variables.feedEndCursor = cursor;
     const response = await request.fetch(
       "https://www.facebook.com/api/graphql/",

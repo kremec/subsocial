@@ -8,106 +8,24 @@ import {
   asObject,
   asString,
   nestedObjects,
-  bootstrap,
-} from "@/platforms/web-api";
+} from "@/platforms/json";
+import { readBootstrap } from "@/platforms/read-bootstrap";
+import { browseRoots } from "@/platforms/youtube/schemas/browse-response-schema";
+import { browseResponseSchema } from "@/platforms/youtube/schemas/browse-response-schema";
+import { configSchema } from "@/platforms/youtube/schemas/config-schema";
+import {
+  playerResponseSchema,
+  type PlayerResponse,
+} from "@/platforms/youtube/schemas/player-response-schema";
+import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-schema";
+import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
-const configSchema = z.object({
-  SESSION_INDEX: z.union([z.string(), z.number()]).optional(),
-  USER_SESSION_ID: z.string().optional(),
-  DELEGATED_SESSION_ID: z.string().optional(),
-  LOGGED_IN: z.boolean().optional(),
-  INNERTUBE_CONTEXT: z.record(z.string(), z.json()).optional(),
-});
-
 // Renderer trees vary between desktop, mobile, and continuation responses.
 // Keep the tree intact and validate individual video renderers when traversing it.
-const roots = [
-  "contents",
-  "onResponseReceivedActions",
-  "onResponseReceivedEndpoints",
-  "continuationContents",
-];
-const browseResponseSchema = z
-  .record(z.string(), z.json())
-  .refine(
-    (response) => roots.some((key) => response[key] !== undefined),
-    "YouTube feed response was incomplete.",
-  );
-
-const textSchema = z
-  .object({
-    content: z.string().optional(),
-    simpleText: z.string().optional(),
-    runs: z.array(z.object({ text: z.string() })).optional(),
-  })
-  .transform(
-    (value) =>
-      value.content ||
-      value.simpleText ||
-      value.runs?.map((run) => run.text).join("") ||
-      "",
-  );
-
-const videoRendererSchema = z.object({
-  contentId: z.string().optional(),
-  videoId: z.string().optional(),
-  headline: textSchema.optional(),
-  title: textSchema.optional(),
-  shortBylineText: textSchema.optional(),
-  metadata: z
-    .object({
-      lockupMetadataViewModel: z.object({
-        title: textSchema.optional(),
-        metadata: z
-          .object({
-            contentMetadataViewModel: z.object({
-              metadataRows: z.array(
-                z.object({
-                  metadataParts: z.array(
-                    z.object({ text: textSchema.optional() }),
-                  ),
-                }),
-              ),
-            }),
-          })
-          .optional(),
-      }),
-    })
-    .optional(),
-});
-
-const playerResponseSchema = z.object({
-  videoDetails: z
-    .object({
-      author: z.string().optional(),
-      title: z.string().optional(),
-      isLive: z.boolean().optional(),
-      isUpcoming: z.boolean().optional(),
-    })
-    .optional(),
-  microformat: z
-    .object({
-      playerMicroformatRenderer: z
-        .object({
-          publishDate: z.string().optional(),
-          uploadDate: z.string().optional(),
-          liveBroadcastDetails: z
-            .object({
-              isLiveNow: z.boolean().optional(),
-              endTimestamp: z.string().optional(),
-            })
-            .optional(),
-        })
-        .optional(),
-    })
-    .optional(),
-});
-
-type PlayerResponse = z.infer<typeof playerResponseSchema>;
 
 function videos(response: JsonObject) {
   const found = new Map<string, JsonObject>();
@@ -165,7 +83,7 @@ function videos(response: JsonObject) {
       visit(renderer.contents || renderer.items || renderer.continuationItems);
     }
   };
-  for (const key of roots) visit(response[key]);
+  for (const key of browseRoots) visit(response[key]);
   return { found, continuation };
 }
 
@@ -176,14 +94,13 @@ export async function* youtubeFeed(
     "https://www.youtube.com/feed/subscriptions",
   );
   const html = await response.text();
-  const config = configSchema.parse(bootstrap(html, "ytcfg.set({"));
-  if (config.LOGGED_IN !== true)
-    throw new FeedAccessError("Open YouTube to sign in again.");
+  const config = configSchema.parse(readBootstrap(html, "ytcfg.set({"));
+  if (config.LOGGED_IN !== true) throw new FeedAccessError(t("youtubeSignIn"));
   const context = config.INNERTUBE_CONTEXT;
-  if (!context) throw new Error("YouTube feed context was incomplete.");
+  if (!context) throw new Error(t("youtubeFeedContextIncomplete"));
   const origin = new URL(response.url).origin;
   let data: JsonObject = browseResponseSchema.parse(
-    bootstrap(html, "var ytInitialData = "),
+    readBootstrap(html, "var ytInitialData = "),
   );
   const api = async (
     endpoint: string,
@@ -212,7 +129,9 @@ export async function* youtubeFeed(
       })
       .join(" ");
     if (!authorization)
-      throw new FeedAccessError("Open YouTube to renew your login.");
+      throw new FeedAccessError(
+        t("platformRenewLogin", { platform: t("platformYoutube") }),
+      );
     const headers = new Headers({
       "Content-Type": "application/json",
       Authorization: authorization,
@@ -230,8 +149,7 @@ export async function* youtubeFeed(
       },
     );
     const data = z.record(z.string(), z.json()).parse(await response.json());
-    if (data.error)
-      throw new Error("YouTube API request failed. Try again later.");
+    if (data.error) throw new Error(t("youtubeApiFailed"));
     return data;
   };
   const seen = new Set<string>();
@@ -314,7 +232,9 @@ export async function* youtubeFeed(
       yield { items: [item], end: false };
     }
     if (page.continuation && cursors.has(page.continuation))
-      throw new Error("YouTube did not advance the feed.");
+      throw new Error(
+        t("feedDidNotAdvance", { platform: t("platformYoutube") }),
+      );
     const end = !page.continuation;
     yield { items: [], end };
     if (end) return;

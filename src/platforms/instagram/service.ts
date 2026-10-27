@@ -1,76 +1,29 @@
 import { z } from "zod";
 
-import {
-  aspectRatio,
-  bootstrap,
-  type Json,
-  paginate,
-} from "@/platforms/web-api";
+import { aspectRatio } from "@/platforms/aspect-ratio";
+import { feedResponseSchema } from "@/platforms/instagram/schemas/feed-response-schema";
+import { type Media } from "@/platforms/instagram/schemas/media-schema";
+import { type Variant } from "@/platforms/instagram/schemas/variant-schema";
+import { type Json } from "@/platforms/json";
+import { paginateFeed } from "@/platforms/paginate-feed";
+import { readBootstrap } from "@/platforms/read-bootstrap";
+import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { type FeedMedia } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
-const variantSchema = z.object({
-  url: z.string(),
-  width: z.number().nullish(),
-  height: z.number().nullish(),
-});
-const mediaSchema = z.object({
-  media_type: z.number().nullish(),
-  original_width: z.number().nullish(),
-  original_height: z.number().nullish(),
-  image_versions2: z
-    .object({ candidates: z.array(variantSchema).nullish() })
-    .nullish(),
-  video_versions: z.array(variantSchema).nullish(),
-});
-const authorSchema = z.object({
-  username: z.string(),
-  full_name: z.string().nullish(),
-});
-const postSchema = mediaSchema.extend({
-  code: z.string().nullish(),
-  ad_id: z.union([z.string(), z.number()]).nullish(),
-  product_type: z.string().nullish(),
-  taken_at: z.number().nullish(),
-  user: authorSchema.nullish(),
-  coauthor_producers: z.array(authorSchema).nullish(),
-  caption: z.object({ text: z.string().nullish() }).nullish(),
-  carousel_media: z.array(mediaSchema).nullish(),
-});
-
-const feedResponseSchema = z
-  .object({
-    errors: z.never().optional(),
-    data: z.object({
-      xdt_api__v1__feed__timeline__connection: z.object({
-        edges: z.array(
-          z.object({ node: z.object({ media: postSchema.nullish() }) }),
-        ),
-        page_info: z.object({
-          has_next_page: z.boolean(),
-          end_cursor: z.string().nullish(),
-        }),
-      }),
-    }),
-  })
-  .transform(
-    (response) => response.data.xdt_api__v1__feed__timeline__connection,
-  );
-
-type Media = z.infer<typeof mediaSchema>;
-type Variant = z.infer<typeof variantSchema>;
-
 const largest = (values: Variant[] | null | undefined) =>
-  values
-    ?.slice()
-    .sort(
-      (left, right) =>
-        (right.width || 0) * (right.height || 0) -
-        (left.width || 0) * (left.height || 0),
-    )[0];
+  values?.reduce<Variant | undefined>(
+    (best, value) =>
+      !best ||
+      (value.width || 0) * (value.height || 0) >
+        (best.width || 0) * (best.height || 0)
+        ? value
+        : best,
+    undefined,
+  );
 
 const mediaFor = (record: Media): FeedMedia[] => {
   const image = largest(record.image_versions2?.candidates);
@@ -94,7 +47,10 @@ const mediaFor = (record: Media): FeedMedia[] => {
 
 export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
   const parsed = feedResponseSchema.safeParse(value);
-  if (!parsed.success) throw new Error("Instagram feed unavailable.");
+  if (!parsed.success)
+    throw new Error(
+      t("platformFeedUnavailable", { platform: t("platformInstagram") }),
+    );
   const connection = parsed.data;
   const items: ExtractedItem[] = [];
   for (const edge of connection.edges) {
@@ -134,17 +90,19 @@ export async function* instagramFeed(
 ): AsyncGenerator<FeedPage> {
   const html = await (await request.fetch("https://www.instagram.com/")).text();
   if (!request.cookies.csrftoken)
-    throw new FeedAccessError("Open Instagram to renew your login.");
+    throw new FeedAccessError(
+      t("platformRenewLogin", { platform: t("platformInstagram") }),
+    );
   const token = (name: string) => {
     const marker = `"${name}",[],`;
     return z
       .string()
       .min(1)
-      .parse(bootstrap(html.slice(html.lastIndexOf(marker)), marker).token);
+      .parse(readBootstrap(html.slice(html.lastIndexOf(marker)), marker).token);
   };
   const fbDtsg = token("DTSGInitData");
   const lsd = token("LSD");
-  yield* paginate(request, "Instagram", async (cursor) => {
+  yield* paginateFeed(request, t("platformInstagram"), async (cursor) => {
     const body = new URLSearchParams({
       fb_dtsg: fbDtsg,
       lsd,

@@ -1,3 +1,4 @@
+import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
 
 export const youtubePlatform: PlatformDefinition = {
@@ -6,7 +7,7 @@ export const youtubePlatform: PlatformDefinition = {
   androidPackage: null,
   appScheme: "youtube",
   dataDomains: ["youtube.com", "google.com", "googlevideo.com", "ytimg.com"],
-  label: "YouTube",
+  label: t("platformYoutube"),
   color: "#FF0033",
   startUrl: "https://www.youtube.com/feed/subscriptions",
   loginUrl:
