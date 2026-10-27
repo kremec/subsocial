@@ -28,6 +28,7 @@
     "@preeternal/react-native-cookie-manager": "^6.4.0",
     "@tabler/icons-react-native": "^3.44.0",
     "base64-js": "1.5.1",
+    "drizzle-orm": "0.45.2",
     "expo": "~57.0.30",
     "expo-constants": "~57.0.22",
     "expo-dev-client": "~57.0.20",
@@ -73,6 +74,7 @@
   "patchedDependencies": {
     "@legendapp/list@3.6.0": "patches/@legendapp%2Flist@3.6.0.patch",
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
-    "@expo/ui@57.0.25": "patches/@expo%2Fui@57.0.25.patch"
+    "@expo/ui@57.0.25": "patches/@expo%2Fui@57.0.25.patch",
+    "drizzle-orm@0.45.2": "patches/drizzle-orm@0.45.2.patch"
   }
 }

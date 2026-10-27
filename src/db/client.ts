@@ -1,5 +1,9 @@
 import { openDatabaseSync, type SQLiteDatabase } from "expo-sqlite";
 
+import { drizzle } from "drizzle-orm/expo-sqlite";
+
+import { t } from "@/translation/use-translation";
+
 const databaseVersion = 4;
 
 // Every statement is idempotent, so older versions only gain what they lack.
@@ -7,8 +11,7 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
   const { user_version: version } = connection.getFirstSync<{
     user_version: number;
   }>("PRAGMA user_version")!;
-  if (version > databaseVersion)
-    throw new Error("This database requires a newer version of Subsocial.");
+  if (version > databaseVersion) throw new Error(t("databaseRequiresNewerApp"));
   if (version === databaseVersion) return;
   connection.withTransactionSync(() =>
     connection.execSync(`
@@ -29,8 +32,6 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
         ON feed_items (platform, json_extract(item_json, '$.replyToSourceId'));
       CREATE INDEX IF NOT EXISTS feed_items_thread_context
         ON feed_items (platform, json_extract(item_json, '$.threadContextSourceId'));
-      -- Older versions kept undated posts. The feed only shows dated ones.
-      DELETE FROM feed_items WHERE published_at IS NULL;
       PRAGMA user_version = ${databaseVersion};
     `),
   );
@@ -39,3 +40,4 @@ export function migrateDatabase(connection: SQLiteDatabase): void {
 export const database = openDatabaseSync("subsocial.db");
 database.execSync("PRAGMA journal_mode = WAL");
 migrateDatabase(database);
+export const db = drizzle(database);

@@ -7,6 +7,7 @@ import {
 } from "expo-sqlite";
 
 import { database } from "@/db/client";
+import { t } from "@/translation/use-translation";
 
 const exportDatabaseName = "subsocial-export.db";
 
@@ -28,7 +29,7 @@ export async function exportDatabase(): Promise<void> {
     });
     await Sharing.shareAsync(
       `file://${defaultDatabaseDirectory}/${exportDatabaseName}`,
-      { dialogTitle: "Export subsocial database" },
+      { dialogTitle: t("exportDatabaseTitle") },
     );
   } finally {
     exported.closeSync();

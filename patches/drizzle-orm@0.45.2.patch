@@ -1,0 +1,96 @@
+diff --git a/expo-sqlite/session.js b/expo-sqlite/session.js
+--- a/expo-sqlite/session.js
++++ b/expo-sqlite/session.js
+@@ -27,6 +27,33 @@
+       isResponseInArrayMode,
+       customResultMapper
+     );
++  }
++  prepareOneTimeQuery(query, fields, executeMethod, isResponseInArrayMode, customResultMapper) {
++    const stmt = this.client.prepareSync(query.sql);
++    const prepared = new ExpoSQLitePreparedQuery(
++      stmt,
++      query,
++      this.logger,
++      fields,
++      executeMethod,
++      isResponseInArrayMode,
++      customResultMapper
++    );
++    let finalized = false;
++    for (const method of ["run", "all", "get", "values"]) {
++      const execute = prepared[method].bind(prepared);
++      prepared[method] = (placeholderValues) => {
++        try {
++          return execute(placeholderValues);
++        } finally {
++          if (!finalized) {
++            finalized = true;
++            stmt.finalizeSync();
++          }
++        }
++      };
++    }
++    return prepared;
+   }
+   transaction(transaction, config = {}) {
+     const tx = new ExpoSQLiteTransaction("sync", this.dialect, this, this.schema);
+diff --git a/expo-sqlite/session.cjs b/expo-sqlite/session.cjs
+--- a/expo-sqlite/session.cjs
++++ b/expo-sqlite/session.cjs
+@@ -49,6 +49,33 @@
+       isResponseInArrayMode,
+       customResultMapper
+     );
++  }
++  prepareOneTimeQuery(query, fields, executeMethod, isResponseInArrayMode, customResultMapper) {
++    const stmt = this.client.prepareSync(query.sql);
++    const prepared = new ExpoSQLitePreparedQuery(
++      stmt,
++      query,
++      this.logger,
++      fields,
++      executeMethod,
++      isResponseInArrayMode,
++      customResultMapper
++    );
++    let finalized = false;
++    for (const method of ["run", "all", "get", "values"]) {
++      const execute = prepared[method].bind(prepared);
++      prepared[method] = (placeholderValues) => {
++        try {
++          return execute(placeholderValues);
++        } finally {
++          if (!finalized) {
++            finalized = true;
++            stmt.finalizeSync();
++          }
++        }
++      };
++    }
++    return prepared;
+   }
+   transaction(transaction, config = {}) {
+     const tx = new ExpoSQLiteTransaction("sync", this.dialect, this, this.schema);
+diff --git a/expo-sqlite/session.d.ts b/expo-sqlite/session.d.ts
+--- a/expo-sqlite/session.d.ts
++++ b/expo-sqlite/session.d.ts
+@@ -18,6 +18,7 @@
+     private logger;
+     constructor(client: SQLiteDatabase, dialect: SQLiteSyncDialect, schema: RelationalSchemaConfig<TSchema> | undefined, options?: ExpoSQLiteSessionOptions);
+     prepareQuery<T extends Omit<PreparedQueryConfig, 'run'>>(query: Query, fields: SelectedFieldsOrdered | undefined, executeMethod: SQLiteExecuteMethod, isResponseInArrayMode: boolean, customResultMapper?: (rows: unknown[][]) => unknown): ExpoSQLitePreparedQuery<T>;
++    prepareOneTimeQuery<T extends Omit<PreparedQueryConfig, 'run'>>(query: Query, fields: SelectedFieldsOrdered | undefined, executeMethod: SQLiteExecuteMethod, isResponseInArrayMode: boolean, customResultMapper?: (rows: unknown[][]) => unknown): ExpoSQLitePreparedQuery<T>;
+     transaction<T>(transaction: (tx: ExpoSQLiteTransaction<TFullSchema, TSchema>) => T, config?: SQLiteTransactionConfig): T;
+ }
+ export declare class ExpoSQLiteTransaction<TFullSchema extends Record<string, unknown>, TSchema extends TablesRelationalConfig> extends SQLiteTransaction<'sync', SQLiteRunResult, TFullSchema, TSchema> {
+diff --git a/expo-sqlite/session.d.cts b/expo-sqlite/session.d.cts
+--- a/expo-sqlite/session.d.cts
++++ b/expo-sqlite/session.d.cts
+@@ -18,6 +18,7 @@
+     private logger;
+     constructor(client: SQLiteDatabase, dialect: SQLiteSyncDialect, schema: RelationalSchemaConfig<TSchema> | undefined, options?: ExpoSQLiteSessionOptions);
+     prepareQuery<T extends Omit<PreparedQueryConfig, 'run'>>(query: Query, fields: SelectedFieldsOrdered | undefined, executeMethod: SQLiteExecuteMethod, isResponseInArrayMode: boolean, customResultMapper?: (rows: unknown[][]) => unknown): ExpoSQLitePreparedQuery<T>;
++    prepareOneTimeQuery<T extends Omit<PreparedQueryConfig, 'run'>>(query: Query, fields: SelectedFieldsOrdered | undefined, executeMethod: SQLiteExecuteMethod, isResponseInArrayMode: boolean, customResultMapper?: (rows: unknown[][]) => unknown): ExpoSQLitePreparedQuery<T>;
+     transaction<T>(transaction: (tx: ExpoSQLiteTransaction<TFullSchema, TSchema>) => T, config?: SQLiteTransactionConfig): T;
+ }
+ export declare class ExpoSQLiteTransaction<TFullSchema extends Record<string, unknown>, TSchema extends TablesRelationalConfig> extends SQLiteTransaction<'sync', SQLiteRunResult, TFullSchema, TSchema> {

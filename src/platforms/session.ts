@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
-import { database } from "@/db/client";
+import { db } from "@/db/client";
 import {
   connectPlatform,
   disconnectPlatform,
@@ -51,7 +51,7 @@ export async function resetPlatformSession(
       );
     }
   }
-  database.withTransactionSync(() => {
+  db.transaction(() => {
     deletePlatformPosts(platform.id);
     disconnectPlatform(platform.id);
   });
