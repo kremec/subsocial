@@ -12,6 +12,7 @@ import { Screen } from "@/components/ui/screen";
 import { listFeedItems } from "@/db/repositories/feed-items-repository";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 
 export const SearchScreen: FC = () => {
   const theme = useTheme();
@@ -29,7 +30,7 @@ export const SearchScreen: FC = () => {
 
   return (
     <Screen>
-      <ModalHeader closeLabel="Close search" onClose={() => router.back()}>
+      <ModalHeader closeLabel={t("searchClose")} onClose={() => router.back()}>
         <View
           style={{
             flex: 1,
@@ -41,8 +42,8 @@ export const SearchScreen: FC = () => {
           }}
         >
           <TextInput
-            accessibilityLabel="Search feed"
-            placeholder="Search feed"
+            accessibilityLabel={t("feedSearch")}
+            placeholder={t("feedSearch")}
             placeholderTextColor={theme.colors.textSecondary}
             value={query}
             onChangeText={changeQuery}
@@ -53,7 +54,7 @@ export const SearchScreen: FC = () => {
             style={{
               flex: 1,
               color: theme.colors.text,
-              fontSize: 16,
+              fontSize: theme.typography.body,
               paddingVertical: theme.spacing.sm,
             }}
           />
@@ -61,7 +62,7 @@ export const SearchScreen: FC = () => {
             <IconButton
               plain
               size={36}
-              accessibilityLabel="Clear search"
+              accessibilityLabel={t("searchClear")}
               onPress={() => changeQuery("")}
             >
               <Icon
