@@ -1,4 +1,4 @@
-import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 export const youtubePlatform: PlatformDefinition = {
   id: "youtube",

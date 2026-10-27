@@ -1,7 +1,7 @@
 import { toByteArray } from "base64-js";
 import { z } from "zod";
 
-import { type FeedMedia } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
 
 const formatSchema = z.object({
   audioTrack: z

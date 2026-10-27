@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import { aspectRatio, paginate } from "@/platforms/web-api";
-import { type FeedRequest } from "@/types/platform";
-import { type ExtractedItem, type FeedMedia } from "@/types/post";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { type FeedMedia } from "@/types/feed-media";
+import { type FeedRequest } from "@/types/feed-request";
 
 const imageSchema = z.object({
   url: z.string().optional(),

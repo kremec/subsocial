@@ -4,7 +4,8 @@ import { ActivityIndicator, Alert, Pressable } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 
 import { Icon } from "@/components/ui/icon";
-import { type FeedMedia, type PlatformId } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 // Streams are playlists rather than files, and YouTube only plays streams.
 export const canDownloadMedia = (media: FeedMedia, platform: PlatformId) =>

@@ -13,11 +13,9 @@ import { hasSession, ownsHost } from "@/platforms/platforms";
 import { redditFeed } from "@/platforms/reddit/service";
 import { xFeed } from "@/platforms/x/service";
 import { youtubeFeed } from "@/platforms/youtube/service";
-import {
-  FeedAccessError,
-  type FeedRequest,
-  type PlatformDefinition,
-} from "@/types/platform";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { type FeedRequest } from "@/types/feed-request";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 const retryAt = new Map<string, number>();
 

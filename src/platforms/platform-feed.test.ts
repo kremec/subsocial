@@ -7,12 +7,10 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 
 import { xPlatform } from "@/platforms/x/config";
-import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-  type PlatformDefinition,
-} from "@/types/platform";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedRequest } from "@/types/feed-request";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 const source = transpileModule(
   readFileSync(new URL("./platform-feed.ts", import.meta.url), "utf8"),

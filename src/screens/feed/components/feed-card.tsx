@@ -5,7 +5,8 @@ import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedItem, type FeedPost } from "@/types/post";
+import { type FeedItem } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
 
 interface FeedCardProps {
   rowId: string;

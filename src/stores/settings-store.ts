@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { type FeedPosition } from "@/screens/feed/feed-rows";
-import { type PlatformId } from "@/types/post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface Settings {
   onboarded: boolean;

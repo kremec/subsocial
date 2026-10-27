@@ -11,8 +11,8 @@ import {
 import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
 import { hasSession, platforms } from "@/platforms/platforms";
 import { setCollectionBoundary } from "@/stores/settings-store";
-import { type PlatformDefinition } from "@/types/platform";
-import { type PlatformId } from "@/types/post";
+import { type PlatformDefinition } from "@/types/platform-definition";
+import { type PlatformId } from "@/types/platform-id";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,

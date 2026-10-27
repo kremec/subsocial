@@ -8,7 +8,7 @@ import {
   positionFor,
   rowsForItems,
 } from "@/screens/feed/feed-rows";
-import { type FeedItem } from "@/types/post";
+import { type FeedItem } from "@/types/feed-item";
 
 function branch(...sourceIds: number[]): FeedItem {
   const posts = sourceIds.map((id, index) => ({

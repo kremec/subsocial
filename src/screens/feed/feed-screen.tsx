@@ -15,7 +15,7 @@ import { getPlatform } from "@/platforms/platforms";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
-import { type PlatformId } from "@/types/post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedScreenProps {
   webKitReady: boolean;

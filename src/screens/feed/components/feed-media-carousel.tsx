@@ -13,7 +13,8 @@ import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedMedia, type PlatformId } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedMediaCarouselProps {
   postUrl: string;

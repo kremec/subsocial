@@ -18,7 +18,8 @@ import {
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
 import { useMediaStore } from "@/stores/media-store";
-import { feedMediaSchema, type PlatformId } from "@/types/post";
+import { feedMediaSchema } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 export const MediaScreen: FC = () => {
   const {

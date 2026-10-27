@@ -4,7 +4,7 @@ import { WebView, type WebViewNavigation } from "react-native-webview";
 
 import { syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
-import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 interface PlatformWebViewProps {
   platform: PlatformDefinition;

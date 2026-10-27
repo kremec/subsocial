@@ -1,7 +1,8 @@
 // Tools shared by the platform services for reading platform web APIs.
 import { z } from "zod";
 
-import { type FeedPage, type FeedRequest } from "@/types/platform";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedRequest } from "@/types/feed-request";
 
 const jsonSchema = z.json();
 const jsonObjectSchema = z.record(z.string(), jsonSchema);

@@ -10,18 +10,13 @@ import {
   type JsonObject,
   paginate,
 } from "@/platforms/web-api";
-import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-} from "@/types/platform";
-import {
-  type ExtractedItem,
-  feedAttachmentSchema,
-  type FeedMedia,
-  feedMediaSchema,
-  type FeedPost,
-} from "@/types/post";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { feedAttachmentSchema } from "@/types/feed-attachment";
+import { type FeedMedia, feedMediaSchema } from "@/types/feed-media";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedPost } from "@/types/feed-post";
+import { type FeedRequest } from "@/types/feed-request";
 
 const nameSchema = z.object({ name: z.string().nullish() });
 const storySchema = z.object({

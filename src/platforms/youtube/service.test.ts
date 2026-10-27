@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 import { CollectionProgress } from "@/feed/collection";
 import { youtubeFeed } from "@/platforms/youtube/service";
-import { FeedAccessError } from "@/types/platform";
+import { FeedAccessError } from "@/types/feed-access-error";
 
 const initialData = (items: object[], mobile = false) => ({
   contents: {
