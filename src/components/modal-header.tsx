@@ -36,7 +36,9 @@ export const ModalHeader: FC<PropsWithChildren<ModalHeaderProps>> = (props) => {
       }}
     >
       {!!title && (
-        <Typography style={{ flex: 1, fontWeight: "600" }}>{title}</Typography>
+        <Typography variant="bodySemibold" style={{ flex: 1 }}>
+          {title}
+        </Typography>
       )}
       {children}
       <IconButton

@@ -142,8 +142,8 @@ export const MediaScreen: FC = () => {
                                 }}
                               >
                                 <Typography
+                                  color="white"
                                   style={{
-                                    color: "white",
                                     backgroundColor: "rgba(0, 0, 0, 0.5)",
                                     padding: 16,
                                   }}
@@ -190,8 +190,8 @@ export const MediaScreen: FC = () => {
           >
             <Typography
               variant="caption"
+              color="white"
               style={{
-                color: "white",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 12,

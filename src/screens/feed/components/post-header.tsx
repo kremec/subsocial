@@ -55,13 +55,10 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         }}
       >
         <Typography
-          variant="bodySmall"
+          variant="bodySmallSemibold"
           numberOfLines={1}
           ellipsizeMode="tail"
-          style={{
-            flexShrink: 1,
-            fontWeight: "600",
-          }}
+          style={{ flexShrink: 1 }}
         >
           {author}
         </Typography>
@@ -96,12 +93,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         )}
       </View>
       {!!post.publishedAt && (
-        <Typography
-          variant="caption"
-          style={{
-            color: theme.colors.textSecondary,
-          }}
-        >
+        <Typography variant="caption" color={theme.colors.textSecondary}>
           {formatAge(post.publishedAt)}
         </Typography>
       )}
