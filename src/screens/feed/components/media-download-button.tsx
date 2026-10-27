@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Pressable } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 
 import { Icon } from "@/components/ui/icon";
+import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -61,7 +62,9 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Download ${media.type}`}
+      accessibilityLabel={t(
+        media.type === "image" ? "mediaDownloadImage" : "mediaDownloadVideo",
+      )}
       accessibilityState={{ busy }}
       disabled={busy}
       hitSlop={8}
@@ -69,8 +72,8 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
         event.stopPropagation();
         setBusy(true);
         void downloadMedia(media)
-          .catch((error: Error) =>
-            Alert.alert("Download failed", error.message),
+          .catch(() =>
+            Alert.alert(t("mediaDownloadFailed"), t("mediaDownloadError")),
           )
           .finally(() => setBusy(false));
       }}

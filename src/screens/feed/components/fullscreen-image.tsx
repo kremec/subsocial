@@ -62,7 +62,6 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
         <Image
           source={{ uri }}
           contentFit="contain"
-          transition={150}
           onLoad={(event) => setRatio(event.source.width / event.source.height)}
           style={imageSize}
         />

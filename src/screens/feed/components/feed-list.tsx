@@ -13,13 +13,11 @@ import {
   type LegendListRef,
   type OnViewableItemsChangedInfo,
 } from "@legendapp/list/react-native";
-import Animated from "react-native-reanimated";
 
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { FeedCard } from "@/screens/feed/components/feed-card";
-import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
 import {
   type FeedRow,
   findPositionIndex,
@@ -29,6 +27,7 @@ import {
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type FeedItem } from "@/types/feed-item";
 import { type FeedPost } from "@/types/feed-post";
 
@@ -80,29 +79,21 @@ export const FeedList: FC<FeedListProps> = (props) => {
   } = props;
   const theme = useTheme();
   const searching = query !== undefined;
-  const searchTexts =
-    searching &&
-    new Map(
-      items.map((item) => [
-        item,
-        normalize(
+  const terms = normalize(query ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const filteredItems = terms.length
+    ? items.filter((item) => {
+        const text = normalize(
           [
             item.platform,
             postText(item),
             ...(item.thread ?? []).map(postText),
           ].join(" "),
-        ),
-      ]),
-    );
-  const terms = normalize(query ?? "")
-    .split(/\s+/)
-    .filter(Boolean);
-  const filteredItems =
-    searchTexts && terms.length
-      ? items.filter((item) =>
-          terms.every((term) => searchTexts.get(item)!.includes(term)),
-        )
-      : items;
+        );
+        return terms.every((term) => text.includes(term));
+      })
+    : items;
   const itemRows = rowsForItems(items);
   const rows = filteredItems.flatMap((item) => itemRows.get(item)!);
   const localList = useRef<LegendListRef>(null);
@@ -194,23 +185,21 @@ export const FeedList: FC<FeedListProps> = (props) => {
         getItemType={getItemType}
         keyExtractor={(row) => row.id}
         renderItem={({ item: row }) => (
-          <FeedImageTransitionContext value={searching ? 0 : 150}>
-            <FeedCard
-              rowId={row.id}
-              item={row.item}
-              post={row.post}
-              threadStart={row.threadStart}
-              threadEnd={row.threadEnd}
-              threadGapBefore={row.threadGapBefore}
-              activePostUrl={
-                visible && row.id === activeVideo?.rowId
-                  ? activeVideo.postUrl
-                  : undefined
-              }
-              onActivate={activatePost}
-              onVideoView={onVideoView}
-            />
-          </FeedImageTransitionContext>
+          <FeedCard
+            rowId={row.id}
+            item={row.item}
+            post={row.post}
+            threadStart={row.threadStart}
+            threadEnd={row.threadEnd}
+            threadGapBefore={row.threadGapBefore}
+            activePostUrl={
+              visible && row.id === activeVideo?.rowId
+                ? activeVideo.postUrl
+                : undefined
+            }
+            onActivate={activatePost}
+            onVideoView={onVideoView}
+          />
         )}
         viewabilityConfig={viewabilityConfig}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -244,47 +233,30 @@ export const FeedList: FC<FeedListProps> = (props) => {
             }}
           >
             <Typography variant="titleSmall" style={{ textAlign: "center" }}>
-              {query?.trim() ? "No matching posts" : "No active posts"}
+              {t(query?.trim() ? "feedNoMatches" : "feedNoPosts")}
             </Typography>
           </View>
         }
       />
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 70,
-          overflow: "hidden",
-        }}
-      >
-        <Animated.View
+      {showBackToTop && (
+        <IconButton
+          onPress={() =>
+            list.current?.scrollToIndex({ index: 0, animated: false })
+          }
           style={{
+            position: "absolute",
+            top: theme.spacing.sm,
             alignSelf: "center",
-            marginTop: theme.spacing.sm,
-            transform: [{ translateY: showBackToTop ? 0 : -70 }],
-            transition: "transform 180ms",
+            width: "auto",
+            paddingHorizontal: theme.spacing.md,
+            flexDirection: "row",
+            gap: theme.spacing.xs,
           }}
         >
-          <IconButton
-            disabled={!showBackToTop}
-            onPress={() =>
-              list.current?.scrollToIndex({ index: 0, animated: true })
-            }
-            style={{
-              width: "auto",
-              paddingHorizontal: theme.spacing.md,
-              flexDirection: "row",
-              gap: theme.spacing.xs,
-            }}
-          >
-            <Icon name="arrow-up" size={18} color={theme.colors.text} />
-            <Typography>Back to top</Typography>
-          </IconButton>
-        </Animated.View>
-      </View>
+          <Icon name="arrow-up" size={18} color={theme.colors.text} />
+          <Typography>{t("feedBackToTop")}</Typography>
+        </IconButton>
+      )}
     </View>
   );
 };

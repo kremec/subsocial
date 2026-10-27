@@ -37,9 +37,10 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
   return (
     <FeedVideoContext
       value={{
+        rowId,
         activePostUrl,
-        activate: (postUrl) => onActivate(rowId, postUrl),
-        setVideoView: (postUrl, view) => onVideoView(rowId, postUrl, view),
+        activate: onActivate,
+        setVideoView: onVideoView,
       }}
     >
       {post && (

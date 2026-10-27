@@ -18,6 +18,7 @@ import {
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
 import { useMediaStore } from "@/stores/media-store";
+import { t } from "@/translation/use-translation";
 import { feedMediaSchema } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -41,7 +42,6 @@ export const MediaScreen: FC = () => {
   const focused = useIsFocused();
   const [mediaIndex, setMediaIndex] = useState(Number(index));
   const selectedMedia = media[mediaIndex]!;
-  const downloadable = canDownloadMedia(selectedMedia, platform);
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollView>(null);
@@ -149,7 +149,7 @@ export const MediaScreen: FC = () => {
                                     padding: 16,
                                   }}
                                 >
-                                  Open video in original post
+                                  {t("mediaOpenOriginal")}
                                 </Typography>
                               </Pressable>
                             )}
@@ -170,10 +170,12 @@ export const MediaScreen: FC = () => {
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <View>
-              {downloadable && <MediaDownloadButton media={selectedMedia} />}
+              {canDownloadMedia(selectedMedia, platform) && (
+                <MediaDownloadButton media={selectedMedia} />
+              )}
             </View>
             <IconButton
-              accessibilityLabel="Close fullscreen"
+              accessibilityLabel={t("mediaCloseFullscreen")}
               onPress={() => router.back()}
               style={{
                 backgroundColor: "rgba(0, 0, 0, 0.5)",

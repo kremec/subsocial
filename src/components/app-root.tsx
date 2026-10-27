@@ -1,4 +1,5 @@
 import { type FC } from "react";
+import { Platform } from "react-native";
 
 import { Stack } from "expo-router";
 
@@ -17,6 +18,7 @@ export const AppRoot: FC = () => {
       <Stack
         screenOptions={{
           headerShown: false,
+          animation: Platform.OS === "android" ? "default" : "none",
           orientation: "portrait",
           statusBarStyle: themeName === "dark" ? "light" : "dark",
           contentStyle: { backgroundColor: colors.background },
@@ -30,7 +32,6 @@ export const AppRoot: FC = () => {
           options={{
             presentation: "transparentModal",
             orientation: "default",
-            animation: "fade",
             statusBarHidden: true,
             contentStyle: { backgroundColor: "black" },
           }}

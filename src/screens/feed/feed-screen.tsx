@@ -15,6 +15,7 @@ import { getPlatform } from "@/platforms/platforms";
 import { FeedHeader } from "@/screens/feed/components/feed-header";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type PlatformId } from "@/types/platform-id";
 
 interface FeedScreenProps {
@@ -74,11 +75,11 @@ export const FeedScreen: FC<FeedScreenProps> = (props) => {
               .then((imported) => {
                 if (imported) feed.reload();
               })
-              .catch(() => showErrorToast("Could not import data."));
+              .catch(() => showErrorToast(t("feedImportError")));
           }}
           onExportData={() => {
             void exportDatabase().catch(() =>
-              showErrorToast("Could not export data."),
+              showErrorToast(t("feedExportError")),
             );
           }}
           onTogglePlatform={feed.toggle}
@@ -100,7 +101,9 @@ export const FeedScreen: FC<FeedScreenProps> = (props) => {
             })}
           >
             <Typography style={{ flex: 1 }}>
-              {getPlatform(platform).label} needs attention
+              {t("feedNeedsAttention", {
+                platform: getPlatform(platform).label,
+              })}
             </Typography>
             <Icon name="world" color={theme.colors.text} size={22} />
           </Pressable>
