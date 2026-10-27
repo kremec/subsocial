@@ -15,6 +15,7 @@ import { openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type PlatformId } from "@/types/platform-id";
 
 export const BrowserScreen: FC = () => {
@@ -34,15 +35,27 @@ export const BrowserScreen: FC = () => {
       () => router.back(),
       (error: Error) => {
         setResetting(false);
-        Alert.alert("Could not log out", error.message);
+        Alert.alert(t("logoutFailed"), error.message);
       },
     );
   }, [platform, resetting]);
 
-  const logOut = () => {
-    webView.current?.stopLoading();
-    setResetting(true);
-  };
+  const logOut = () =>
+    Alert.alert(
+      t("logoutConfirm", { platform: platform.label }),
+      t("logoutDescription"),
+      [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: t("logoutDelete"),
+          style: "destructive",
+          onPress: () => {
+            webView.current?.stopLoading();
+            setResetting(true);
+          },
+        },
+      ],
+    );
 
   return (
     <Screen>
@@ -57,26 +70,11 @@ export const BrowserScreen: FC = () => {
         {connected && (
           <IconButton
             plain
-            accessibilityLabel={`Log out of ${platform.label}`}
+            accessibilityLabel={t("logoutPlatform", {
+              platform: platform.label,
+            })}
             disabled={resetting}
-            onPress={() =>
-              Alert.alert(
-                `Log out of ${platform.label}?`,
-                `Delete this platform's saved posts and login cookies from this app. You can then sign in with another account.${
-                  platform.id === "youtube"
-                    ? " This also clears Google sign-in data used by YouTube."
-                    : ""
-                }`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Log out and delete data",
-                    style: "destructive",
-                    onPress: logOut,
-                  },
-                ],
-              )
-            }
+            onPress={logOut}
             style={resetting && { opacity: 0.45 }}
           >
             <Icon name="logout" color={theme.colors.text} size={22} />
@@ -84,13 +82,15 @@ export const BrowserScreen: FC = () => {
         )}
         <IconButton
           plain
-          accessibilityLabel={`Open ${platform.label} app`}
+          accessibilityLabel={t("openPlatformApp", {
+            platform: platform.label,
+          })}
           disabled={resetting}
           onPress={() =>
             void openPlatformApp(platform.id).catch(() =>
               Alert.alert(
-                `Could not open ${platform.label}`,
-                "Make sure the app is installed and can open this link.",
+                t("openPlatformFailed", { platform: platform.label }),
+                t("openPlatformDescription"),
               ),
             )
           }

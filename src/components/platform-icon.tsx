@@ -15,10 +15,12 @@ interface PlatformIconProps {
 export const PlatformIcon: FC<PlatformIconProps> = (props) => {
   const { platform, connected, active = true, failed = false } = props;
   const theme = useTheme();
-  let borderColor: string = theme.colors.border;
-  if (failed) borderColor = theme.colors.danger;
-  else if (connected)
-    borderColor = active ? theme.colors.success : theme.colors.warning;
+  const connectedColor = active ? theme.colors.success : theme.colors.warning;
+  const borderColor = failed
+    ? theme.colors.danger
+    : connected
+      ? connectedColor
+      : theme.colors.border;
 
   return (
     <View

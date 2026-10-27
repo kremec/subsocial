@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 
 interface ModalHeaderProps {
   title?: string;
@@ -17,7 +18,7 @@ export const ModalHeader: FC<PropsWithChildren<ModalHeaderProps>> = (props) => {
   const {
     children,
     title,
-    closeLabel = "Close",
+    closeLabel = t("close"),
     closeDisabled,
     onClose,
   } = props;

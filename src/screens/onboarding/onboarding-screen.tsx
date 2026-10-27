@@ -66,7 +66,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
         }}
       >
         <Typography variant="title" style={{ fontFamily: theme.fonts.rounded }}>
-          subsocial
+          {t("appName")}
         </Typography>
 
         <ScrollView
