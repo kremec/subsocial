@@ -20,12 +20,13 @@ import {
 
 import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
+import { player } from "@/media/video-player";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
 import {
   canDownloadMedia,
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
-import { player } from "@/stores/media-store";
+import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -196,7 +197,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             <View
               collapsable={false}
               accessibilityRole="button"
-              accessibilityLabel="Show or hide video controls"
+              accessibilityLabel={t("mediaToggleControls")}
               onAccessibilityTap={() =>
                 setControlsVisible((visible) => !visible)
               }
@@ -210,7 +211,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           <View
             collapsable={false}
             accessibilityRole="button"
-            accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
+            accessibilityLabel={t(isPlaying ? "mediaPause" : "mediaPlay")}
             onAccessibilityTap={togglePlayback}
             style={{
               position: "absolute",
@@ -263,7 +264,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
                 setTrackWidth(event.nativeEvent.layout.width)
               }
               accessibilityRole="adjustable"
-              accessibilityLabel="Video progress"
+              accessibilityLabel={t("mediaProgress")}
               accessibilityValue={{ min: 0, max: duration, now: currentTime }}
               accessibilityActions={[
                 { name: "increment" },
@@ -319,7 +320,9 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             </Typography>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Playback speed ${playbackRate} times`}
+              accessibilityLabel={t("mediaPlaybackSpeed", {
+                rate: playbackRate,
+              })}
               hitSlop={8}
               onPress={() => {
                 const next = playbackRates.indexOf(playbackRate) + 1;
@@ -338,9 +341,9 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={
-                fullscreen ? "Exit fullscreen" : "Enter fullscreen"
-              }
+              accessibilityLabel={t(
+                fullscreen ? "mediaExitFullscreen" : "mediaEnterFullscreen",
+              )}
               hitSlop={8}
               onPress={onFullscreen}
               style={({ pressed }) => ({
