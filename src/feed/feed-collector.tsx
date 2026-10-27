@@ -7,14 +7,14 @@ import {
   listPublicationDates,
   saveExtraction,
 } from "@/db/repositories/feed-items-repository";
-import { CollectionProgress, datedExtraction } from "@/feed/collection";
+import { CollectionProgress } from "@/feed/collection";
 import { platformFeed } from "@/platforms/platform-feed";
 import {
   setCollectionBoundary,
   useSettingsStore,
 } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
-import { extractedItemSchema } from "@/types/extracted-item";
+import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { type PlatformDefinition } from "@/types/platform-definition";
 
@@ -35,35 +35,17 @@ interface FeedCollectorProps {
   onFinish: (result: CollectionResult) => void;
 }
 
-interface CollectionState {
-  dates: Map<string, number>;
-  progress: CollectionProgress;
-  failures: Set<string>;
-}
-
-// Save pages until the feed reaches known posts, remembering undated posts.
+// This loop stays outside React because React Compiler does not support for-await.
 async function collectFeed(
   platform: PlatformDefinition,
-  state: CollectionState,
+  collection: CollectionProgress,
   signal: AbortSignal,
 ) {
-  const { dates, progress, failures } = state;
-  for await (const page of platformFeed(platform, signal, dates)) {
+  for await (const page of platformFeed(platform, signal, collection.dates)) {
     if (signal.aborted) return;
-    const items = extractedItemSchema.array().parse(page.items);
-    const batch = progress.accept({ ...page, items });
-    const dated = datedExtraction(batch.items, dates);
-    for (const id of [
-      ...(page.failedSourceIds ?? []),
-      ...dated.failedSourceIds,
-    ])
-      failures.add(id);
-    for (const item of dated.items) {
-      failures.delete(item.sourceId);
-      for (const post of item.thread ?? []) failures.delete(post.sourceId);
-    }
-    if (dated.items.length || batch.excludedSourceIds.length)
-      saveExtraction(platform.id, dated.items, batch.excludedSourceIds);
+    const batch = collection.accept(page);
+    if (batch.items.length || batch.excludedSourceIds.length)
+      saveExtraction(platform.id, batch.items, batch.excludedSourceIds);
     if (batch.stop) return;
   }
 }
@@ -72,7 +54,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
   const { platform, active, attention, open, onAttention, onClose, onFinish } =
     props;
   const theme = useTheme();
-  const [state] = useState((): CollectionState => {
+  const [collection] = useState(() => {
     // Keep the boundary until collection succeeds, even when it is empty,
     // so an interrupted first collection can finish later.
     const dates = new Map(listPublicationDates(platform.id));
@@ -80,24 +62,18 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       platform.id
     ] ?? [...dates.keys()];
     setCollectionBoundary(platform.id, known);
-    return {
-      dates,
-      progress: new CollectionProgress(new Set(known)),
-      failures: new Set(),
-    };
+    return new CollectionProgress(new Set(known), dates);
   });
   const finished = useRef(false);
   const finish = useEffectEvent((error?: string) => {
     if (finished.current) return;
     finished.current = true;
-    const undated = state.failures.size;
+    const undated = collection.failures.size;
     onFinish({
       platform: platform.id,
       error:
         error ||
-        (undated
-          ? `Publication dates unavailable for ${undated} posts. Pull to retry.`
-          : undefined),
+        (undated ? t("feedMissingDates", { count: undated }) : undefined),
     });
   });
   const requireAttention = useEffectEvent(() => onAttention(true));
@@ -108,9 +84,9 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
     const { signal } = controller;
     const timeout = setTimeout(() => {
       controller.abort();
-      finish("Refresh timed out. Pull to retry.");
+      finish(t("feedTimeout"));
     }, collectionTimeout);
-    void collectFeed(platform, state, signal)
+    void collectFeed(platform, collection, signal)
       .then(
         () => {
           if (!signal.aborted) finish();
@@ -126,7 +102,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [active, attention, platform, state]);
+  }, [active, attention, platform, collection]);
 
   const close = () => {
     onClose();

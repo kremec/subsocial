@@ -1,16 +1,27 @@
-import { type ExtractedItem } from "@/types/extracted-item";
+import {
+  type ExtractedItem,
+  extractedItemSchema,
+} from "@/types/extracted-item";
 import { type ExtractedPost } from "@/types/extracted-post";
 import { type FeedPage } from "@/types/feed-page";
 
 export const feedItemLimit = 500;
 
-// Keep the previous session separate from posts found during this collection.
+// Track the collection boundary, changed posts, dates, and unresolved posts.
 export class CollectionProgress {
   readonly seen = new Map<string, string>();
+  readonly failures = new Set<string>();
 
-  constructor(private readonly known: Set<string>) {}
+  constructor(
+    private readonly known: Set<string>,
+    readonly dates = new Map<string, number>(),
+  ) {}
 
-  accept(page: FeedPage) {
+  accept(input: FeedPage) {
+    const page = {
+      ...input,
+      items: extractedItemSchema.array().parse(input.items),
+    };
     const excluded = new Set(page.excludedSourceIds ?? []);
     const boundary = (
       page.boundarySourceIds ??
@@ -33,8 +44,18 @@ export class CollectionProgress {
       this.seen.set(item.sourceId, json);
     }
 
+    const dated = datedExtraction(items, this.dates);
+    for (const id of [
+      ...(page.failedSourceIds ?? []),
+      ...dated.failedSourceIds,
+    ])
+      this.failures.add(id);
+    for (const item of dated.items)
+      for (const post of [item, ...(item.thread ?? [])])
+        this.failures.delete(post.sourceId);
+
     return {
-      items,
+      items: dated.items,
       excludedSourceIds: [...excluded],
       stop: this.seen.size >= feedItemLimit || reachedKnown || page.end,
     };

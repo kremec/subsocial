@@ -22,7 +22,7 @@ const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
 });
 
 const batch = (...ids: string[]): FeedPage => ({
-  items: ids.map((id) => post(id)),
+  items: ids.map((id) => post(id, 1)),
   end: false,
 });
 
@@ -89,9 +89,12 @@ test("saves changed enrichment without counting a repeated post twice", () => {
   const progress = new CollectionProgress(new Set(["old"]));
   assert.equal(progress.accept(batch("new", "old")).stop, false);
   const dated = { ...post("new"), publishedAt: 123 };
-  const end = progress.accept({ ...batch("old"), items: [dated, post("old")] });
+  const end = progress.accept({
+    ...batch("old"),
+    items: [dated, post("old", 1)],
+  });
   assert.equal(end.stop, false);
-  assert.deepEqual(end.items, [dated]);
+  assert.deepEqual(end.items, [{ ...dated, thread: undefined }]);
   assert.equal(progress.seen.size, 2);
   assert.equal(progress.accept(batch("old")).stop, true);
 });
@@ -147,8 +150,8 @@ test("continues while any member of a thread is unseen", () => {
       ...batch(),
       items: [
         {
-          ...post("new-reply"),
-          thread: [post("old-reply"), post("new-reply")],
+          ...post("new-reply", 1),
+          thread: [post("old-reply", 1), post("new-reply", 1)],
         },
       ],
     });
@@ -161,8 +164,8 @@ test("continues while any member of a thread is unseen", () => {
       ...batch(),
       items: [
         {
-          ...post("new-reply"),
-          thread: [post("old-reply"), post("new-reply")],
+          ...post("new-reply", 1),
+          thread: [post("old-reply", 1), post("new-reply", 1)],
         },
       ],
     }).stop,
@@ -174,6 +177,7 @@ test("excluded posts do not trigger overlap and never appear in saved items", ()
   const progress = new CollectionProgress(new Set(["upcoming"]));
   const result = progress.accept({
     ...batch("upcoming", "new"),
+    boundarySourceIds: ["upcoming"],
     excludedSourceIds: ["upcoming", "upcoming"],
   });
   assert.equal(result.stop, false);
@@ -207,4 +211,25 @@ test("dates posts from saved dates and withholds posts without one", () => {
   );
   assert.deepEqual(failedSourceIds.sort(), ["root", "undated"]);
   assert.equal(dates.get("reply"), 7);
+});
+
+test("tracks unresolved dates and clears failures when an enriched page repairs them", () => {
+  const dates = new Map([["known", 5]]);
+  const progress = new CollectionProgress(new Set(), dates);
+  const first = progress.accept({
+    items: [post("known"), post("undated")],
+    failedSourceIds: ["failed"],
+    end: false,
+  });
+  assert.deepEqual(
+    first.items.map((item) => [item.sourceId, item.publishedAt]),
+    [["known", 5]],
+  );
+  assert.deepEqual([...progress.failures].sort(), ["failed", "undated"]);
+  progress.accept({
+    items: [{ ...post("undated", 7), thread: [post("failed", 8)] }],
+    end: false,
+  });
+  assert.equal(progress.failures.size, 0);
+  assert.equal(dates.get("undated"), 7);
 });
