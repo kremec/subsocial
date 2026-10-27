@@ -26,7 +26,8 @@ import {
   MediaDownloadButton,
 } from "@/screens/feed/components/media-download-button";
 import { player } from "@/stores/media-store";
-import { type FeedMedia, type PlatformId } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedVideoControlsProps {
   media: FeedMedia;

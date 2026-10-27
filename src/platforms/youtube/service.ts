@@ -10,12 +10,10 @@ import {
   nestedObjects,
   bootstrap,
 } from "@/platforms/web-api";
-import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-} from "@/types/platform";
-import { type ExtractedItem } from "@/types/post";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedRequest } from "@/types/feed-request";
 
 const configSchema = z.object({
   SESSION_INDEX: z.union([z.string(), z.number()]).optional(),

@@ -4,7 +4,7 @@ import { requireNativeModule } from "expo";
 import { router } from "expo-router";
 
 import { getPlatform } from "@/platforms/platforms";
-import { type PlatformId } from "@/types/post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface PostLauncherModule {
   openPost: (

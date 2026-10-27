@@ -11,7 +11,7 @@ import { Typography } from "@/components/ui/typography";
 import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
 import { useTheme } from "@/theme/use-theme";
-import { type PlatformId } from "@/types/post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedHeaderProps {
   activePlatforms: PlatformId[];

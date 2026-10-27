@@ -5,7 +5,8 @@ import { Icon } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { getPlatform } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedPost, type PlatformId } from "@/types/post";
+import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 const formatAge = (publishedAt: number) => {
   const minutes = Math.max(0, Math.floor((Date.now() - publishedAt) / 60_000));

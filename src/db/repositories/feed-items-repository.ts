@@ -1,12 +1,10 @@
 import { database } from "@/db/client";
 import { feedItemLimit } from "@/feed/collection";
-import {
-  type ExtractedItem,
-  type ExtractedPost,
-  type FeedItem,
-  type FeedPost,
-  type PlatformId,
-} from "@/types/post";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { type ExtractedPost } from "@/types/extracted-post";
+import { type FeedItem } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedItemRow {
   id: string;

@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { useTheme } from "@/theme/use-theme";
-import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 interface PlatformIconProps {
   platform: PlatformDefinition;

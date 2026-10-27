@@ -29,7 +29,8 @@ import {
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedItem, type FeedPost } from "@/types/post";
+import { type FeedItem } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
 

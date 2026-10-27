@@ -6,7 +6,7 @@ import { create } from "zustand";
 
 import { type YouTubeResolution } from "@/platforms/youtube/playback";
 import { useSettingsStore } from "@/stores/settings-store";
-import { type FeedMedia } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
 
 interface PlayerVideo {
   // Identifies one video of one post, so its position survives row recycling.

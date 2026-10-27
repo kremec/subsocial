@@ -15,7 +15,8 @@ import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
 import { showVideo, useMediaStore } from "@/stores/media-store";
-import { type FeedMedia, type PlatformId } from "@/types/post";
+import { type FeedMedia } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedVideoProps {
   index: number;

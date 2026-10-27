@@ -15,7 +15,7 @@ import { openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
 import { useTheme } from "@/theme/use-theme";
-import { type PlatformId } from "@/types/post";
+import { type PlatformId } from "@/types/platform-id";
 
 export const BrowserScreen: FC = () => {
   const theme = useTheme();

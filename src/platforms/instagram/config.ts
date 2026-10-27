@@ -1,4 +1,4 @@
-import { type PlatformDefinition } from "@/types/platform";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 export const instagramPlatform: PlatformDefinition = {
   id: "instagram",

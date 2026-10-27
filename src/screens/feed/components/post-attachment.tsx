@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedAttachment } from "@/types/post";
+import { type FeedAttachment } from "@/types/feed-attachment";
 
 interface PostAttachmentProps {
   attachment: FeedAttachment;

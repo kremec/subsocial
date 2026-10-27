@@ -1,4 +1,5 @@
-import { type FeedItem, type FeedPost } from "@/types/post";
+import { type FeedItem } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
 
 export interface FeedRow {
   id: string;

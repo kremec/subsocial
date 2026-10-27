@@ -7,7 +7,8 @@ import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedPost, type PlatformId } from "@/types/post";
+import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface ThreadCardProps {
   post: FeedPost;

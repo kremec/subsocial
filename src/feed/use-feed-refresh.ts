@@ -15,7 +15,7 @@ import {
   setCollectionBoundary,
   useSettingsStore,
 } from "@/stores/settings-store";
-import { type PlatformId, platformIdSchema } from "@/types/post";
+import { type PlatformId, platformIdSchema } from "@/types/platform-id";
 
 interface RefreshRun {
   id: number;

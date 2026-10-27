@@ -9,7 +9,8 @@ import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel
 import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedPost, type PlatformId } from "@/types/post";
+import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface PostContentProps {
   post: FeedPost;

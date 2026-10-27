@@ -14,8 +14,9 @@ import {
   useSettingsStore,
 } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
-import { FeedAccessError, type PlatformDefinition } from "@/types/platform";
-import { extractedItemSchema } from "@/types/post";
+import { extractedItemSchema } from "@/types/extracted-item";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { type PlatformDefinition } from "@/types/platform-definition";
 
 const collectionTimeout = 120_000;
 
