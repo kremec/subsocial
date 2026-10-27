@@ -80,10 +80,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginBottom: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography
-            variant={quote ? "bodySmall" : "titleSmall"}
-            style={{ fontWeight: "400", lineHeight: quote ? 20 : 24 }}
-          >
+          <Typography variant={quote ? "readingSmall" : "readingTitle"}>
             {post.title}
           </Typography>
         </View>
@@ -96,10 +93,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginTop: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography
-            variant={quote ? "bodySmall" : "body"}
-            style={{ fontWeight: "400", lineHeight: quote ? 20 : 23 }}
-          >
+          <Typography variant={quote ? "readingSmall" : "readingBody"}>
             {text}
           </Typography>
           {longText && (

@@ -108,7 +108,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
             }
           }}
         >
-          <Typography style={{ color: "white" }}>
+          <Typography color="white">
             {status === "verification"
               ? "Video needs verification. Tap to open."
               : "Couldn't load video. Tap to retry."}
