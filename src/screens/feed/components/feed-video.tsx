@@ -10,11 +10,13 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
+import { showVideo } from "@/media/video-player";
 import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
 import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
-import { showVideo, useMediaStore } from "@/stores/media-store";
+import { useMediaStore } from "@/stores/media-store";
+import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -44,21 +46,25 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   } = props;
   // The inline and fullscreen views share a key to resume the same playback.
   const playbackKey = `${postUrl}:${index}`;
-  const loaded = useMediaStore((state) => state.loaded);
   const youtube = useYouTubeMedia(
     platform === "youtube" ? sourceId : undefined,
   );
-  const { resolution } = youtube;
+  const { resolution, fail: failYouTube } = youtube;
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => {
     setFailed(true);
-    youtube.fail();
-  }, [youtube]);
+    failYouTube();
+  }, [failYouTube]);
   const status =
     platform === "youtube" && resolution?.status !== "ready"
       ? resolution?.status || "loading"
       : failed && "error";
   const video = withYouTubeStream(media, resolution);
+  const loaded = useMediaStore(
+    (state) =>
+      state.loaded?.playbackKey === playbackKey &&
+      state.loaded.url === video.url,
+  );
 
   // Load this video into the shared player while it can play.
   useLayoutEffect(() => {
@@ -71,8 +77,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   }, [status, playbackKey, media, resolution, fail]);
 
   if (!status) {
-    if (loaded?.playbackKey !== playbackKey || loaded.url !== video.url)
-      return counter || null;
+    if (!loaded) return counter || null;
     return (
       <FeedVideoControls
         media={video}
@@ -111,8 +116,8 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         >
           <Typography color="white">
             {status === "verification"
-              ? "Video needs verification. Tap to open."
-              : "Couldn't load video. Tap to retry."}
+              ? t("mediaVerification")
+              : t("mediaVideoError")}
           </Typography>
         </Pressable>
       )}

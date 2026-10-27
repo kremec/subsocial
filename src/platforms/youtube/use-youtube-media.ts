@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import {
   resolveYouTubePlayback,
@@ -13,9 +13,11 @@ const setResolution = (sourceId: string, resolution?: YouTubeResolution) =>
 
 // Resolve a YouTube stream while its video is shown.
 export function useYouTubeMedia(sourceId: string | undefined) {
-  const result = useMediaStore((state) => state.youtube);
-  const resolution =
-    sourceId && result?.sourceId === sourceId ? result.resolution : undefined;
+  const resolution = useMediaStore((state) =>
+    sourceId && state.youtube?.sourceId === sourceId
+      ? state.youtube.resolution
+      : undefined,
+  );
 
   useEffect(() => {
     if (!sourceId || resolution) return;
@@ -34,11 +36,13 @@ export function useYouTubeMedia(sourceId: string | undefined) {
     };
   }, [sourceId, resolution]);
 
+  const fail = useCallback(() => {
+    if (sourceId) setResolution(sourceId, { status: "error" });
+  }, [sourceId]);
+
   return {
     resolution,
     retry: () => useMediaStore.setState({ youtube: undefined }),
-    fail: () => {
-      if (sourceId) setResolution(sourceId, { status: "error" });
-    },
+    fail,
   };
 }

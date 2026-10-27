@@ -4,7 +4,8 @@ import { Pressable } from "react-native";
 import { useEvent } from "expo";
 
 import { Icon } from "@/components/ui/icon";
-import { player } from "@/stores/media-store";
+import { player } from "@/media/video-player";
+import { t } from "@/translation/use-translation";
 
 interface FeedVideoMuteButtonProps {
   inline?: boolean;
@@ -17,7 +18,7 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={muted ? "Unmute all videos" : "Mute all videos"}
+      accessibilityLabel={t(muted ? "mediaUnmute" : "mediaMute")}
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
