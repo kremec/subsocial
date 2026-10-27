@@ -75,6 +75,7 @@
     "@legendapp/list@3.6.0": "patches/@legendapp%2Flist@3.6.0.patch",
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
     "@expo/ui@57.0.25": "patches/@expo%2Fui@57.0.25.patch",
+    "@react-native-masked-view/masked-view@0.3.2": "patches/@react-native-masked-view%2Fmasked-view@0.3.2.patch",
     "drizzle-orm@0.45.2": "patches/drizzle-orm@0.45.2.patch"
   }
 }
