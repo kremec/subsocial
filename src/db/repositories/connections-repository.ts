@@ -1,21 +1,22 @@
-import { database } from "@/db/client";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/db/client";
+import { connections } from "@/db/schema";
 import { type PlatformId } from "@/types/platform-id";
 
 export function connectPlatform(platform: PlatformId): void {
-  database.runSync(
-    "INSERT OR IGNORE INTO connections (platform) VALUES (?)",
-    platform,
-  );
+  db.insert(connections).values({ platform }).onConflictDoNothing().run();
 }
 
 export function disconnectPlatform(platform: PlatformId): void {
-  database.runSync("DELETE FROM connections WHERE platform = ?", platform);
+  db.delete(connections).where(eq(connections.platform, platform)).run();
 }
 
 export function listConnectedPlatforms(): PlatformId[] {
-  return database
-    .getAllSync<{ platform: PlatformId }>(
-      "SELECT platform FROM connections ORDER BY platform",
-    )
+  return db
+    .select()
+    .from(connections)
+    .orderBy(connections.platform)
+    .all()
     .map((row) => row.platform);
 }

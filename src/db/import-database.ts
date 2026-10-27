@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 
 import { database, migrateDatabase } from "@/db/client";
+import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
 
@@ -18,7 +19,7 @@ const importedRowSchema = z.object({
   id: z.string().min(1),
   platform: platformIdSchema,
   source_id: z.string().min(1),
-  published_at: z.number().positive(),
+  published_at: z.number().positive().nullable(),
   fetched_at: z.number().nonnegative(),
   item_json: z.string(),
   thread_id: z.string().min(1),
@@ -52,15 +53,11 @@ export async function importDatabase(): Promise<boolean> {
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'feed_items'",
       )
     )
-      throw new Error("Not a subsocial database");
+      throw new Error(t("invalidDatabase"));
     migrateDatabase(imported);
     const rows = z
       .array(importedRowSchema)
-      .parse(
-        imported.getAllSync(
-          "SELECT id, platform, source_id, published_at, fetched_at, item_json, thread_id FROM feed_items",
-        ),
-      );
+      .parse(imported.getAllSync("SELECT * FROM feed_items"));
     z.array(z.object({ platform: platformIdSchema })).parse(
       imported.getAllSync("SELECT platform FROM connections"),
     );
@@ -70,7 +67,7 @@ export async function importDatabase(): Promise<boolean> {
           row.id !== `${row.platform}:${row.source_id}` ||
           !row.thread_id.startsWith(`${row.platform}:`)
         )
-          throw new Error("Invalid imported post identity");
+          throw new Error(t("invalidImportedPostIdentity"));
         const post = feedPostSchema.parse(JSON.parse(row.item_json));
         imported.runSync(
           "UPDATE feed_items SET item_json = ? WHERE id = ?",

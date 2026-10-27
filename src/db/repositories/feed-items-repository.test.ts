@@ -1,10 +1,12 @@
 /// <reference types="bun" />
 
 import { mock } from "bun:test";
+import { sql } from "drizzle-orm";
 import assert from "node:assert/strict";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 
+import { connections as table } from "@/db/schema";
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
 import { rowsForItems } from "@/screens/feed/feed-rows";
 import { type ExtractedItem } from "@/types/extracted-item";
@@ -12,7 +14,9 @@ import { type PlatformId } from "@/types/platform-id";
 
 // Run the production SQL against an in-memory SQLite database.
 let db = new DatabaseSync(":memory:");
+const statements = new Set<{ finalizeSync: () => void }>();
 mock.module("expo-sqlite", () => ({
+  addDatabaseChangeListener: () => ({ remove() {} }),
   openDatabaseSync: () => ({
     execSync: (sql: string) => db.exec(sql),
     getFirstSync: (sql: string) => db.prepare(sql).get(),
@@ -20,6 +24,43 @@ mock.module("expo-sqlite", () => ({
       db.prepare(sql).all(...params),
     runSync: (sql: string, ...params: SQLInputValue[]) =>
       db.prepare(sql).run(...params),
+    prepareSync: (sql: string) => {
+      const statement = db.prepare(sql);
+      const prepared = {
+        executeSync: (params: SQLInputValue[]) => {
+          assert.ok(statements.has(prepared), "statement already finalized");
+          statement.setReturnArrays(false);
+          if (statement.columns().length) {
+            const rows = statement.all(...params).map((row) => ({ ...row }));
+            return {
+              getAllSync: () => rows,
+              getFirstSync: () => rows[0] ?? null,
+            };
+          }
+          const result = statement.run(...params);
+          return { ...result, lastInsertRowId: result.lastInsertRowid };
+        },
+        executeForRawResultSync: (params: SQLInputValue[]) => {
+          assert.ok(statements.has(prepared), "statement already finalized");
+          statement.setReturnArrays(true);
+          const rows = statement.all(...params);
+          return {
+            getAllSync: () => {
+              assert.ok(
+                statements.has(prepared),
+                "statement already finalized",
+              );
+              return rows;
+            },
+          };
+        },
+        finalizeSync: () => {
+          assert.ok(statements.delete(prepared), "statement finalized twice");
+        },
+      };
+      statements.add(prepared);
+      return prepared;
+    },
     withTransactionSync: (action: () => void) => {
       db.exec("BEGIN");
       try {
@@ -32,8 +73,15 @@ mock.module("expo-sqlite", () => ({
     },
   }),
 }));
-const { database, migrateDatabase } = await import("@/db/client");
+const {
+  database,
+  db: drizzleDb,
+  migrateDatabase,
+} = await import("@/db/client");
 const repository = await import("@/db/repositories/feed-items-repository");
+const connections = await import("@/db/repositories/connections-repository");
+
+afterEach(() => assert.equal(statements.size, 0, "unfinalized statements"));
 
 function openStore(existing = new DatabaseSync(":memory:")) {
   db = existing;
@@ -53,6 +101,59 @@ const post = (sourceId: string, publishedAt?: number): ExtractedItem => ({
   media: [],
 });
 
+test("one-shot queries finalize mapped and raw results", () => {
+  const store = openStore();
+  connections.connectPlatform("x");
+  assert.deepEqual(drizzleDb.all(sql`SELECT 7 AS value`), [{ value: 7 }]);
+  assert.deepEqual(drizzleDb.get(sql`SELECT 7 AS value`), { value: 7 });
+  assert.deepEqual(drizzleDb.values(sql`SELECT 7 AS value`), [[7]]);
+  assert.deepEqual(drizzleDb.select().from(table).all(), [{ platform: "x" }]);
+  assert.deepEqual(drizzleDb.select().from(table).get(), { platform: "x" });
+  assert.deepEqual(drizzleDb.select().from(table).values(), [["x"]]);
+  assert.equal(statements.size, 0);
+  store.db.close();
+});
+
+test("one-shot statements finalize when execution or result mapping throws", () => {
+  const store = openStore();
+  const query = sql`SELECT abs(-9223372036854775808)`;
+  for (const execute of [
+    () => drizzleDb.run(query),
+    () => drizzleDb.all(query),
+    () => drizzleDb.get(query),
+    () => drizzleDb.values(query),
+  ]) {
+    assert.throws(execute);
+    assert.equal(statements.size, 0);
+  }
+  connections.connectPlatform("x");
+  const invalid = sql`1`.mapWith(() => {
+    throw new Error("decode failed");
+  });
+  assert.throws(
+    () => drizzleDb.select({ invalid }).from(table).all(),
+    /decode failed/,
+  );
+  assert.equal(statements.size, 0);
+  store.db.close();
+});
+
+test("explicitly prepared queries remain reusable until finalized", () => {
+  const store = openStore();
+  connections.connectPlatform("x");
+  const prepared = drizzleDb.select().from(table).prepare();
+  try {
+    assert.equal(statements.size, 1);
+    assert.deepEqual(prepared.all(), [{ platform: "x" }]);
+    assert.deepEqual(prepared.get(), { platform: "x" });
+    assert.deepEqual(prepared.values(), [["x"]]);
+    assert.equal(statements.size, 1);
+  } finally {
+    for (const statement of statements) statement.finalizeSync();
+    store.db.close();
+  }
+});
+
 test("rejects a database from a newer app version without changing it", () => {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA user_version = 5");
@@ -65,7 +166,7 @@ test("rejects a database from a newer app version without changing it", () => {
   db.close();
 });
 
-test("upgrading adds missing indexes and drops undated posts only", () => {
+test("upgrading adds missing indexes without removing saved posts", () => {
   const store = openStore();
   store.saveExtraction("youtube", [post("video", 1)], []);
   const before = store.db.prepare("SELECT * FROM feed_items").all();
@@ -76,7 +177,19 @@ test("upgrading adds missing indexes and drops undated posts only", () => {
   `);
   migrateDatabase(database);
   assert.equal(store.db.prepare("PRAGMA user_version").get()!.user_version, 4);
-  assert.deepEqual(store.db.prepare("SELECT * FROM feed_items").all(), before);
+  assert.deepEqual(
+    store.db
+      .prepare("SELECT * FROM feed_items WHERE published_at IS NOT NULL")
+      .all(),
+    before,
+  );
+  assert.equal(
+    store.db.prepare("SELECT COUNT(*) AS count FROM feed_items").get()!.count,
+    2,
+  );
+  assert.equal(store.listFeedItems().length, 1);
+  assert.deepEqual([...store.listPostIds()], ["youtube:video"]);
+  assert.deepEqual(store.listPublicationDates("youtube"), [["video", 1]]);
   assert.ok(
     store.db
       .prepare(
@@ -84,6 +197,17 @@ test("upgrading adds missing indexes and drops undated posts only", () => {
       )
       .get(),
   );
+  store.db.close();
+});
+
+test("connections remain unique and disconnect without deleting other platforms", () => {
+  const store = openStore();
+  connections.connectPlatform("youtube");
+  connections.connectPlatform("x");
+  connections.connectPlatform("youtube");
+  assert.deepEqual(connections.listConnectedPlatforms(), ["x", "youtube"]);
+  connections.disconnectPlatform("x");
+  assert.deepEqual(connections.listConnectedPlatforms(), ["youtube"]);
   store.db.close();
 });
 
@@ -510,8 +634,8 @@ test("preserves different thread members when a page repeats the same root", () 
   const result = progress.accept({
     end: false,
     items: [
-      { ...post("root"), thread: [post("unseen"), post("root")] },
-      { ...post("root"), thread: [post("old"), post("root")] },
+      { ...post("root", 1), thread: [post("unseen", 2), post("root", 1)] },
+      { ...post("root", 1), thread: [post("old", 3), post("root", 1)] },
     ],
   });
   assert.equal(result.stop, false);
