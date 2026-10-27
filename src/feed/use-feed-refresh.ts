@@ -15,6 +15,7 @@ import {
   setCollectionBoundary,
   useSettingsStore,
 } from "@/stores/settings-store";
+import { t } from "@/translation/use-translation";
 import { type PlatformId, platformIdSchema } from "@/types/platform-id";
 
 interface RefreshRun {
@@ -68,19 +69,16 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       (id) => !current.attention.includes(id),
     );
     if (collecting && !restart) return;
-    const waiting = collecting ? undefined : current;
-    const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
-    update(
-      queue.length
-        ? {
-            // Keep login collectors mounted while healthy platforms refresh again.
-            id: waiting?.id ?? performance.now(),
-            queue,
-            errors: [],
-            attention: waiting?.attention ?? [],
-          }
-        : undefined,
-    );
+    const paused = collecting ? undefined : current;
+    const queue = [...new Set([...(paused?.queue ?? []), ...platforms])];
+    if (!queue.length) return update();
+    // Keep paused collectors mounted so retries preserve their progress.
+    update({
+      id: paused?.id ?? performance.now(),
+      queue,
+      errors: [],
+      attention: paused?.attention ?? [],
+    });
   };
 
   const sync = useEffectEvent((platforms: PlatformId[]) => {
@@ -98,6 +96,10 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     const savedIds = listPostIds();
     setItems((current) => current.filter((item) => savedIds.has(item.id)));
     if (added || refreshOnForeground.current) begin(platforms, added);
+    // A browser visit or foreground return may have repaired a paused session.
+    // Retry its requests to verify this while retaining the collector's progress.
+    const current = running.current;
+    if (current?.attention.length) update({ ...current, attention: [] });
     refreshOnForeground.current = false;
   });
 
@@ -109,7 +111,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
         if (!cancelled) sync(platforms);
       })
       .catch(() => {
-        if (!cancelled) showErrorToast("Could not check platform connections.");
+        if (!cancelled) showErrorToast(t("connectionsCheckFailed"));
       });
     return () => {
       cancelled = true;
@@ -134,7 +136,13 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       ...current,
       queue: current.queue.filter((id) => id !== platform),
       errors: error
-        ? [...current.errors, `${getPlatform(platform).label}: ${error}`]
+        ? [
+            ...current.errors,
+            t("feedPlatformError", {
+              platform: getPlatform(platform).label,
+              error,
+            }),
+          ]
         : current.errors,
       attention: current.attention.filter((id) => id !== platform),
     };
