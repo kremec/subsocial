@@ -5,6 +5,7 @@ import { instagramPlatform } from "@/platforms/instagram/config";
 import { redditPlatform } from "@/platforms/reddit/config";
 import { xPlatform } from "@/platforms/x/config";
 import { youtubePlatform } from "@/platforms/youtube/config";
+import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -18,7 +19,7 @@ export const platforms: PlatformDefinition[] = [
 
 export function getPlatform(id: PlatformId): PlatformDefinition {
   const platform = platforms.find((item) => item.id === id);
-  if (!platform) throw new Error(`Unknown platform: ${id}`);
+  if (!platform) throw new Error(t("unknownPlatform", { platform: id }));
   return platform;
 }
 

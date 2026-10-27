@@ -1,35 +1,12 @@
 import { toByteArray } from "base64-js";
-import { z } from "zod";
 
+import {
+  playbackResponseSchema,
+  type PlaybackResponse,
+} from "@/platforms/youtube/schemas/playback-response-schema";
+import { playbackVisitorSchema } from "@/platforms/youtube/schemas/playback-visitor-schema";
+import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
-
-const formatSchema = z.object({
-  audioTrack: z
-    .object({
-      id: z.string(),
-      displayName: z.string().optional(),
-      isAutoDubbed: z.boolean().optional(),
-    })
-    .optional(),
-});
-
-const playbackVisitorSchema = z.object({
-  responseContext: z.object({ visitorData: z.string().min(1) }),
-});
-
-const playbackResponseSchema = z.object({
-  playabilityStatus: z.object({ status: z.string() }),
-  videoDetails: z.object({ videoId: z.string() }).optional(),
-  streamingData: z
-    .object({
-      hlsManifestUrl: z.string().optional(),
-      formats: z.array(formatSchema).optional(),
-      adaptiveFormats: z.array(formatSchema).optional(),
-    })
-    .optional(),
-});
-
-type PlaybackResponse = z.infer<typeof playbackResponseSchema>;
 
 export type YouTubeResolution =
   | {
@@ -47,7 +24,7 @@ export function youtubeStream(url: string) {
     !source.hostname.endsWith(".googlevideo.com") ||
     !/\/manifest\/hls_(?:playlist|variant)\//.test(source.pathname)
   ) {
-    throw new Error("Invalid YouTube stream");
+    throw new Error(t("youtubeInvalidStream"));
   }
   return {
     status: "ready",
@@ -116,7 +93,7 @@ export function selectYouTubePlaylist(
 ): YouTubeResolution {
   const master = youtubeStream(url);
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
-  if (lines[0] !== "#EXTM3U") throw new Error("Invalid video playlist");
+  if (lines[0] !== "#EXTM3U") throw new Error(t("youtubeInvalidPlaylist"));
   const formats = [
     ...(streamingData?.formats || []),
     ...(streamingData?.adaptiveFormats || []),
@@ -145,7 +122,7 @@ export function selectYouTubePlaylist(
     if (selected?.NAME)
       return { ...master, preferredAudioTrack: selected.NAME };
     if (new Set(audio.map((tags) => tags.NAME)).size > 1 || tracks.length > 1)
-      throw new Error("Could not identify the original audio");
+      throw new Error(t("youtubeOriginalAudioUnavailable"));
     return master;
   }
 
@@ -153,7 +130,8 @@ export function selectYouTubePlaylist(
     if (!line.startsWith("#EXT-X-STREAM-INF:")) return [];
     const tags = attributes(line);
     const uri = lines[index + 1];
-    if (!uri || uri.startsWith("#")) throw new Error("Invalid video variant");
+    if (!uri || uri.startsWith("#"))
+      throw new Error(t("youtubeInvalidVariant"));
     const source = youtubeStream(new URL(uri, url).href);
     const height = Number((tags.RESOLUTION || "").split("x")[1]);
     return [
@@ -168,7 +146,7 @@ export function selectYouTubePlaylist(
   });
   if (!variants.length) {
     if (tracks.length > 1)
-      throw new Error("Original audio needs a master playlist");
+      throw new Error(t("youtubeOriginalAudioNeedsMaster"));
     return master;
   }
   const originals = variants.filter((variant) => variant.original);
@@ -179,8 +157,7 @@ export function selectYouTubePlaylist(
           (variant) => original && variant.audioId === original.id,
         )
       : variants;
-  if (!candidates.length)
-    throw new Error("Could not identify the original audio");
+  if (!candidates.length) throw new Error(t("youtubeOriginalAudioUnavailable"));
   const capped = candidates.filter((variant) => variant.height <= 720);
   const selected = (capped.length ? capped : candidates).sort((left, right) =>
     capped.length
@@ -197,7 +174,7 @@ export async function resolveYouTubePlayback(
 ): Promise<YouTubeResolution> {
   const checkAborted = () => {
     if (signal.aborted)
-      throw new DOMException("Playback aborted", "AbortError");
+      throw new DOMException(t("youtubePlaybackAborted"), "AbortError");
   };
   const load = async (url: string, body?: object) => {
     checkAborted();
@@ -208,7 +185,7 @@ export async function resolveYouTubePlayback(
       credentials: "omit",
       signal,
     });
-    if (!response.ok) throw new Error("Could not load YouTube playback");
+    if (!response.ok) throw new Error(t("youtubePlaybackLoadFailed"));
     return response;
   };
   const visitorResponse = await load(
@@ -251,9 +228,9 @@ export async function resolveYouTubePlayback(
     };
   }
   if (player.videoDetails?.videoId !== videoId)
-    throw new Error("YouTube returned a different video");
+    throw new Error(t("youtubeWrongVideo"));
   const url = player.streamingData?.hlsManifestUrl;
-  if (!url) throw new Error("YouTube did not return a playable stream");
+  if (!url) throw new Error(t("youtubeStreamUnavailable"));
   youtubeStream(url);
   const response = await load(url);
   const playlist = await response.text();

@@ -13,6 +13,7 @@ import { hasSession, ownsHost } from "@/platforms/platforms";
 import { redditFeed } from "@/platforms/reddit/service";
 import { xFeed } from "@/platforms/x/service";
 import { youtubeFeed } from "@/platforms/youtube/service";
+import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { type FeedRequest } from "@/types/feed-request";
 import { type PlatformDefinition } from "@/types/platform-definition";
@@ -36,19 +37,21 @@ const cookieValues = (cookies: Cookies) =>
 // iOS keeps WebView and URLSession cookies in separate native stores.
 async function syncCookies(platform: PlatformDefinition, fromWebKit: boolean) {
   if (Platform.OS !== "ios") return;
-  const [incoming, previous] = await Promise.all(
-    [fromWebKit, !fromWebKit].map(
-      async (useWebKit) =>
-        new Map(
-          (await CookieManager.getAllAsArray(useWebKit))
-            .filter((cookie) => ownsHost(platform, cookieHost(cookie)))
-            .map((cookie) => [
-              `${cookie.name}:${cookie.domain}:${cookie.path}`,
-              cookie,
-            ]),
-        ),
-    ),
-  );
+  const readStore = async (useWebKit: boolean) => {
+    const cookies = await CookieManager.getAllAsArray(useWebKit);
+    return new Map(
+      cookies
+        .filter((cookie) => ownsHost(platform, cookieHost(cookie)))
+        .map((cookie) => [
+          `${cookie.name}:${cookie.domain}:${cookie.path}`,
+          cookie,
+        ]),
+    );
+  };
+  const [incoming, previous] = await Promise.all([
+    readStore(fromWebKit),
+    readStore(!fromWebKit),
+  ]);
   for (const [id, cookie] of previous)
     if (!incoming.has(id))
       await CookieManager.set(
@@ -71,26 +74,25 @@ export async function* platformFeed(
   dates: Map<string, number>,
 ) {
   if ((retryAt.get(platform.id) ?? 0) > Date.now())
-    throw new Error("Refresh rate limited. Try again later.");
+    throw new Error(t("feedRateLimited"));
   const session = await CookieManager.get(platform.startUrl, true);
   if (!hasSession(platform, session))
-    throw new FeedAccessError("Open the platform to sign in again.");
+    throw new FeedAccessError(t("feedSignIn"));
   await syncCookies(platform, true);
   // Facebook requires the device identity to serve its web API bootstrap.
   const userAgent =
     platform.id === "facebook"
       ? await Constants.getWebViewUserAgentAsync()
       : undefined;
-  const cookies = cookieValues(session);
   const request: FeedRequest = {
-    cookies,
+    cookies: cookieValues(session),
     signal,
     dates,
     fetch: async (url, init) => {
-      if (signal.aborted) throw new Error("Refresh cancelled.");
+      if (signal.aborted) throw new Error(t("feedCancelled"));
       const { protocol, hostname } = new URL(url);
       if (protocol !== "https:" || !ownsHost(platform, hostname))
-        throw new Error("Unexpected feed request host.");
+        throw new Error(t("feedUnexpectedHost"));
       const headers = new Headers(init?.headers);
       if (userAgent) headers.set("User-Agent", userAgent);
       // Android already shares WebView cookies; iOS was synchronized above.
@@ -106,15 +108,14 @@ export async function* platformFeed(
         await syncCookies(platform, false);
       }
       const current = await CookieManager.get(platform.startUrl, true);
-      for (const name of Object.keys(cookies)) delete cookies[name];
-      Object.assign(cookies, cookieValues(current));
+      request.cookies = cookieValues(current);
       if (
         response.status === 401 ||
         /(?:^|\/)(login|signin|ServiceLogin|checkpoint|challenge)(?:\/|$)/i.test(
           response.url ? new URL(response.url).pathname : "",
         )
       )
-        throw new FeedAccessError("Open the platform to check your login.");
+        throw new FeedAccessError(t("feedCheckLogin"));
       if (response.status === 429) {
         const retryAfter = response.headers.get("Retry-After");
         const seconds = retryAfter ? Number(retryAfter) : NaN;
@@ -125,12 +126,10 @@ export async function* platformFeed(
           platform.id,
           Number.isFinite(until) ? until : Date.now() + 60_000,
         );
-        throw new Error("Refresh rate limited. Try again later.");
+        throw new Error(t("feedRateLimited"));
       }
       if (!response.ok)
-        throw new Error(
-          `Could not load feed (${response.status}). Try again later.`,
-        );
+        throw new Error(t("feedLoadFailed", { status: response.status }));
       return response;
     },
   };
