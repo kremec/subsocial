@@ -9,6 +9,7 @@ import { FeedMediaCarousel } from "@/screens/feed/components/feed-media-carousel
 import { PostAttachment } from "@/screens/feed/components/post-attachment";
 import { PostHeader } from "@/screens/feed/components/post-header";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -81,7 +82,9 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginBottom: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography variant={quote ? "readingSmall" : "readingTitle"}>
+          <Typography
+            variant={quote ? "bodySmallRelaxed" : "titleSmallRegular"}
+          >
             {post.title}
           </Typography>
         </View>
@@ -94,7 +97,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginTop: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography variant={quote ? "readingSmall" : "readingBody"}>
+          <Typography variant={quote ? "bodySmallRelaxed" : "bodyRegular"}>
             {text}
           </Typography>
           {longText && (
@@ -107,7 +110,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
               }}
               style={{ paddingVertical: theme.spacing.xs }}
             >
-              {expanded ? "Show less" : "Show more"}
+              {t(expanded ? "feedShowLess" : "feedShowMore")}
             </Typography>
           )}
         </View>
