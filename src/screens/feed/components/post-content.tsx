@@ -52,6 +52,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
 
   return (
     <Pressable
+      needsOffscreenAlphaCompositing
       onPress={(event) => {
         event.stopPropagation();
         openPostUrl();
