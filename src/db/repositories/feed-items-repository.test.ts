@@ -8,6 +8,8 @@ import { afterEach, test } from "node:test";
 
 import { connections as table } from "@/db/schema";
 import { CollectionProgress, feedItemLimit } from "@/feed/collection";
+import { type JsonObject } from "@/platforms/json";
+import { xPage } from "@/platforms/x/service";
 import { rowsForItems } from "@/screens/feed/feed-rows";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { type PlatformId } from "@/types/platform-id";
@@ -692,4 +694,54 @@ test("preserves different thread members when a page repeats the same root", () 
   );
   assert.deepEqual(store.sourceIds("x").sort(), ["old", "root", "unseen"]);
   store.db.close();
+});
+
+test("deleted X roots retain surviving replies through collection, storage and feed rows", () => {
+  const replies = [
+    ["earlier", "deleted", "Earlier reply"],
+    ["reply", "earlier", "What???"],
+    ["latest", "reply", "Later reply"],
+  ].map(([id, parent, text], index) => ({
+    rest_id: id,
+    core: {
+      user_results: {
+        result: { core: { screen_name: index ? "followed" : "other" } },
+      },
+    },
+    legacy: {
+      full_text: text,
+      in_reply_to_status_id_str: parent,
+      created_at: `Tue Nov 14 22:${13 + index}:20 +0000 2023`,
+    },
+  }));
+  const pageFor = (tweets: JsonObject[]) => {
+    const items = tweets.map((result) => ({
+      item: { itemContent: { tweet_results: { result } } },
+    }));
+    const instructions = [{ entries: [{ content: { items } }] }];
+    return xPage({ data: { home: { home_timeline_urt: { instructions } } } });
+  };
+  for (const tombstone of [false, true]) {
+    const store = openStore();
+    const candidates = tombstone
+      ? [{ __typename: "TweetTombstone" }, ...replies]
+      : replies;
+    const progress = new CollectionProgress(new Set());
+    const batch = progress.accept(pageFor(candidates));
+    store.saveExtraction("x", batch.items, batch.excludedSourceIds);
+    assert.deepEqual(
+      store.listFeedItems()[0].thread?.map((post) => post.sourceId),
+      ["earlier", "reply", "latest"],
+    );
+    const partial = progress.accept(pageFor(replies.slice(1)));
+    store.saveExtraction("x", partial.items, partial.excludedSourceIds);
+    const items = store.listFeedItems();
+    assert.deepEqual(
+      rowsForItems(items)
+        .get(items[0])
+        ?.map((row) => row.post?.sourceId),
+      ["earlier", "reply", "latest"],
+    );
+    store.db.close();
+  }
 });
