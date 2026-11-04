@@ -7,6 +7,7 @@ import { type Tweet } from "@/platforms/x/schemas/tweet-schema";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedMedia } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
@@ -75,7 +76,9 @@ function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
 export function xPage(value: Json): FeedPage & { cursor: string } {
   const parsed = feedResponseSchema.safeParse(value);
   if (!parsed.success)
-    throw new Error(t("platformFeedUnavailable", { platform: t("platformX") }));
+    throw new FeedError(
+      t("platformFeedUnavailable", { platform: t("platformX") }),
+    );
   const items: ExtractedItem[] = [];
   const excludedSourceIds: string[] = [];
   const boundarySourceIds: string[] = [];
@@ -145,13 +148,13 @@ export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
     /https:\/\/abs\.twimg\.com\/responsive-web\/client-web[^"\s]*\/main\.[^"\s]+\.js/,
   )?.[0];
   if (!scriptUrl)
-    throw new Error(
+    throw new FeedError(
       t("platformConfigurationUnavailable", { platform: t("platformX") }),
     );
   const script = await (await request.fetch(scriptUrl)).text();
   const bearer = script.match(/AAAAA[A-Za-z0-9%]+/)?.[0];
   if (!bearer)
-    throw new Error(
+    throw new FeedError(
       t("platformConfigurationUnavailable", { platform: t("platformX") }),
     );
   // Query and feature flags observed on X's chronological following feed.

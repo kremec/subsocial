@@ -1,4 +1,5 @@
 import { t } from "@/translation/use-translation";
+import { FeedError } from "@/types/feed-error";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -14,7 +15,7 @@ export async function* paginateFeed(
     yield page;
     if (page.end) return;
     if (!next || cursors.has(next))
-      throw new Error(t("feedDidNotAdvance", { platform }));
+      throw new FeedError(t("feedDidNotAdvance", { platform }));
     cursors.add(next);
     cursor = next;
   }

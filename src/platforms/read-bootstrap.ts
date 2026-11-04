@@ -1,15 +1,16 @@
 import { jsonObjectSchema, type JsonObject } from "@/platforms/json";
 import { t } from "@/translation/use-translation";
+import { FeedError } from "@/types/feed-error";
 
 // Read the JSON a web page embeds right after a marker, such as its API config.
 export function readBootstrap(html: string, marker: string): JsonObject {
   const offset = html.indexOf(marker);
-  if (offset < 0) throw new Error(t("feedConfigurationUnavailable"));
+  if (offset < 0) throw new FeedError(t("feedConfigurationUnavailable"));
   const value = html.slice(offset + marker.length).trimStart();
   // YouTube's mobile page wraps its initial JSON in a JS string with hex escapes.
   if (value.startsWith("'")) {
     const literal = /^'((?:\\.|[^'\\])*)'/s.exec(value)?.[1];
-    if (literal === undefined) throw new Error(t("feedDataUnreadable"));
+    if (literal === undefined) throw new FeedError(t("feedDataUnreadable"));
     const escaped = literal.replace(
       /\\(?:x([\da-f]{2})|(')|([\s\S]))|"/gi,
       (match, hex: string | undefined, apostrophe: string | undefined) => {
@@ -38,5 +39,5 @@ export function readBootstrap(html: string, marker: string): JsonObject {
     else if (character === "}" && --depth === 0)
       return jsonObjectSchema.parse(JSON.parse(html.slice(start, index + 1)));
   }
-  throw new Error(t("feedDataUnreadable"));
+  throw new FeedError(t("feedDataUnreadable"));
 }
