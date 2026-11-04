@@ -119,7 +119,7 @@ export function postFor(element: Element): ExtractedItem {
     sourceId: post.id,
     url: `https://www.reddit.com${post.permalink}`,
     authorName: post.author,
-    authorHandle: post["subreddit-prefixed-name"],
+    authorHandle: post["subreddit-prefixed-name"]?.replace(/^u_/, "u/"),
     title: post["post-title"],
     text: body
       ? textFor(body)
