@@ -17,8 +17,7 @@ const postFromRow = (row: FeedItemRow): ExtractedPost => ({
   publishedAt: row.publishedAt ?? undefined,
 });
 
-// Lazy refreshes may return less media or no playable video than a previous
-// one, so keep what was already loaded.
+// Partial refreshes can omit media or quoted content that was already loaded.
 function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
   if (!previous || previous.url !== post.url) return post;
   const media =
@@ -33,14 +32,18 @@ function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
       post.threadContextSourceId ?? previous.threadContextSourceId,
     media: media?.map((item, index) => {
       const loaded = previous.media?.[index];
-      return item.type === "video" &&
+      const merged =
+        item.type === "video" &&
         !item.playable &&
         loaded?.type === "video" &&
         loaded.playable
-        ? { ...item, url: loaded.url, playable: true }
-        : item;
+          ? { ...item, url: loaded.url, playable: true }
+          : item;
+      return merged.url === loaded?.url
+        ? { ...merged, aspectRatio: merged.aspectRatio ?? loaded.aspectRatio }
+        : merged;
     }),
-    quote: post.quote && mergePost(post.quote, previous.quote),
+    quote: post.quote ? mergePost(post.quote, previous.quote) : previous.quote,
   };
 }
 

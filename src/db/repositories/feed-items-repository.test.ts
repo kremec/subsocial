@@ -246,7 +246,12 @@ test("updates hydrated posts without changing unaffected row references", () => 
 
 test("a partial refresh keeps loaded media and reply links", () => {
   const store = openStore();
-  const video = { type: "video" as const, url: "video.mp4", playable: true };
+  const video = {
+    type: "video" as const,
+    url: "video.mp4",
+    playable: true,
+    aspectRatio: 9 / 16,
+  };
   const loaded: ExtractedItem = {
     ...post("thread", 2),
     replyToSourceId: "reply",
@@ -268,7 +273,14 @@ test("a partial refresh keeps loaded media and reply links", () => {
         text: "Updated",
         quote: {
           ...loaded.quote!,
-          media: [{ ...video, url: "poster", playable: false }],
+          media: [
+            {
+              ...video,
+              url: "poster",
+              playable: false,
+              aspectRatio: undefined,
+            },
+          ],
         },
         thread: [post("reply")],
       },
@@ -282,6 +294,31 @@ test("a partial refresh keeps loaded media and reply links", () => {
   assert.equal(saved.media[0].url, "post-image");
   assert.deepEqual(saved.quote?.media, [video]);
   assert.equal(saved.thread?.[0].media?.[0].url, "reply-image");
+  store.saveExtraction("x", [post("thread")], []);
+  assert.deepEqual(store.listFeedItems()[0].quote, saved.quote);
+  store.saveExtraction(
+    "x",
+    [
+      {
+        ...post("thread"),
+        quote: {
+          ...loaded.quote!,
+          media: [{ type: "video", url: "new-video.mp4", playable: true }],
+        },
+      },
+    ],
+    [],
+  );
+  assert.equal(
+    store.listFeedItems()[0].quote?.media?.[0].aspectRatio,
+    undefined,
+  );
+  store.saveExtraction(
+    "x",
+    [{ ...post("thread", 2), url: "https://example.com/replaced" }],
+    [],
+  );
+  assert.equal(store.listFeedItems()[0].quote, undefined);
   store.db.close();
 });
 
