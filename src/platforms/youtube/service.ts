@@ -1,17 +1,19 @@
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { z } from "zod";
 
 import {
   type Json,
   type JsonObject,
+  jsonObjectSchema,
   asObject,
   asString,
   nestedObjects,
 } from "@/platforms/json";
 import { readBootstrap } from "@/platforms/read-bootstrap";
-import { browseRoots } from "@/platforms/youtube/schemas/browse-response-schema";
-import { browseResponseSchema } from "@/platforms/youtube/schemas/browse-response-schema";
+import {
+  browseRoots,
+  browseResponseSchema,
+} from "@/platforms/youtube/schemas/browse-response-schema";
 import { configSchema } from "@/platforms/youtube/schemas/config-schema";
 import {
   playerResponseSchema,
@@ -148,7 +150,7 @@ export async function* youtubeFeed(
         body: JSON.stringify({ context, ...body }),
       },
     );
-    const data = z.record(z.string(), z.json()).parse(await response.json());
+    const data = jsonObjectSchema.parse(await response.json());
     if (data.error) throw new Error(t("youtubeApiFailed"));
     return data;
   };

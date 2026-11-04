@@ -1,9 +1,5 @@
-import { z } from "zod";
-
-import { type JsonObject } from "@/platforms/json";
+import { jsonObjectSchema, type JsonObject } from "@/platforms/json";
 import { t } from "@/translation/use-translation";
-
-const jsonObjectSchema = z.record(z.string(), z.json());
 
 // Read the JSON a web page embeds right after a marker, such as its API config.
 export function readBootstrap(html: string, marker: string): JsonObject {
@@ -44,5 +40,3 @@ export function readBootstrap(html: string, marker: string): JsonObject {
   }
   throw new Error(t("feedDataUnreadable"));
 }
-
-// Follow continuation cursors until the feed ends or stops advancing.
