@@ -1,4 +1,4 @@
-import ExpoModulesCore
+internal import ExpoModulesCore
 import UIKit
 
 class PostLauncher: Module {
