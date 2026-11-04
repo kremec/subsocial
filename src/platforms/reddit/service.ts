@@ -1,6 +1,7 @@
 import { type Element } from "domhandler";
 import { parseDocument } from "htmlparser2";
 
+import { aspectRatio } from "@/platforms/aspect-ratio";
 import { paginateFeed } from "@/platforms/paginate-feed";
 import { elements, postFor } from "@/platforms/reddit/post-extraction";
 import { t } from "@/translation/use-translation";
@@ -16,20 +17,9 @@ function redditUrl(path: string): URL {
   return url;
 }
 
-async function postDetails(request: FeedRequest, permalink: string) {
-  const path = redditUrl(permalink).pathname.match(
-    /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
-  );
-  if (!path) throw new FeedError(t("redditFeedUnreadable"));
-  const community = path[1] === "user" ? `u_${path[2]}` : path[2];
+async function postContent(request: FeedRequest, url: string) {
   try {
-    const response = await request.fetch(
-      `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
-    );
-    return elements(parseDocument(await response.text())).find(
-      (node) =>
-        node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
-    );
+    return await request.fetch(url);
   } catch (error) {
     if (
       error instanceof FeedError &&
@@ -39,6 +29,23 @@ async function postDetails(request: FeedRequest, permalink: string) {
       return;
     throw error;
   }
+}
+
+async function postDetails(request: FeedRequest, permalink: string) {
+  const path = redditUrl(permalink).pathname.match(
+    /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
+  );
+  if (!path) throw new FeedError(t("redditFeedUnreadable"));
+  const community = path[1] === "user" ? `u_${path[2]}` : path[2];
+  const response = await postContent(
+    request,
+    `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
+  );
+  if (!response) return;
+  return elements(parseDocument(await response.text())).find(
+    (node) =>
+      node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
+  );
 }
 
 async function postWithDetails(
@@ -57,6 +64,24 @@ async function postWithDetails(
     const quote = permalink && (await postDetails(request, permalink));
     if (quote) item.quote = await postWithDetails(request, quote, true);
     item.media = [];
+  }
+  for (const media of item.media) {
+    if (
+      media.type !== "video" ||
+      media.aspectRatio ||
+      !media.url.startsWith("https://v.redd.it/")
+    )
+      continue;
+    const response = await postContent(request, media.url);
+    if (!response) continue;
+    const dimensions = (await response.text()).match(
+      /^#EXT-X-STREAM-INF:[^\r\n]*\bRESOLUTION=(\d+)x(\d+)/m,
+    );
+    if (dimensions)
+      media.aspectRatio = aspectRatio(
+        Number(dimensions[1]),
+        Number(dimensions[2]),
+      );
   }
   return item;
 }

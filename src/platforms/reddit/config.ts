@@ -6,7 +6,12 @@ export const redditPlatform: PlatformDefinition = {
   androidAppUrl: "reddit://reddit",
   androidPackage: "com.reddit.frontpage",
   appScheme: "reddit",
-  dataDomains: ["reddit.com", "redditmedia.com", "redditstatic.com"],
+  dataDomains: [
+    "reddit.com",
+    "redditmedia.com",
+    "redditstatic.com",
+    "v.redd.it",
+  ],
   label: t("platformReddit"),
   color: "#FF4500",
   startUrl: "https://www.reddit.com/",
