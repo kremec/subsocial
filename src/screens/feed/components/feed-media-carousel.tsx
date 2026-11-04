@@ -44,7 +44,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     state.album?.postUrl === postUrl ? state.album.index : undefined,
   );
   useLayoutEffect(() => {
-    if (selection === undefined) return;
+    if (selection === undefined || !mediaWidth) return;
     // Fullscreen and inline views keep the same album position.
     // oxlint-disable-next-line react/set-state-in-effect
     setMediaIndex(selection);
@@ -52,6 +52,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       x: selection * mediaWidth,
       animated: false,
     });
+    useMediaStore.setState({ album: undefined });
   }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
     useMediaStore.setState({ album: { postUrl, index } });
