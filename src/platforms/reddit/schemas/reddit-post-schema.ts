@@ -8,5 +8,4 @@ export const redditPostSchema = z.object({
   "post-title": z.string().optional(),
   "created-timestamp": z.string().optional(),
   "post-type": z.string(),
-  "content-href": z.string().optional(),
 });
