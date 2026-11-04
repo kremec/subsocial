@@ -1,5 +1,5 @@
 import { type FC, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
@@ -31,13 +31,18 @@ export const BrowserScreen: FC = () => {
   // Clear the session only after the WebView unmounts, so it can't restore cookies.
   useEffect(() => {
     if (!resetting) return;
+    const listener = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => true,
+    );
     void resetPlatformSession(platform).then(
       () => router.back(),
-      (error: Error) => {
+      () => {
         setResetting(false);
-        Alert.alert(t("logoutFailed"), error.message);
+        Alert.alert(t("logoutFailed"), t("logoutRetry"));
       },
     );
+    return () => listener.remove();
   }, [platform, resetting]);
 
   const logOut = () =>

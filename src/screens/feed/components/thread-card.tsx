@@ -7,6 +7,7 @@ import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -63,7 +64,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
             </View>
           </View>
           <Typography variant="bodySmall" color={theme.colors.accent}>
-            Show this thread
+            {t("showThread")}
           </Typography>
         </Pressable>
       )}

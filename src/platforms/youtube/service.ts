@@ -23,6 +23,7 @@ import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -99,7 +100,7 @@ export async function* youtubeFeed(
   const config = configSchema.parse(readBootstrap(html, "ytcfg.set({"));
   if (config.LOGGED_IN !== true) throw new FeedAccessError(t("youtubeSignIn"));
   const context = config.INNERTUBE_CONTEXT;
-  if (!context) throw new Error(t("youtubeFeedContextIncomplete"));
+  if (!context) throw new FeedError(t("youtubeFeedContextIncomplete"));
   const origin = new URL(response.url).origin;
   let data: JsonObject = browseResponseSchema.parse(
     readBootstrap(html, "var ytInitialData = "),
@@ -151,7 +152,7 @@ export async function* youtubeFeed(
       },
     );
     const data = jsonObjectSchema.parse(await response.json());
-    if (data.error) throw new Error(t("youtubeApiFailed"));
+    if (data.error) throw new FeedError(t("youtubeApiFailed"));
     return data;
   };
   const seen = new Set<string>();
@@ -234,7 +235,7 @@ export async function* youtubeFeed(
       yield { items: [item], end: false };
     }
     if (page.continuation && cursors.has(page.continuation))
-      throw new Error(
+      throw new FeedError(
         t("feedDidNotAdvance", { platform: t("platformYoutube") }),
       );
     const end = !page.continuation;

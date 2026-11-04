@@ -10,6 +10,7 @@ import { readBootstrap } from "@/platforms/read-bootstrap";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedMedia } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
@@ -48,7 +49,7 @@ const mediaFor = (record: Media): FeedMedia[] => {
 export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
   const parsed = feedResponseSchema.safeParse(value);
   if (!parsed.success)
-    throw new Error(
+    throw new FeedError(
       t("platformFeedUnavailable", { platform: t("platformInstagram") }),
     );
   const connection = parsed.data;

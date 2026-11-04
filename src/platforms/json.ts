@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const jsonSchema = z.json();
-const jsonObjectSchema = z.record(z.string(), jsonSchema);
+export const jsonObjectSchema = z.record(z.string(), jsonSchema);
 export type Json = z.infer<typeof jsonSchema>;
 export type JsonObject = z.infer<typeof jsonObjectSchema>;
 // Read loosely shaped JSON without failing on unexpected types.

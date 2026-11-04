@@ -4,6 +4,7 @@ import { listingSchema } from "@/platforms/reddit/schemas/listing-schema";
 import { type RedditPost } from "@/platforms/reddit/schemas/reddit-post-schema";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedError } from "@/types/feed-error";
 import { type FeedMedia } from "@/types/feed-media";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -89,7 +90,7 @@ export const redditFeed = (request: FeedRequest) =>
     if (after) url.searchParams.set("after", after);
     const response = await request.fetch(url.href);
     const listing = listingSchema.safeParse(await response.json());
-    if (!listing.success) throw new Error(t("redditFeedUnreadable"));
+    if (!listing.success) throw new FeedError(t("redditFeedUnreadable"));
     const { data } = listing.data;
     const items: ExtractedItem[] = [];
     const excludedSourceIds: string[] = [];

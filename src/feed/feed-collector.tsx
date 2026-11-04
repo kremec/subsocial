@@ -16,6 +16,7 @@ import {
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type PlatformDefinition } from "@/types/platform-definition";
 
 const collectionTimeout = 120_000;
@@ -94,7 +95,12 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
         (error: Error) => {
           if (signal.aborted) return;
           if (error instanceof FeedAccessError) requireAttention();
-          else finish(error.message);
+          else
+            finish(
+              error instanceof FeedError
+                ? error.message
+                : t("feedRefreshFailed"),
+            );
         },
       )
       .finally(() => clearTimeout(timeout));

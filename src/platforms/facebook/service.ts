@@ -20,6 +20,7 @@ import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { feedAttachmentSchema } from "@/types/feed-attachment";
+import { FeedError } from "@/types/feed-error";
 import { type FeedMedia, feedMediaSchema } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedPost } from "@/types/feed-post";
@@ -221,12 +222,12 @@ export function parseFacebookFeed(response: string) {
   let data: Json = {};
   for (const line of response.trim().split("\n")) {
     const part = partSchema.parse(JSON.parse(line));
-    if (part.errors?.length) throw new Error(t("facebookFeedFailed"));
+    if (part.errors?.length) throw new FeedError(t("facebookFeedFailed"));
     if (part.data !== undefined)
       data = applyPatch(data, part.path || [], part.data);
   }
   const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
-  if (!feed.success) throw new Error(t("facebookFeedIncomplete"));
+  if (!feed.success) throw new FeedError(t("facebookFeedIncomplete"));
   const items: ExtractedItem[] = [];
   for (const rawEdge of feed.data.edges || []) {
     if (!rawEdge) continue;
@@ -265,7 +266,7 @@ export async function* facebookFeed(
     '["DTSGInitialData",[],',
   ].find((value) => html.includes(value));
   if (!marker)
-    throw new Error(
+    throw new FeedError(
       t("platformConfigurationUnavailable", {
         platform: t("platformFacebook"),
       }),

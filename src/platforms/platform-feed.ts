@@ -15,6 +15,7 @@ import { xFeed } from "@/platforms/x/service";
 import { youtubeFeed } from "@/platforms/youtube/service";
 import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedRequest } from "@/types/feed-request";
 import { type PlatformDefinition } from "@/types/platform-definition";
 
@@ -74,7 +75,7 @@ export async function* platformFeed(
   dates: Map<string, number>,
 ) {
   if ((retryAt.get(platform.id) ?? 0) > Date.now())
-    throw new Error(t("feedRateLimited"));
+    throw new FeedError(t("feedRateLimited"));
   const session = await CookieManager.get(platform.startUrl, true);
   if (!hasSession(platform, session))
     throw new FeedAccessError(t("feedSignIn"));
@@ -89,10 +90,10 @@ export async function* platformFeed(
     signal,
     dates,
     fetch: async (url, init) => {
-      if (signal.aborted) throw new Error(t("feedCancelled"));
+      if (signal.aborted) throw new FeedError(t("feedCancelled"));
       const { protocol, hostname } = new URL(url);
       if (protocol !== "https:" || !ownsHost(platform, hostname))
-        throw new Error(t("feedUnexpectedHost"));
+        throw new FeedError(t("feedUnexpectedHost"));
       const headers = new Headers(init?.headers);
       if (userAgent) headers.set("User-Agent", userAgent);
       // Android already shares WebView cookies; iOS was synchronized above.
@@ -126,10 +127,10 @@ export async function* platformFeed(
           platform.id,
           Number.isFinite(until) ? until : Date.now() + 60_000,
         );
-        throw new Error(t("feedRateLimited"));
+        throw new FeedError(t("feedRateLimited"));
       }
       if (!response.ok)
-        throw new Error(t("feedLoadFailed", { status: response.status }));
+        throw new FeedError(t("feedLoadFailed", { status: response.status }));
       return response;
     },
   };

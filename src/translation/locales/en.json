@@ -103,5 +103,8 @@
   "platformReddit": "Reddit",
   "platformX": "X",
   "platformYoutube": "YouTube",
-  "unknownPlatform": "Unknown platform: %{platform}"
+  "unknownPlatform": "Unknown platform: %{platform}",
+  "showThread": "Show this thread",
+  "feedRefreshFailed": "Could not refresh the feed. Pull to retry.",
+  "logoutRetry": "Please try logging out again."
 }
