@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 import { CollectionProgress } from "@/feed/collection";
 import type { JsonObject } from "@/platforms/json";
+import { xFeedFeatures } from "@/platforms/x/config";
 import { xFeed, xPage } from "@/platforms/x/service";
 
 const tweet = (id: string): JsonObject => ({
@@ -182,12 +183,15 @@ it("stops on alternating continuation cursors", async () => {
     cookies: { ct0: "test" },
     dates: new Map(),
     signal: new AbortController().signal,
-    fetch: async (url) => {
+    fetch: async (url, init) => {
       if (url.endsWith("/home"))
         return new Response(
           '<script src="https://abs.twimg.com/responsive-web/client-web/main.test.js"></script>',
         );
       if (url.endsWith(".js")) return new Response('"AAAAAtestPublicToken"');
+      const body = JSON.parse(String(init?.body));
+      assert.deepEqual(body.features, xFeedFeatures);
+      assert.equal(body.xFeedFeatures, undefined);
       const cursor = ["a", "b", "a"][calls++];
       return Response.json({
         data: {

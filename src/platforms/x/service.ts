@@ -170,7 +170,7 @@ export async function* xFeed(request: FeedRequest): AsyncGenerator<FeedPage> {
         },
         body: JSON.stringify({
           queryId,
-          xFeedFeatures,
+          features: xFeedFeatures,
           variables: {
             count: 20,
             enableRanking: false,
