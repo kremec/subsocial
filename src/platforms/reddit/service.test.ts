@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { redditFeed } from "@/platforms/reddit/service";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedRequest } from "@/types/feed-request";
 
 function post(id: string, type: string, body = "", attributes = ""): string {
@@ -298,4 +300,68 @@ test("Reddit preserves followed profile posts and crossposts quoting them", asyn
   assert.equal(page.value.items[1].quote?.text, "Profile body.");
   assert.equal(calls, 3);
   await feed.return(undefined);
+});
+
+test("Reddit retains a page when an original or embedded-media detail is unavailable", async () => {
+  for (const status of [undefined, 403, 404, 410]) {
+    let calls = 0;
+    const feed = redditFeed(
+      request(async () => {
+        calls += 1;
+        if (calls === 1)
+          return new Response(
+            post(
+              "shared",
+              "crosspost",
+              "",
+              'content-href="/r/example/comments/missing/title/"',
+            ) +
+              post(
+                "embedded",
+                "multi_media",
+                '<div id="t3_embedded-post-rtjson-content"><p>Visible preview.</p></div>',
+              ) +
+              post("ordinary", "text"),
+          );
+        if (status) throw new FeedError("Unavailable detail", status);
+        return new Response("<shreddit-app></shreddit-app>");
+      }),
+    );
+    const page = await feed.next();
+    assert.ok(!page.done);
+    assert.deepEqual(
+      page.value.items.map((item) => item.sourceId),
+      ["t3_shared", "t3_embedded", "t3_ordinary"],
+    );
+    assert.equal(page.value.items[0].quote, undefined);
+    assert.deepEqual(page.value.items[0].media, []);
+    assert.equal(page.value.items[1].text, "Visible preview.");
+    await feed.return(undefined);
+  }
+});
+
+test("Reddit still surfaces authentication, rate-limit, server and network detail failures", async () => {
+  for (const error of [
+    new FeedAccessError("Sign in"),
+    new FeedError("Rate limited", 429),
+    new FeedError("Server error", 500),
+    new Error("Network error"),
+  ]) {
+    let calls = 0;
+    const feed = redditFeed(
+      request(async () => {
+        if (++calls === 1)
+          return new Response(
+            post(
+              "shared",
+              "crosspost",
+              "",
+              'content-href="/r/example/comments/original/title/"',
+            ),
+          );
+        throw error;
+      }),
+    );
+    await assert.rejects(feed.next(), (candidate) => candidate === error);
+  }
 });
