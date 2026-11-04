@@ -6,7 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, RefreshControl, View } from "react-native";
+import {
+  AppState,
+  RefreshControl,
+  View,
+  type ViewInstance,
+} from "react-native";
 
 import {
   LegendList,
@@ -119,7 +124,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
       readingRowId.current && state?.indexByKey(readingRowId.current);
     if (typeof index !== "number" || !state) return;
     const row = rows[index];
-    const element: View | undefined = state.elementAtIndex(index);
+    const element: ViewInstance | undefined = state.elementAtIndex(index);
     element?.measureInWindow((_x, rowY) => {
       viewport.current?.measureInWindow((_left, viewportY) => {
         useSettingsStore.setState({

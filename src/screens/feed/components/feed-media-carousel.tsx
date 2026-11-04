@@ -1,5 +1,10 @@
 import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import {
+  Pressable,
+  View,
+  type ViewInstance,
+  type ScrollViewInstance,
+} from "react-native";
 
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -30,8 +35,8 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
-  const view = useRef<View>(null);
-  const carousel = useRef<ScrollView>(null);
+  const view = useRef<ViewInstance>(null);
+  const carousel = useRef<ScrollViewInstance>(null);
   const { rowId, activePostUrl, activate, setVideoView } =
     useContext(FeedVideoContext)!;
   const active = activePostUrl === postUrl;
