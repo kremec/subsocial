@@ -259,3 +259,43 @@ test("Reddit detects repeated continuation cursors even when distance parameters
   await assert.rejects(feed.next(), /Reddit did not advance the feed/);
   assert.equal(calls, 2);
 });
+
+test("Reddit preserves followed profile posts and crossposts quoting them", async () => {
+  const permalink = "/user/author/comments/profile/title/";
+  const profile = post("profile", "multi_media")
+    .replace("/r/example/comments/profile/title/", permalink)
+    .replace(
+      'subreddit-prefixed-name="r/example"',
+      'subreddit-prefixed-name="u_author"',
+    );
+  let calls = 0;
+  const feed = redditFeed(
+    request(async (url) => {
+      calls += 1;
+      if (calls === 1)
+        return new Response(
+          profile +
+            post("shared", "crosspost", "", `content-href="${permalink}"`),
+        );
+      assert.equal(
+        new URL(url).pathname,
+        "/svc/shreddit/partial-post/u_author/t3_profile",
+      );
+      return new Response(
+        profile.replace(
+          "</shreddit-post>",
+          '<div id="t3_profile-post-rtjson-content"><p>Profile body.</p></div></shreddit-post>',
+        ),
+      );
+    }),
+  );
+  const page = await feed.next();
+  assert.ok(!page.done);
+  assert.equal(page.value.items[0].url, `https://www.reddit.com${permalink}`);
+  assert.equal(page.value.items[0].text, "Profile body.");
+  assert.equal(page.value.items[0].authorHandle, "u/author");
+  assert.equal(page.value.items[1].quote?.sourceId, "t3_profile");
+  assert.equal(page.value.items[1].quote?.text, "Profile body.");
+  assert.equal(calls, 3);
+  await feed.return(undefined);
+});

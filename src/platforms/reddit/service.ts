@@ -27,15 +27,16 @@ async function postWithDetails(
   const post = parsed.data;
   const detail = async (permalink: string) => {
     const path = redditUrl(permalink).pathname.match(
-      /^\/r\/([^/]+)\/comments\/([a-z0-9]+)\//,
+      /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
     );
     if (!path) throw new FeedError(t("redditFeedUnreadable"));
+    const community = path[1] === "user" ? `u_${path[2]}` : path[2];
     const response = await request.fetch(
-      `${origin}/svc/shreddit/partial-post/${path[1]}/t3_${path[2]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
+      `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
     );
     const found = elements(parseDocument(await response.text())).find(
       (node) =>
-        node.name === "shreddit-post" && node.attribs.id === `t3_${path[2]}`,
+        node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
     );
     if (!found) throw new FeedError(t("redditFeedUnreadable"));
     return found;
