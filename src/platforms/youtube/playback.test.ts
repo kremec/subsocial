@@ -1,5 +1,4 @@
 /// <reference types="node" />
-import { AbortController as NativeAbortController } from "abort-controller";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -206,9 +205,8 @@ test("restricted responses do not fetch media, and mismatched or unsafe streams 
   }
 });
 
-// React Native's AbortSignal has no throwIfAborted.
 test("aborts before the next request even if an in-flight fetch ignores cancellation", async () => {
-  const controller = new NativeAbortController();
+  const controller = new AbortController();
   let calls = 0;
   const request = async () => {
     calls += 1;
@@ -216,12 +214,12 @@ test("aborts before the next request even if an in-flight fetch ignores cancella
     return Response.json({ responseContext: { visitorData: "visitor" } });
   };
   await assert.rejects(
-    resolveYouTubePlayback("video", controller.signal as AbortSignal, request),
+    resolveYouTubePlayback("video", controller.signal, request),
     { name: "AbortError" },
   );
   assert.equal(calls, 1);
   await assert.rejects(
-    resolveYouTubePlayback("video", controller.signal as AbortSignal, request),
+    resolveYouTubePlayback("video", controller.signal, request),
     { name: "AbortError" },
   );
   assert.equal(calls, 1);

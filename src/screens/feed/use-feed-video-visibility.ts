@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type View } from "react-native";
+import { type ViewInstance } from "react-native";
 
 import { type FeedItem } from "@/types/feed-item";
 
@@ -20,7 +20,11 @@ export const FeedVideoContext = createContext<{
   rowId: string;
   activePostUrl?: string;
   activate: (rowId: string, postUrl: string) => void;
-  setVideoView: (rowId: string, postUrl: string, view: View | null) => void;
+  setVideoView: (
+    rowId: string,
+    postUrl: string,
+    view: ViewInstance | null,
+  ) => void;
 } | null>(null);
 
 const sameVideo = (left?: ActiveVideo, right?: ActiveVideo) =>
@@ -30,8 +34,10 @@ export function useFeedVideoVisibility(
   rows: readonly Pick<FeedItem, "id">[],
   enabled: boolean,
 ) {
-  const viewport = useRef<View>(null);
-  const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
+  const viewport = useRef<ViewInstance>(null);
+  const videoViews = useRef(
+    new Map<string, ActiveVideo & { view: ViewInstance }>(),
+  );
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const updateVideoVisibility = useCallback(
     (preferred?: ActiveVideo) => {
@@ -67,7 +73,7 @@ export function useFeedVideoVisibility(
     [enabled],
   );
   const onVideoView = useCallback(
-    (rowId: string, postUrl: string, view: View | null) => {
+    (rowId: string, postUrl: string, view: ViewInstance | null) => {
       const key = `${rowId}:${postUrl}`;
       if (view) videoViews.current.set(key, { rowId, postUrl, view });
       else videoViews.current.delete(key);

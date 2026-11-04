@@ -1,5 +1,5 @@
 import { type FC, memo } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
@@ -17,7 +17,11 @@ interface FeedCardProps {
   threadGapBefore?: boolean;
   activePostUrl?: string;
   onActivate: (rowId: string, postUrl: string) => void;
-  onVideoView: (rowId: string, postUrl: string, view: View | null) => void;
+  onVideoView: (
+    rowId: string,
+    postUrl: string,
+    view: ViewInstance | null,
+  ) => void;
 }
 
 export const FeedCard: FC<FeedCardProps> = memo((props) => {

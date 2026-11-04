@@ -22,7 +22,7 @@ export const BrowserScreen: FC = () => {
   const theme = useTheme();
   const params = useLocalSearchParams<{ platform: PlatformId; url?: string }>();
   const platform = getPlatform(params.platform);
-  const webView = useRef<WebView>(null);
+  const webView = useRef<WebView<object>>(null);
   const [resetting, setResetting] = useState(false);
   const [connected, setConnected] = useState(() =>
     listConnectedPlatforms().includes(platform.id),

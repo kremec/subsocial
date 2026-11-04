@@ -9,14 +9,14 @@ import { type PlatformDefinition } from "@/types/platform-definition";
 interface PlatformWebViewProps {
   platform: PlatformDefinition;
   uri: string;
-  webViewRef?: RefObject<WebView | null>;
+  webViewRef?: RefObject<WebView<object> | null>;
   onSessionChange?: (connected: boolean) => void;
 }
 
 export const PlatformWebView: FC<PlatformWebViewProps> = (props) => {
   const { platform, uri, webViewRef, onSessionChange } = props;
   const theme = useTheme();
-  const localWebView = useRef<WebView>(null);
+  const localWebView = useRef<WebView<object>>(null);
   const webView = webViewRef ?? localWebView;
 
   const stayInWebView = (request: WebViewNavigation) => {
@@ -30,7 +30,7 @@ export const PlatformWebView: FC<PlatformWebViewProps> = (props) => {
   };
 
   return (
-    <WebView
+    <WebView<object>
       ref={webView}
       source={{ uri }}
       // Handle every scheme here so WebView cannot launch an external browser.

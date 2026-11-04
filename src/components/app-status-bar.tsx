@@ -8,8 +8,6 @@ export const AppStatusBar: FC = () => {
 
   return (
     <StatusBar
-      animated
-      backgroundColor={theme.colors.background}
       barStyle={theme.themeName === "dark" ? "light-content" : "dark-content"}
     />
   );
