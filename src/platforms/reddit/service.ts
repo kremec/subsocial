@@ -3,7 +3,6 @@ import { parseDocument } from "htmlparser2";
 
 import { paginateFeed } from "@/platforms/paginate-feed";
 import { elements, postFor } from "@/platforms/reddit/post-extraction";
-import { redditPostSchema } from "@/platforms/reddit/schemas/reddit-post-schema";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedError } from "@/types/feed-error";
@@ -17,37 +16,46 @@ function redditUrl(path: string): URL {
   return url;
 }
 
+async function postDetails(request: FeedRequest, permalink: string) {
+  const path = redditUrl(permalink).pathname.match(
+    /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
+  );
+  if (!path) throw new FeedError(t("redditFeedUnreadable"));
+  const community = path[1] === "user" ? `u_${path[2]}` : path[2];
+  try {
+    const response = await request.fetch(
+      `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
+    );
+    return elements(parseDocument(await response.text())).find(
+      (node) =>
+        node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
+    );
+  } catch (error) {
+    if (
+      error instanceof FeedError &&
+      error.status &&
+      [403, 404, 410].includes(error.status)
+    )
+      return;
+    throw error;
+  }
+}
+
 async function postWithDetails(
   request: FeedRequest,
   element: Element,
   isDetail = false,
 ): Promise<ExtractedItem> {
-  const parsed = redditPostSchema.safeParse(element.attribs);
-  if (!parsed.success) throw new FeedError(t("redditFeedUnreadable"));
-  const post = parsed.data;
-  const detail = async (permalink: string) => {
-    const path = redditUrl(permalink).pathname.match(
-      /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
-    );
-    if (!path) throw new FeedError(t("redditFeedUnreadable"));
-    const community = path[1] === "user" ? `u_${path[2]}` : path[2];
-    const response = await request.fetch(
-      `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
-    );
-    const found = elements(parseDocument(await response.text())).find(
-      (node) =>
-        node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
-    );
-    if (!found) throw new FeedError(t("redditFeedUnreadable"));
-    return found;
-  };
-  if (!isDetail && post["post-type"] === "multi_media")
-    element = await detail(post.permalink);
-  const item = postFor(element);
-  if (post["post-type"] === "crosspost") {
-    const permalink = post["content-href"];
-    if (!permalink) throw new FeedError(t("redditFeedUnreadable"));
-    item.quote = await postWithDetails(request, await detail(permalink), true);
+  let item = postFor(element);
+  const type = element.attribs["post-type"];
+  if (!isDetail && type === "multi_media") {
+    const source = await postDetails(request, item.url);
+    if (source) item = postFor(source);
+  }
+  if (type === "crosspost") {
+    const permalink = element.attribs["content-href"];
+    const quote = permalink && (await postDetails(request, permalink));
+    if (quote) item.quote = await postWithDetails(request, quote, true);
     item.media = [];
   }
   return item;

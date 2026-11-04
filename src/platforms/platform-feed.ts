@@ -127,10 +127,13 @@ export async function* platformFeed(
           platform.id,
           Number.isFinite(until) ? until : Date.now() + 60_000,
         );
-        throw new FeedError(t("feedRateLimited"));
+        throw new FeedError(t("feedRateLimited"), response.status);
       }
       if (!response.ok)
-        throw new FeedError(t("feedLoadFailed", { status: response.status }));
+        throw new FeedError(
+          t("feedLoadFailed", { status: response.status }),
+          response.status,
+        );
       return response;
     },
   };

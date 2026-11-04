@@ -8,6 +8,7 @@ import { ModuleKind, transpileModule } from "typescript";
 
 import { xPlatform } from "@/platforms/x/config";
 import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 import { type PlatformDefinition } from "@/types/platform-definition";
@@ -200,7 +201,10 @@ test("reports rate and server errors without retrying or requesting login", asyn
     const app = harness({ status });
     await assert.rejects(
       app.run(),
-      (error) => error instanceof Error && !(error instanceof FeedAccessError),
+      (error) =>
+        error instanceof FeedError &&
+        !(error instanceof FeedAccessError) &&
+        error.status === status,
     );
     assert.equal(app.calls.length, 1);
   }
