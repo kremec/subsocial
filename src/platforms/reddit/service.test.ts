@@ -365,3 +365,35 @@ test("Reddit still surfaces authentication, rate-limit, server and network detai
     await assert.rejects(feed.next(), (candidate) => candidate === error);
   }
 });
+
+test("Reddit reads intrinsic video dimensions from HLS when HTML omits them", async () => {
+  const stream = "https://v.redd.it/portrait/HLSPlaylist.m3u8";
+  const calls: string[] = [];
+  const feed = redditFeed(
+    request(async (url) => {
+      calls.push(url);
+      if (calls.length === 1)
+        return new Response(
+          post(
+            "portrait",
+            "video",
+            `<shreddit-player src="${stream}" poster="https://preview.redd.it/poster.jpg"></shreddit-player>`,
+          ),
+        );
+      assert.equal(url, stream);
+      return new Response(
+        "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=720x1280\nportrait.m3u8",
+      );
+    }),
+  );
+  const page = await feed.next();
+  assert.ok(!page.done);
+  assert.equal(page.value.items[0].media[0].aspectRatio, 9 / 16);
+  assert.equal(page.value.items[0].media[0].url, stream);
+  assert.equal(
+    page.value.items[0].media[0].posterUrl,
+    "https://preview.redd.it/poster.jpg",
+  );
+  assert.equal(calls.length, 2);
+  await feed.return(undefined);
+});
