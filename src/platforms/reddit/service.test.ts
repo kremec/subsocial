@@ -397,3 +397,25 @@ test("Reddit reads intrinsic video dimensions from HLS when HTML omits them", as
   assert.equal(calls.length, 2);
   await feed.return(undefined);
 });
+
+test("Reddit preserves bullet and numbered list markers in post text", async () => {
+  const feed = redditFeed(
+    request(
+      async () =>
+        new Response(
+          post(
+            "list",
+            "text",
+            '<div id="t3_list-post-rtjson-content"><p>Choices:</p><ul><li>Red</li><li>Blue</li></ul><ol start="3"><li>Third</li><li>Fourth</li></ol></div>',
+          ),
+        ),
+    ),
+  );
+  const page = await feed.next();
+  assert.ok(!page.done);
+  assert.equal(
+    page.value.items[0].text,
+    "Choices:\n\n- Red\n- Blue\n\n3. Third\n4. Fourth",
+  );
+  await feed.return(undefined);
+});

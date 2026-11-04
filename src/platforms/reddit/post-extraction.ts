@@ -23,9 +23,16 @@ function textFor(node: AnyNode): string {
     return "";
   if (node.name === "br") return "\n";
   const text = node.children.map(textFor).join("");
-  return ["p", "div", "li", "blockquote", "pre", "h1", "h2", "h3"].includes(
-    node.name,
-  )
+  if (node.name === "ul" || node.name === "ol") return `\n${text}\n`;
+  if (node.name === "li") {
+    const list = node.parent;
+    const ordered = list && isTag(list) && list.name === "ol";
+    const marker = ordered
+      ? `${list.children.filter((child) => isTag(child) && child.name === "li").indexOf(node) + Number(list.attribs.start || 1)}.`
+      : "-";
+    return `${marker} ${text.trim()}\n`;
+  }
+  return ["p", "div", "blockquote", "pre", "h1", "h2", "h3"].includes(node.name)
     ? `${text}\n\n`
     : text;
 }
