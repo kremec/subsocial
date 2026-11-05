@@ -3,10 +3,9 @@ import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
-import { type WebView } from "react-native-webview";
+import { WebView, type WebViewNavigation } from "react-native-webview";
 
 import { ModalHeader } from "@/components/modal-header";
-import { PlatformWebView } from "@/components/platform-web-view";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
@@ -45,6 +44,16 @@ export const BrowserScreen: FC = () => {
     return () => listener.remove();
   }, [platform, resetting]);
 
+  const stayInWebView = (request: WebViewNavigation) => {
+    const url = request.url.replace(/^x-safari-(https?):/, "$1:");
+    if (url === request.url) return /^(https?:|about:)/.test(url);
+
+    webView.current?.injectJavaScript(
+      `window.location.replace(${JSON.stringify(url)}); true;`,
+    );
+    return false;
+  };
+
   const logOut = () =>
     Alert.alert(
       t("logoutConfirm", { platform: platform.label }),
@@ -68,9 +77,7 @@ export const BrowserScreen: FC = () => {
       <ModalHeader
         title={platform.label}
         closeDisabled={resetting}
-        onClose={() =>
-          void syncPlatformSession(platform).then(() => router.back())
-        }
+        onClose={() => router.back()}
       >
         {connected && (
           <IconButton
@@ -112,11 +119,26 @@ export const BrowserScreen: FC = () => {
         </View>
       )}
       {!resetting && (
-        <PlatformWebView
-          platform={platform}
-          uri={params.url || platform.loginUrl}
-          webViewRef={webView}
-          onSessionChange={setConnected}
+        <WebView<object>
+          ref={webView}
+          source={{ uri: params.url || platform.loginUrl }}
+          // Handle every scheme here so WebView cannot launch an external browser.
+          originWhitelist={["*"]}
+          javaScriptEnabled
+          domStorageEnabled
+          thirdPartyCookiesEnabled
+          allowsInlineMediaPlayback
+          allowsBackForwardNavigationGestures
+          startInLoadingState
+          setSupportMultipleWindows={false}
+          webviewDebuggingEnabled={__DEV__}
+          onShouldStartLoadWithRequest={stayInWebView}
+          onLoadEnd={() => {
+            void syncPlatformSession(platform).then((connected) => {
+              if (connected !== undefined) setConnected(connected);
+            });
+          }}
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
         />
       )}
     </Screen>

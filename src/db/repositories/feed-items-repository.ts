@@ -11,6 +11,11 @@ import { type PlatformId } from "@/types/platform-id";
 
 type FeedItemRow = typeof feedItems.$inferSelect;
 
+export interface ExtractionBatch {
+  items: ExtractedItem[];
+  excludedSourceIds: string[];
+}
+
 const postFromRow = (row: FeedItemRow): ExtractedPost => ({
   ...row.post,
   sourceId: row.sourceId,
@@ -111,17 +116,18 @@ function saveThread(
 
 export function saveExtraction(
   platform: PlatformId,
-  items: ExtractedItem[],
-  excludedSourceIds: string[],
+  batches: ExtractionBatch[],
 ): void {
-  const excluded = new Set(excludedSourceIds);
   db.transaction(() => {
-    for (const sourceId of excluded)
-      db.delete(feedItems)
-        .where(eq(feedItems.id, `${platform}:${sourceId}`))
-        .run();
-    for (const item of items)
-      if (!excluded.has(item.sourceId)) saveThread(platform, item, excluded);
+    for (const { items, excludedSourceIds } of batches) {
+      const excluded = new Set(excludedSourceIds);
+      for (const sourceId of excluded)
+        db.delete(feedItems)
+          .where(eq(feedItems.id, `${platform}:${sourceId}`))
+          .run();
+      for (const item of items)
+        if (!excluded.has(item.sourceId)) saveThread(platform, item, excluded);
+    }
   });
 }
 
@@ -211,17 +217,6 @@ export function pruneFeedItems(): void {
       ) WHERE position > ${feedItemLimit}
     )
   `);
-}
-
-export function listPostIds(): Set<string> {
-  return new Set(
-    db
-      .select({ id: feedItems.id })
-      .from(feedItems)
-      .where(isNotNull(feedItems.publishedAt))
-      .all()
-      .map((row) => row.id),
-  );
 }
 
 export function listPublicationDates(platform: PlatformId): [string, number][] {
