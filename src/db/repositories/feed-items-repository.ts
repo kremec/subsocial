@@ -69,19 +69,21 @@ export function saveExtraction(
       const related = [...posts.values()]
         .flatMap((post) => [post.replyToSourceId, post.threadContextSourceId])
         .filter((id) => id !== undefined);
+      const linkedIds = [...ids, ...related].map((id) => `${platform}:${id}`);
+      const sourceIds = sql`SELECT value FROM json_each(${JSON.stringify(ids)})`;
       // Saved copies, parents, and replies that were saved before this post.
       const previous = db
         .select()
         .from(feedItems)
         .where(sql`
-          id IN (SELECT value FROM json_each(${JSON.stringify([...ids, ...related].map((id) => `${platform}:${id}`))}))
+          id IN (SELECT value FROM json_each(${JSON.stringify(linkedIds)}))
           OR (platform = ${platform} AND (
-            json_extract(item_json, '$.replyToSourceId') IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
-            OR json_extract(item_json, '$.threadContextSourceId') IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
+            json_extract(item_json, '$.replyToSourceId') IN (${sourceIds})
+            OR json_extract(item_json, '$.threadContextSourceId') IN (${sourceIds})
           ))
         `)
         .all();
-      // Join every connected thread into the oldest one.
+      // Join connected threads under one stable ID.
       const threads = [...new Set(previous.map((row) => row.threadId))].sort();
       const threadId = threads[0] ?? `${platform}:${item.sourceId}`;
       if (threads.length > 1)
@@ -124,7 +126,7 @@ function threadBranches(rows: FeedItemRow[]): FeedItemRow[][] {
   const branches = [branch];
   const seen = new Map<string, FeedItemRow>();
   for (const row of rows) {
-    const post = postFromRow(row);
+    const post = row.post;
     const parent =
       (post.replyToSourceId && seen.get(post.replyToSourceId)) ||
       (post.threadContextSourceId && seen.get(post.threadContextSourceId));
@@ -167,23 +169,21 @@ export function listFeedItems(): FeedItem[] {
       const key = JSON.stringify(rows);
       const cached = cachedThreads.get(id);
       if (cached?.key === key) return cached.items;
-      const oldestFirst = [...rows].sort(
+      rows.sort(
         (left, right) =>
           left.publishedAt! - right.publishedAt! ||
           left.sourceId.localeCompare(right.sourceId),
       );
       // Each branch is ranked by its own latest post, not a sibling's activity.
-      const items = threadBranches(oldestFirst).map((branch): FeedItem => {
+      const items = threadBranches(rows).map((branch): FeedItem => {
         const latest = branch.at(-1)!;
-        const posts = branch.map(postFromRow);
-        const post = posts.at(-1)!;
         return {
-          ...post,
-          media: post.media ?? [],
+          ...postFromRow(latest),
+          media: latest.post.media ?? [],
           id: latest.id,
           platform: latest.platform,
           publishedAt: latest.publishedAt!,
-          thread: posts.length > 1 ? posts : undefined,
+          thread: branch.length > 1 ? branch.map(postFromRow) : undefined,
         };
       });
       cachedThreads.set(id, { key, items });
