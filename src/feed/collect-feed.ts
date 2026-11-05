@@ -23,10 +23,13 @@ export async function collectFeed(
     const batches: ExtractionBatch[] = [];
     for await (const page of platformFeed(platform, combined, dates)) {
       combined.throwIfAborted();
-      clearTimeout(timer);
-      timer = setTimeout(() => stalled.abort(), 120_000);
+      const size = collection.seen.size;
       const batch = collection.accept(page);
       batches.push(batch);
+      if (collection.seen.size > size) {
+        clearTimeout(timer);
+        timer = setTimeout(() => stalled.abort(), 120_000);
+      }
       if (batch.stop) break;
     }
     combined.throwIfAborted();
