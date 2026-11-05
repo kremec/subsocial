@@ -10,7 +10,6 @@ import {
 } from "@/db/repositories/connections-repository";
 import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
 import { hasSession, platforms } from "@/platforms/platforms";
-import { setCollectionBoundary } from "@/stores/settings-store";
 import { type PlatformDefinition } from "@/types/platform-definition";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -19,10 +18,9 @@ export async function syncPlatformSession(
 ): Promise<boolean | undefined> {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
-    const connected = hasSession(platform, cookies);
-    if (connected) connectPlatform(platform.id);
-    else disconnectPlatform(platform.id);
-    return connected;
+    // Keep configured accounts until explicit logout, even if login expires.
+    if (hasSession(platform, cookies)) connectPlatform(platform.id);
+    return listConnectedPlatforms().includes(platform.id);
   } catch {
     return undefined;
   }
@@ -55,5 +53,4 @@ export async function resetPlatformSession(
     deletePlatformPosts(platform.id);
     disconnectPlatform(platform.id);
   });
-  setCollectionBoundary(platform.id);
 }

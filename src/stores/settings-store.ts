@@ -10,9 +10,6 @@ interface Settings {
   hiddenPlatforms: PlatformId[];
   videosMuted: boolean;
   feedPosition?: FeedPosition;
-  // Known posts per platform, kept until its collection succeeds so an
-  // interrupted collection can still reach them later.
-  collectionBoundaries: Partial<Record<PlatformId, string[]>>;
 }
 
 export const useSettingsStore = create<Settings>()(
@@ -21,7 +18,6 @@ export const useSettingsStore = create<Settings>()(
       onboarded: false,
       hiddenPlatforms: [],
       videosMuted: true,
-      collectionBoundaries: {},
     }),
     {
       name: "subsocial.settings",
@@ -29,8 +25,3 @@ export const useSettingsStore = create<Settings>()(
     },
   ),
 );
-
-export const setCollectionBoundary = (platform: PlatformId, ids?: string[]) =>
-  useSettingsStore.setState((state) => ({
-    collectionBoundaries: { ...state.collectionBoundaries, [platform]: ids },
-  }));
