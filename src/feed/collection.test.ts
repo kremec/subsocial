@@ -138,11 +138,6 @@ test("continues through duplicate, empty, excluded, and failed pages until API e
   assert.equal(progress.accept({ ...batch("one"), end: true }).stop, true);
 });
 
-test("stops when a platform confirms the end of its feed", () => {
-  const progress = new CollectionProgress(new Set());
-  assert.equal(progress.accept({ ...batch(), end: true }).stop, true);
-});
-
 test("continues while any member of a thread is unseen", () => {
   for (const known of [["old-reply"], ["new-reply"]]) {
     const progress = new CollectionProgress(new Set(known));
