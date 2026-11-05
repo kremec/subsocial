@@ -1,14 +1,8 @@
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+import { z } from "zod";
 
-import {
-  type Json,
-  type JsonObject,
-  jsonObjectSchema,
-  asObject,
-  asString,
-  nestedObjects,
-} from "@/platforms/json";
+import { asObject, asString, nestedObjects } from "@/platforms/json";
 import { readBootstrap } from "@/platforms/read-bootstrap";
 import {
   browseRoots,
@@ -30,10 +24,10 @@ import { type FeedRequest } from "@/types/feed-request";
 // Renderer trees vary between desktop, mobile, and continuation responses.
 // Keep the tree intact and validate individual video renderers when traversing it.
 
-function videos(response: JsonObject) {
-  const found = new Map<string, JsonObject>();
+function videos(response: Record<string, unknown>) {
+  const found = new Map<string, Record<string, unknown>>();
   let continuation = "";
-  const visit = (value: Json | undefined) => {
+  const visit = (value: unknown) => {
     if (!value || typeof value !== "object") return;
     if (Array.isArray(value)) {
       for (const item of value) visit(item);
@@ -102,13 +96,13 @@ export async function* youtubeFeed(
   const context = config.INNERTUBE_CONTEXT;
   if (!context) throw new FeedError(t("youtubeFeedContextIncomplete"));
   const origin = new URL(response.url).origin;
-  let data: JsonObject = browseResponseSchema.parse(
+  let data: Record<string, unknown> = browseResponseSchema.parse(
     readBootstrap(html, "var ytInitialData = "),
   );
   const api = async (
     endpoint: string,
-    body: JsonObject,
-  ): Promise<JsonObject> => {
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> => {
     const timestamp = Math.floor(Date.now() / 1000);
     const user = config.USER_SESSION_ID;
     const authorization = [
@@ -151,7 +145,7 @@ export async function* youtubeFeed(
         body: JSON.stringify({ context, ...body }),
       },
     );
-    const data = jsonObjectSchema.parse(await response.json());
+    const data = z.record(z.string(), z.unknown()).parse(await response.json());
     if (data.error) throw new FeedError(t("youtubeApiFailed"));
     return data;
   };

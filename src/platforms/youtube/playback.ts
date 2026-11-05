@@ -17,7 +17,7 @@ export type YouTubeResolution =
     }
   | { status: "error" | "verification" };
 
-export function youtubeStream(url: string) {
+function youtubeStream(url: string) {
   const source = new URL(url);
   if (
     source.protocol !== "https:" ||
@@ -86,7 +86,7 @@ function isOriginal(tags: Record<string, string>) {
   );
 }
 
-export function selectYouTubePlaylist(
+function selectYouTubePlaylist(
   url: string,
   playlist: string,
   streamingData: PlaybackResponse["streamingData"],

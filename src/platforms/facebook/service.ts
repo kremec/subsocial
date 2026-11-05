@@ -7,13 +7,7 @@ import { feedSchema } from "@/platforms/facebook/schemas/feed-schema";
 import { mediaSchema } from "@/platforms/facebook/schemas/media-schema";
 import { partSchema } from "@/platforms/facebook/schemas/part-schema";
 import { type FacebookStory } from "@/platforms/facebook/schemas/story-schema";
-import {
-  asObject,
-  nestedObjects,
-  asString,
-  type Json,
-  type JsonObject,
-} from "@/platforms/json";
+import { asObject, nestedObjects, asString } from "@/platforms/json";
 import { paginateFeed } from "@/platforms/paginate-feed";
 import { readBootstrap } from "@/platforms/read-bootstrap";
 import { t } from "@/translation/use-translation";
@@ -36,7 +30,7 @@ const playbackKeys = [
 
 const isFacebook = (url: URL) => /(^|\.)facebook\.com$/.test(url.hostname);
 
-function mediaFor(attachments: Json): FeedMedia[] {
+function mediaFor(attachments: unknown): FeedMedia[] {
   const media = new Map<string, FeedMedia>();
   for (const entry of nestedObjects(attachments)) {
     const parsed = mediaSchema.safeParse(entry);
@@ -79,7 +73,7 @@ function mediaFor(attachments: Json): FeedMedia[] {
   return [...media.values()];
 }
 
-function attachmentFor(attachments: Json) {
+function attachmentFor(attachments: unknown) {
   for (const entry of nestedObjects(attachments)) {
     const media = asObject(entry.media);
     const event = asObject(entry.target);
@@ -161,7 +155,7 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     permalink.searchParams.get("story_fbid") ||
     undefined;
   const context = sections?.context_layout?.story;
-  const contextGroup = [...nestedObjects(context || {})].find(
+  const contextGroup = [...nestedObjects(context)].find(
     (entry) => entry.__typename === "Group" && asString(entry.name),
   );
   const authorName =
@@ -174,12 +168,12 @@ function postFor(node: FacebookStory): FeedPost | undefined {
     content?.actors?.[0]?.name ||
     undefined;
   const attached = content?.attached_story || node.attached_story;
-  const attachments = [content?.attachments || [], node.attachments || []];
+  const attachments = [content?.attachments, node.attachments];
   const preview = attachmentFor(attachments);
   const media = mediaFor([
     attachments,
-    content?.short_form_video_context || {},
-    node.short_form_video_context || {},
+    content?.short_form_video_context,
+    node.short_form_video_context,
   ]);
   if (preview?.image && !media.some((item) => item.url === preview.image?.url))
     media.push(preview.image);
@@ -197,10 +191,10 @@ function postFor(node: FacebookStory): FeedPost | undefined {
 }
 
 function applyPatch(
-  value: Json | undefined,
+  value: unknown,
   path: (string | number)[],
-  patch: Json,
-): Json {
+  patch: unknown,
+): unknown {
   if (!path.length) {
     if (patch && typeof patch === "object" && !Array.isArray(patch))
       return { ...asObject(value), ...patch };
@@ -213,13 +207,12 @@ function applyPatch(
     return result;
   }
   const result = asObject(value);
-  result[key] = applyPatch(result[key], rest, patch);
-  return result;
+  return { ...result, [key]: applyPatch(result[key], rest, patch) };
 }
 
-export function parseFacebookFeed(response: string) {
+function parseFacebookFeed(response: string) {
   // The response streams the feed as patches into one JSON tree.
-  let data: Json = {};
+  let data: unknown = {};
   for (const line of response.trim().split("\n")) {
     const part = partSchema.parse(JSON.parse(line));
     if (part.errors?.length) throw new FeedError(t("facebookFeedFailed"));
@@ -271,12 +264,14 @@ export async function* facebookFeed(
         platform: t("platformFacebook"),
       }),
     );
-  const config = readBootstrap(html.slice(html.lastIndexOf(marker)), marker);
+  const config = asObject(
+    readBootstrap(html.slice(html.lastIndexOf(marker)), marker),
+  );
   const token = z
     .string()
     .min(1)
     .parse(marker === "wlct.init(" ? config.dtsg : config.token);
-  const variables: JsonObject = {
+  const variables: Record<string, unknown> = {
     RELAY_INCREMENTAL_DELIVERY: true,
     connectionClass: "EXCELLENT",
     feedbackSource: 1,

@@ -1,9 +1,9 @@
-import { jsonObjectSchema, type JsonObject } from "@/platforms/json";
 import { t } from "@/translation/use-translation";
 import { FeedError } from "@/types/feed-error";
 
 // Read the JSON a web page embeds right after a marker, such as its API config.
-export function readBootstrap(html: string, marker: string): JsonObject {
+// The value is untrusted, so callers validate it with their own schema.
+export function readBootstrap(html: string, marker: string): unknown {
   const offset = html.indexOf(marker);
   if (offset < 0) throw new FeedError(t("feedConfigurationUnavailable"));
   const value = html.slice(offset + marker.length).trimStart();
@@ -19,7 +19,7 @@ export function readBootstrap(html: string, marker: string): JsonObject {
         return match === '"' ? '\\"' : match;
       },
     );
-    return jsonObjectSchema.parse(JSON.parse(JSON.parse(`"${escaped}"`)));
+    return JSON.parse(JSON.parse(`"${escaped}"`));
   }
   const start = html.indexOf(
     "{",
@@ -37,7 +37,7 @@ export function readBootstrap(html: string, marker: string): JsonObject {
     } else if (character === '"') quoted = true;
     else if (character === "{") depth++;
     else if (character === "}" && --depth === 0)
-      return jsonObjectSchema.parse(JSON.parse(html.slice(start, index + 1)));
+      return JSON.parse(html.slice(start, index + 1));
   }
   throw new FeedError(t("feedDataUnreadable"));
 }
