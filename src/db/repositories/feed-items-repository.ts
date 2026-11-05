@@ -47,6 +47,68 @@ function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
   };
 }
 
+function saveThread(
+  platform: PlatformId,
+  item: ExtractedItem,
+  excluded: Set<string>,
+): void {
+  const { thread, ...root } = item;
+  const posts = new Map<string, ExtractedPost>();
+  for (const post of [root, ...(thread ?? [])])
+    if (!excluded.has(post.sourceId))
+      posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
+  const ids = [...posts.keys()];
+  const related = [...posts.values()]
+    .flatMap((post) => [post.replyToSourceId, post.threadContextSourceId])
+    .filter((id) => id !== undefined);
+  const linkedIds = [...ids, ...related].map((id) => `${platform}:${id}`);
+  const sourceIds = sql`SELECT value FROM json_each(${JSON.stringify(ids)})`;
+  // Saved copies, parents, and replies that were saved before this post.
+  const previous = db
+    .select()
+    .from(feedItems)
+    .where(sql`
+      id IN (SELECT value FROM json_each(${JSON.stringify(linkedIds)}))
+      OR (platform = ${platform} AND (
+        json_extract(item_json, '$.replyToSourceId') IN (${sourceIds})
+        OR json_extract(item_json, '$.threadContextSourceId') IN (${sourceIds})
+      ))
+    `)
+    .all();
+  // Join connected threads under one stable ID.
+  const threads = [...new Set(previous.map((row) => row.threadId))].sort();
+  const threadId = threads[0] ?? `${platform}:${item.sourceId}`;
+  if (threads.length > 1)
+    db.update(feedItems)
+      .set({ threadId })
+      .where(inArray(feedItems.threadId, threads))
+      .run();
+  const saved = new Map(previous.map((row) => [row.sourceId, row]));
+  for (const post of posts.values()) {
+    const old = saved.get(post.sourceId);
+    const { sourceId, publishedAt, ...content } = mergePost(
+      post,
+      old && postFromRow(old),
+    );
+    if (!publishedAt) continue;
+    db.insert(feedItems)
+      .values({
+        id: `${platform}:${sourceId}`,
+        platform,
+        sourceId,
+        publishedAt,
+        fetchedAt: Date.now(),
+        post: content,
+        threadId,
+      })
+      .onConflictDoUpdate({
+        target: feedItems.id,
+        set: { publishedAt, post: content, threadId },
+      })
+      .run();
+  }
+}
+
 export function saveExtraction(
   platform: PlatformId,
   items: ExtractedItem[],
@@ -58,96 +120,62 @@ export function saveExtraction(
       db.delete(feedItems)
         .where(eq(feedItems.id, `${platform}:${sourceId}`))
         .run();
-    for (const item of items) {
-      if (excluded.has(item.sourceId)) continue;
-      const { thread, ...root } = item;
-      const posts = new Map<string, ExtractedPost>();
-      for (const post of [root, ...(thread ?? [])])
-        if (!excluded.has(post.sourceId))
-          posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
-      const ids = [...posts.keys()];
-      const related = [...posts.values()]
-        .flatMap((post) => [post.replyToSourceId, post.threadContextSourceId])
-        .filter((id) => id !== undefined);
-      const linkedIds = [...ids, ...related].map((id) => `${platform}:${id}`);
-      const sourceIds = sql`SELECT value FROM json_each(${JSON.stringify(ids)})`;
-      // Saved copies, parents, and replies that were saved before this post.
-      const previous = db
-        .select()
-        .from(feedItems)
-        .where(sql`
-          id IN (SELECT value FROM json_each(${JSON.stringify(linkedIds)}))
-          OR (platform = ${platform} AND (
-            json_extract(item_json, '$.replyToSourceId') IN (${sourceIds})
-            OR json_extract(item_json, '$.threadContextSourceId') IN (${sourceIds})
-          ))
-        `)
-        .all();
-      // Join connected threads under one stable ID.
-      const threads = [...new Set(previous.map((row) => row.threadId))].sort();
-      const threadId = threads[0] ?? `${platform}:${item.sourceId}`;
-      if (threads.length > 1)
-        db.update(feedItems)
-          .set({ threadId })
-          .where(inArray(feedItems.threadId, threads))
-          .run();
-      const saved = new Map(previous.map((row) => [row.sourceId, row]));
-      for (const post of posts.values()) {
-        const old = saved.get(post.sourceId);
-        const { sourceId, publishedAt, ...content } = mergePost(
-          post,
-          old && postFromRow(old),
-        );
-        if (!publishedAt) continue;
-        db.insert(feedItems)
-          .values({
-            id: `${platform}:${sourceId}`,
-            platform,
-            sourceId,
-            publishedAt,
-            fetchedAt: Date.now(),
-            post: content,
-            threadId,
-          })
-          .onConflictDoUpdate({
-            target: feedItems.id,
-            set: { publishedAt, post: content, threadId },
-          })
-          .run();
-      }
-    }
+    for (const item of items)
+      if (!excluded.has(item.sourceId)) saveThread(platform, item, excluded);
   });
 }
 
-// Split a thread, oldest first, into reply branches. A reply continues the
-// branch that ends with its parent, or starts a new branch from that parent.
+// Build oldest-first branches. Missing parents split branches; unlinked posts
+// keep module order. Saved prefixes let later replies resume or fork a branch.
 function threadBranches(rows: FeedItemRow[]): FeedItemRow[][] {
   let branch: FeedItemRow[] = [];
-  const branches = [branch];
-  const seen = new Map<string, FeedItemRow>();
+  const branches = new Set<FeedItemRow[]>();
+  const paths = new Map<string, { branch: FeedItemRow[]; length: number }>();
   for (const row of rows) {
-    const post = row.post;
+    const { replyToSourceId, threadContextSourceId } = row.post;
     const parent =
-      (post.replyToSourceId && seen.get(post.replyToSourceId)) ||
-      (post.threadContextSourceId && seen.get(post.threadContextSourceId));
-    if (parent && parent !== branch.at(-1)) {
-      const continued = branches.find((other) => other.at(-1) === parent);
-      const ancestry = branches.find((other) => other.includes(parent))!;
-      branch = continued ?? ancestry.slice(0, ancestry.indexOf(parent) + 1);
-      if (!continued) branches.push(branch);
-    } else if (post.replyToSourceId && !parent && branch.length) {
-      // A missing parent does not connect this reply to the previous branch.
-      branch = [];
-      branches.push(branch);
-    }
+      (replyToSourceId && paths.get(replyToSourceId)) ||
+      (threadContextSourceId && paths.get(threadContextSourceId));
+    if (parent)
+      branch =
+        parent.branch.length === parent.length
+          ? parent.branch
+          : parent.branch.slice(0, parent.length);
+    else if (replyToSourceId) branch = [];
     branch.push(row);
-    seen.set(row.sourceId, row);
+    branches.add(branch);
+    paths.set(row.sourceId, { branch, length: branch.length });
   }
-  return branches;
+  return [...branches];
 }
 
 // Unchanged threads keep their items so rendered rows can skip updates.
 const cachedThreads = new Map<string, { key: string; items: FeedItem[] }>();
+
+function itemsForThread(id: string, rows: FeedItemRow[]): FeedItem[] {
+  const key = JSON.stringify(rows);
+  const cached = cachedThreads.get(id);
+  if (cached?.key === key) return cached.items;
+  rows.sort(
+    (left, right) =>
+      left.publishedAt! - right.publishedAt! ||
+      left.sourceId.localeCompare(right.sourceId),
+  );
+  // Each branch is ranked by its own latest post, not a sibling's activity.
+  const items = threadBranches(rows).map((branch): FeedItem => {
+    const latest = branch.at(-1)!;
+    return {
+      ...postFromRow(latest),
+      media: latest.post.media ?? [],
+      id: latest.id,
+      platform: latest.platform,
+      publishedAt: latest.publishedAt!,
+      thread: branch.length > 1 ? branch.map(postFromRow) : undefined,
+    };
+  });
+  cachedThreads.set(id, { key, items });
+  return items;
+}
 
 export function listFeedItems(): FeedItem[] {
   const threads = new Map<string, FeedItemRow[]>();
@@ -165,30 +193,7 @@ export function listFeedItems(): FeedItem[] {
   for (const id of cachedThreads.keys())
     if (!threads.has(id)) cachedThreads.delete(id);
   return [...threads]
-    .flatMap(([id, rows]) => {
-      const key = JSON.stringify(rows);
-      const cached = cachedThreads.get(id);
-      if (cached?.key === key) return cached.items;
-      rows.sort(
-        (left, right) =>
-          left.publishedAt! - right.publishedAt! ||
-          left.sourceId.localeCompare(right.sourceId),
-      );
-      // Each branch is ranked by its own latest post, not a sibling's activity.
-      const items = threadBranches(rows).map((branch): FeedItem => {
-        const latest = branch.at(-1)!;
-        return {
-          ...postFromRow(latest),
-          media: latest.post.media ?? [],
-          id: latest.id,
-          platform: latest.platform,
-          publishedAt: latest.publishedAt!,
-          thread: branch.length > 1 ? branch.map(postFromRow) : undefined,
-        };
-      });
-      cachedThreads.set(id, { key, items });
-      return items;
-    })
+    .flatMap(([id, rows]) => itemsForThread(id, rows))
     .sort(
       (left, right) =>
         right.publishedAt - left.publishedAt || right.id.localeCompare(left.id),
