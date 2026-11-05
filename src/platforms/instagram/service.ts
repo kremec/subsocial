@@ -4,7 +4,6 @@ import { aspectRatio } from "@/platforms/aspect-ratio";
 import { feedResponseSchema } from "@/platforms/instagram/schemas/feed-response-schema";
 import { type Media } from "@/platforms/instagram/schemas/media-schema";
 import { type Variant } from "@/platforms/instagram/schemas/variant-schema";
-import { type Json } from "@/platforms/json";
 import { paginateFeed } from "@/platforms/paginate-feed";
 import { readBootstrap } from "@/platforms/read-bootstrap";
 import { t } from "@/translation/use-translation";
@@ -46,7 +45,7 @@ const mediaFor = (record: Media): FeedMedia[] => {
   ];
 };
 
-export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
+const instagramPage = (value: unknown): FeedPage & { cursor: string } => {
   const parsed = feedResponseSchema.safeParse(value);
   if (!parsed.success)
     throw new FeedError(
@@ -97,9 +96,8 @@ export async function* instagramFeed(
   const token = (name: string) => {
     const marker = `"${name}",[],`;
     return z
-      .string()
-      .min(1)
-      .parse(readBootstrap(html.slice(html.lastIndexOf(marker)), marker).token);
+      .object({ token: z.string().min(1) })
+      .parse(readBootstrap(html.slice(html.lastIndexOf(marker)), marker)).token;
   };
   const fbDtsg = token("DTSGInitData");
   const lsd = token("LSD");

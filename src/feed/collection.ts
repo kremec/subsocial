@@ -63,10 +63,7 @@ export class CollectionProgress {
 }
 
 // Only publication timestamps can place posts in the combined chronological feed.
-export function datedExtraction(
-  items: ExtractedItem[],
-  dates: Map<string, number>,
-) {
+function datedExtraction(items: ExtractedItem[], dates: Map<string, number>) {
   const failed = new Set<string>();
   const dated = (post: ExtractedPost) => {
     const publishedAt = post.publishedAt ?? dates.get(post.sourceId);

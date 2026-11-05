@@ -11,7 +11,7 @@ export const browseRoots = [
 ];
 
 export const browseResponseSchema = z
-  .record(z.string(), z.json())
+  .record(z.string(), z.unknown())
   .refine(
     (response) => browseRoots.some((key) => response[key] !== undefined),
     t("youtubeFeedIncomplete"),

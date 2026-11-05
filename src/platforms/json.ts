@@ -1,17 +1,15 @@
-import { z } from "zod";
-
-const jsonSchema = z.json();
-export const jsonObjectSchema = z.record(z.string(), jsonSchema);
-export type Json = z.infer<typeof jsonSchema>;
-export type JsonObject = z.infer<typeof jsonObjectSchema>;
-// Read loosely shaped JSON without failing on unexpected types.
-export const asObject = (value: Json | undefined): JsonObject =>
-  value && typeof value === "object" && !Array.isArray(value) ? value : {};
-export const asString = (value: Json | undefined) =>
+// Read only the fields a platform parser needs from untrusted JSON.
+export const asObject = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+export const asString = (value: unknown) =>
   typeof value === "string" ? value : "";
-// Every object nested anywhere in a value, including the value itself.
-export function* nestedObjects(value: Json): Generator<JsonObject> {
+
+export function* nestedObjects(
+  value: unknown,
+): Generator<Record<string, unknown>> {
   if (!value || typeof value !== "object") return;
-  if (!Array.isArray(value)) yield value;
+  if (!Array.isArray(value)) yield asObject(value);
   for (const child of Object.values(value)) yield* nestedObjects(child);
 }

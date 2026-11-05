@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const partSchema = z.object({
-  errors: z.array(z.json()).optional(),
+  errors: z.array(z.unknown()).optional(),
   path: z.array(z.union([z.string(), z.number()])).optional(),
-  data: z.json().optional(),
+  data: z.unknown().optional(),
 });

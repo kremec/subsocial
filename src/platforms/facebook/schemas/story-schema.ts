@@ -13,10 +13,10 @@ export const storySchema = z.object({
   to: nameSchema.extend({ __typename: z.string().optional() }).nullish(),
   message: z.object({ text: z.string().nullish() }).nullish(),
   target_group: nameSchema.nullish(),
-  sponsored_data: z.json().optional(),
+  sponsored_data: z.unknown().optional(),
   actors: z.array(nameSchema).nullish(),
-  attachments: z.json().optional(),
-  short_form_video_context: z.json().optional(),
+  attachments: z.unknown().optional(),
+  short_form_video_context: z.unknown().optional(),
   feedback: z.object({ associated_group: nameSchema.nullish() }).nullish(),
   get attached_story() {
     return storySchema.nullish();
@@ -25,7 +25,7 @@ export const storySchema = z.object({
     return z
       .object({
         content: z.object({ story: storySchema.nullish() }).nullish(),
-        context_layout: z.object({ story: z.json().optional() }).nullish(),
+        context_layout: z.object({ story: z.unknown().optional() }).nullish(),
         timestamp: z
           .object({ story: z.object({ url: z.string().nullish() }).nullish() })
           .nullish(),

@@ -1,5 +1,4 @@
 import { aspectRatio } from "@/platforms/aspect-ratio";
-import { type Json } from "@/platforms/json";
 import { paginateFeed } from "@/platforms/paginate-feed";
 import { xFeedFeatures } from "@/platforms/x/config";
 import { feedResponseSchema } from "@/platforms/x/schemas/feed-response-schema";
@@ -73,7 +72,7 @@ function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
   };
 }
 
-export function xPage(value: Json): FeedPage & { cursor: string } {
+function xPage(value: unknown): FeedPage & { cursor: string } {
   const parsed = feedResponseSchema.safeParse(value);
   if (!parsed.success)
     throw new FeedError(
