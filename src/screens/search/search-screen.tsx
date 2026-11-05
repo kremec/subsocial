@@ -29,7 +29,7 @@ export const SearchScreen: FC = () => {
   };
 
   return (
-    <Screen>
+    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
       <ModalHeader closeLabel={t("searchClose")} onClose={() => router.back()}>
         <View
           style={{
