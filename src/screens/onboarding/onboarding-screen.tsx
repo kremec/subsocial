@@ -52,8 +52,6 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
   return (
     <Screen
       style={{
-        paddingHorizontal: theme.spacing.lg,
-        paddingTop: theme.spacing.md,
         paddingBottom: theme.spacing.lg,
       }}
     >

@@ -39,7 +39,7 @@ export const FeedScreen: FC<FeedScreenProps> = (props) => {
     );
 
   return (
-    <Screen>
+    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
       {feed.collectors.map((platform) => (
         <FeedCollector
           key={`${feed.runId}:${platform}`}
