@@ -60,10 +60,9 @@ Older posts are removed as new ones arrive, so the saved feed is a recent cache 
 
 ## Development
 
-Bun patches LegendList 3.6.0 so Fabric updates the content dimensions together with row positions
-and the scroll anchor. Separate animated dimension updates caused a brief jump when platforms
-were shown or hidden. Keep the patch until an upstream release fixes this behavior, and check
-scrolled platform toggles frame by frame before removing it.
+Bun patches masked-view so Gradle does not change its manifest contents after installation,
+Expo UI so the shared Slider supports release callbacks and colors, and Drizzle so one-shot
+SQLite queries finalize their prepared statements. These patches are declared in package.json.
 
 Bun also patches expo-quick-actions 6.0.2 so an Android shortcut with a `targetUrl` param opens
 that URL in the platform's own app, using the app's icon. Upstream shortcuts can only reopen
