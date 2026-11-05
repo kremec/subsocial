@@ -63,7 +63,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     refreshOnForeground.current = false;
     const queue = [...pending.current];
     setCollection(queue);
-    const errors: string[] = [];
+    if (!queue.length) return;
     await Promise.all(
       queue.map(async (platform) => {
         try {
@@ -80,7 +80,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
           else {
             pending.current = pending.current.filter((id) => id !== platform);
             setAttention((current) => withMember(current, platform, false));
-            errors.push(
+            showErrorToast(
               t("feedPlatformError", {
                 platform: getPlatform(platform).label,
                 error:
@@ -97,7 +97,6 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     if (signal.aborted) return;
     pruneFeedItems();
     setItems(listFeedItems());
-    if (errors.length) showErrorToast(errors.join("\n"));
   });
 
   useEffect(() => {

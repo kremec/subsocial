@@ -13,8 +13,9 @@ export async function collectFeed(
   platform: PlatformDefinition,
   signal: AbortSignal,
 ): Promise<void> {
-  const timeout = AbortSignal.timeout(120_000);
-  const combined = AbortSignal.any([signal, timeout]);
+  const stalled = new AbortController();
+  const combined = AbortSignal.any([signal, stalled.signal]);
+  let timer = setTimeout(() => stalled.abort(), 120_000);
   try {
     combined.throwIfAborted();
     const dates = new Map(listPublicationDates(platform.id));
@@ -22,19 +23,23 @@ export async function collectFeed(
     const batches: ExtractionBatch[] = [];
     for await (const page of platformFeed(platform, combined, dates)) {
       combined.throwIfAborted();
+      clearTimeout(timer);
+      timer = setTimeout(() => stalled.abort(), 120_000);
       const batch = collection.accept(page);
       batches.push(batch);
       if (batch.stop) break;
     }
+    combined.throwIfAborted();
+    saveExtraction(platform.id, batches);
     if (collection.failures.size)
       throw new FeedError(
         t("feedMissingDates", { count: collection.failures.size }),
       );
-    combined.throwIfAborted();
-    saveExtraction(platform.id, batches);
   } catch (error) {
     signal.throwIfAborted();
-    if (timeout.aborted) throw new FeedError(t("feedTimeout"));
+    if (stalled.signal.aborted) throw new FeedError(t("feedTimeout"));
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
