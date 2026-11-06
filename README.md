@@ -63,7 +63,7 @@ Database migrations live in `drizzle/`. After changing `src/db/schema.ts`, run
 `bunx drizzle-kit generate --name <change>` and review the SQL before committing it.
 The app applies pending migrations before mounting its screens. Imports copy validated data into
 the current schema without replacing its migration journal or upgrading the backup.
-Its JSON index expressions are corrected for [Drizzle Kit #6062](https://github.com/drizzle-team/drizzle-orm/issues/6062);
+The initial migration's JSON index expressions are corrected for [Drizzle Kit #6062](https://github.com/drizzle-team/drizzle-orm/issues/6062);
 review generated expression indexes until that fix reaches the stable tooling.
 
 Bun patches masked-view so Gradle does not change its manifest contents after installation,
