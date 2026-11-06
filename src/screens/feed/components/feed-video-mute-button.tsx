@@ -3,7 +3,7 @@ import { Pressable } from "react-native";
 
 import { useEvent } from "expo";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { player } from "@/media/video-player";
 import { t } from "@/translation/use-translation";
 
@@ -35,7 +35,11 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      <Icon name={muted ? "volume-off" : "volume"} color="#FFFFFF" size={16} />
+      <Icon
+        name={muted ? IconName.VOLUME_OFF : IconName.VOLUME}
+        color="#FFFFFF"
+        size={16}
+      />
     </Pressable>
   );
 };

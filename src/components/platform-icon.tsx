@@ -34,7 +34,7 @@ export const PlatformIcon: FC<PlatformIconProps> = (props) => {
         borderRadius: theme.radius.sm,
       }}
     >
-      <Icon name={`brand-${platform.id}`} color={platform.color} size={22} />
+      <Icon name={platform.icon} color={platform.color} size={22} />
     </View>
   );
 };

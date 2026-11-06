@@ -19,7 +19,7 @@ import {
   type OnViewableItemsChangedInfo,
 } from "@legendapp/list/react-native";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { FeedCard } from "@/screens/feed/components/feed-card";
@@ -258,7 +258,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
             gap: theme.spacing.xs,
           }}
         >
-          <Icon name="arrow-up" size={18} color={theme.colors.text} />
+          <Icon name={IconName.ARROW_UP} size={18} color={theme.colors.text} />
           <Typography>{t("feedBackToTop")}</Typography>
         </IconButton>
       )}

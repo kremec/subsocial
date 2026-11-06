@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { router } from "expo-router";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { platforms } from "@/platforms/platforms";
@@ -80,11 +80,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
               justifyContent: "center",
             }}
           >
-            <Icon
-              name={`brand-${platform.id}`}
-              color={platform.color}
-              size={18}
-            />
+            <Icon name={platform.icon} color={platform.color} size={18} />
           </View>
         ))}
       </View>
@@ -93,14 +89,14 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         accessibilityLabel={t("feedSearch")}
         onPress={() => router.push("/search")}
       >
-        <Icon name="search" color={theme.colors.text} size={22} />
+        <Icon name={IconName.SEARCH} color={theme.colors.text} size={22} />
       </IconButton>
       <IconButton
         size={36}
         accessibilityLabel={t("feedMenu")}
         onPress={() => setMenuVisible(true)}
       >
-        <Icon name="dots" color={theme.colors.text} size={22} />
+        <Icon name={IconName.DOTS} color={theme.colors.text} size={22} />
       </IconButton>
 
       <FeedMenu

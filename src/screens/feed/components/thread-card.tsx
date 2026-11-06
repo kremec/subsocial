@@ -1,7 +1,7 @@
 import { type FC } from "react";
 import { Pressable, View } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
@@ -60,7 +60,11 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
               }}
             />
             <View style={{ backgroundColor: theme.colors.background }}>
-              <Icon name="dots" color={theme.colors.textSecondary} size={16} />
+              <Icon
+                name={IconName.DOTS}
+                color={theme.colors.textSecondary}
+                size={16}
+              />
             </View>
           </View>
           <Typography variant="bodySmall" color={theme.colors.accent}>
@@ -83,7 +87,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
             marginRight: theme.spacing.sm,
           }}
         >
-          <Icon name={`brand-${platform}`} color={definition.color} size={19} />
+          <Icon name={definition.icon} color={definition.color} size={19} />
           {!end && (
             <View
               style={{

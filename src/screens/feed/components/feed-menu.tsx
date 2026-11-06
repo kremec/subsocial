@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { PlatformIcon } from "@/components/platform-icon";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { openBrowser } from "@/platforms/open-post";
@@ -66,7 +66,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               onImportData();
             }}
           >
-            <Icon name="file-import" color={theme.colors.text} size={20} />
+            <Icon
+              name={IconName.FILE_IMPORT}
+              color={theme.colors.text}
+              size={20}
+            />
           </IconButton>
           <IconButton
             size={36}
@@ -76,7 +80,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
               onExportData();
             }}
           >
-            <Icon name="file-export" color={theme.colors.text} size={20} />
+            <Icon
+              name={IconName.FILE_EXPORT}
+              color={theme.colors.text}
+              size={20}
+            />
           </IconButton>
         </View>
 
@@ -118,7 +126,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                 onPress={() => onTogglePlatform(platform.id)}
               >
                 <Icon
-                  name={active ? "eye" : "eye-off"}
+                  name={active ? IconName.EYE : IconName.EYE_OFF}
                   color={theme.colors.textSecondary}
                   size={20}
                 />
@@ -138,7 +146,7 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
                 }}
               >
                 <Icon
-                  name="world"
+                  name={IconName.WORLD}
                   color={theme.colors.textSecondary}
                   size={20}
                 />

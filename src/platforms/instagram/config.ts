@@ -1,8 +1,10 @@
+import { IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
 
 export const instagramPlatform: PlatformDefinition = {
   id: "instagram",
+  icon: IconName.BRAND_INSTAGRAM,
   androidAppUrl: "instagram://mainfeed",
   androidPackage: "com.instagram.android",
   appScheme: "instagram",

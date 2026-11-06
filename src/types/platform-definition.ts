@@ -1,7 +1,9 @@
+import { type IconName } from "@/components/ui/icon";
 import { type PlatformId } from "@/types/platform-id";
 
 export interface PlatformDefinition {
   id: PlatformId;
+  icon: IconName;
   label: string;
   color: string;
   startUrl: string;

@@ -12,7 +12,7 @@ import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { openPost } from "@/platforms/open-post";
@@ -187,7 +187,7 @@ export const MediaScreen: FC = () => {
                 borderColor: "rgba(255, 255, 255, 0.3)",
               }}
             >
-              <Icon name="x" color="white" size={24} />
+              <Icon name={IconName.X} color="white" size={24} />
             </IconButton>
           </View>
         </SafeAreaView>

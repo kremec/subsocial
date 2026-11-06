@@ -3,7 +3,7 @@ import { Pressable } from "react-native";
 
 import { useIsFocused } from "expo-router";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
@@ -69,7 +69,7 @@ export const FeedScreen: FC<FeedScreenProps> = (props) => {
             <Typography style={{ flex: 1 }}>
               {t("feedNeedsAttention", { platform: platform.label })}
             </Typography>
-            <Icon name="world" color={theme.colors.text} size={22} />
+            <Icon name={IconName.WORLD} color={theme.colors.text} size={22} />
           </Pressable>
         );
       })}

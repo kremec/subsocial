@@ -6,7 +6,7 @@ import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { type LegendListRef } from "@legendapp/list/react-native";
 
 import { ModalHeader } from "@/components/modal-header";
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
 import { listFeedItems } from "@/db/repositories/feed-items-repository";
@@ -66,7 +66,7 @@ export const SearchScreen: FC = () => {
               onPress={() => changeQuery("")}
             >
               <Icon
-                name="circle-x"
+                name={IconName.CIRCLE_X}
                 color={theme.colors.textSecondary}
                 size={18}
               />
