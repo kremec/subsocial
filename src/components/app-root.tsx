@@ -1,14 +1,16 @@
-import { type FC } from "react";
+import { type FC, use } from "react";
 
 import { Stack } from "expo-router";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { Toast } from "@/components/ui/toast";
+import { databaseReady } from "@/db/client";
 import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
 import { useTheme } from "@/theme/use-theme";
 
 export const AppRoot: FC = () => {
+  use(databaseReady);
   const { colors, themeName } = useTheme();
   usePlatformShortcuts();
 
