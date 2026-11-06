@@ -9,7 +9,8 @@ import {
 
 import { z } from "zod";
 
-import { database, migrateDatabase } from "@/db/client";
+import { database } from "@/db/client";
+import { migrateDatabase } from "@/db/database-migration";
 import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
@@ -54,7 +55,7 @@ export async function importDatabase(): Promise<boolean> {
       )
     )
       throw new Error(t("invalidDatabase"));
-    migrateDatabase(imported);
+    await migrateDatabase(imported);
     const rows = z
       .array(importedRowSchema)
       .parse(imported.getAllSync("SELECT * FROM feed_items"));

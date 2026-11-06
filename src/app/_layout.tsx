@@ -1,4 +1,4 @@
-import { type FC } from "react";
+import { type FC, Suspense } from "react";
 
 import { AppRoot } from "@/components/app-root";
 import { AppStatusBar } from "@/components/app-status-bar";
@@ -8,7 +8,9 @@ const RootLayout: FC = () => {
   return (
     <ThemeProvider>
       <AppStatusBar />
-      <AppRoot />
+      <Suspense fallback={null}>
+        <AppRoot />
+      </Suspense>
     </ThemeProvider>
   );
 };
