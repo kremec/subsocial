@@ -1,7 +1,6 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import {
-  backupDatabaseAsync,
   defaultDatabaseDirectory,
   deleteDatabaseAsync,
   openDatabaseSync,
@@ -9,8 +8,8 @@ import {
 
 import { z } from "zod";
 
-import { database } from "@/db/client";
-import { migrateDatabase } from "@/db/database-migration";
+import { db } from "@/db/client";
+import { connections, feedItems } from "@/db/schema";
 import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
@@ -48,38 +47,45 @@ export async function importDatabase(): Promise<boolean> {
   );
 
   try {
-    // Reject unrelated databases, then upgrade older exports before validating them.
+    // Validate the backup before replacing the live database.
     if (
       !imported.getFirstSync(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'feed_items'",
       )
     )
       throw new Error(t("invalidDatabase"));
-    await migrateDatabase(imported);
-    const rows = z
+    const items = z
       .array(importedRowSchema)
-      .parse(imported.getAllSync("SELECT * FROM feed_items"));
-    z.array(z.object({ platform: platformIdSchema })).parse(
-      imported.getAllSync("SELECT platform FROM connections"),
-    );
-    imported.withTransactionSync(() => {
-      for (const row of rows) {
+      .parse(
+        imported.getAllSync(
+          "SELECT id, platform, source_id, published_at, fetched_at, item_json, thread_id FROM feed_items",
+        ),
+      )
+      .map((row) => {
         if (
           row.id !== `${row.platform}:${row.source_id}` ||
           !row.thread_id.startsWith(`${row.platform}:`)
         )
           throw new Error(t("invalidImportedPostIdentity"));
-        const post = feedPostSchema.parse(JSON.parse(row.item_json));
-        imported.runSync(
-          "UPDATE feed_items SET item_json = ? WHERE id = ?",
-          JSON.stringify(post),
-          row.id,
-        );
-      }
-    });
-    await backupDatabaseAsync({
-      sourceDatabase: imported,
-      destDatabase: database,
+        return {
+          id: row.id,
+          platform: row.platform,
+          sourceId: row.source_id,
+          publishedAt: row.published_at,
+          fetchedAt: row.fetched_at,
+          post: feedPostSchema.parse(JSON.parse(row.item_json)),
+          threadId: row.thread_id,
+        };
+      });
+    const accounts = z
+      .array(z.object({ platform: platformIdSchema }))
+      .parse(imported.getAllSync("SELECT platform FROM connections"));
+    db.transaction(() => {
+      db.delete(feedItems).run();
+      db.delete(connections).run();
+      for (const item of items) db.insert(feedItems).values(item).run();
+      for (const account of accounts)
+        db.insert(connections).values(account).run();
     });
     return true;
   } finally {
