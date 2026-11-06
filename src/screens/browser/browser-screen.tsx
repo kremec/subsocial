@@ -6,7 +6,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
 import { ModalHeader } from "@/components/modal-header";
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
@@ -89,7 +89,7 @@ export const BrowserScreen: FC = () => {
             onPress={logOut}
             style={resetting && { opacity: 0.45 }}
           >
-            <Icon name="logout" color={theme.colors.text} size={22} />
+            <Icon name={IconName.LOGOUT} color={theme.colors.text} size={22} />
           </IconButton>
         )}
         <IconButton
@@ -108,7 +108,11 @@ export const BrowserScreen: FC = () => {
           }
           style={resetting && { opacity: 0.45 }}
         >
-          <Icon name="external-link" color={theme.colors.text} size={22} />
+          <Icon
+            name={IconName.EXTERNAL_LINK}
+            color={theme.colors.text}
+            size={22}
+          />
         </IconButton>
       </ModalHeader>
       {resetting && (

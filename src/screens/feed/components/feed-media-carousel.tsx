@@ -11,7 +11,7 @@ import { router } from "expo-router";
 
 import { ScrollView } from "react-native-gesture-handler";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
@@ -130,7 +130,12 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
                 backgroundColor: "rgba(0, 0, 0, 0.62)",
               }}
             >
-              <Icon name="player-play" color="#FFFFFF" size={25} filled />
+              <Icon
+                name={IconName.PLAYER_PLAY}
+                color="#FFFFFF"
+                size={25}
+                filled
+              />
             </View>
           )}
         </Pressable>

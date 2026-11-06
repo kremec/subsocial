@@ -18,7 +18,7 @@ import {
   type GestureType,
 } from "react-native-gesture-handler";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { player } from "@/media/video-player";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
@@ -225,7 +225,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             }}
           >
             <Icon
-              name={isPlaying ? "player-pause" : "player-play"}
+              name={isPlaying ? IconName.PLAYER_PAUSE : IconName.PLAYER_PLAY}
               color="white"
               size={36}
             />
@@ -355,7 +355,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
               })}
             >
               <Icon
-                name={fullscreen ? "compact" : "fullscreen"}
+                name={fullscreen ? IconName.COMPACT : IconName.FULLSCREEN}
                 color="white"
                 size={20}
               />

@@ -1,7 +1,7 @@
 import { type FC, type PropsWithChildren } from "react";
 import { View } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
@@ -48,7 +48,7 @@ export const ModalHeader: FC<PropsWithChildren<ModalHeaderProps>> = (props) => {
         disabled={closeDisabled}
         onPress={onClose}
       >
-        <Icon name="x" color={theme.colors.text} size={24} />
+        <Icon name={IconName.X} color={theme.colors.text} size={24} />
       </IconButton>
     </View>
   );

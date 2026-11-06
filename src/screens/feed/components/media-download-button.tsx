@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable } from "react-native";
 
 import { Directory, File, Paths } from "expo-file-system";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
@@ -86,7 +86,7 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
       })}
     >
       {busy && <ActivityIndicator color="#FFFFFF" />}
-      {!busy && <Icon name="download" color="#FFFFFF" size={20} />}
+      {!busy && <Icon name={IconName.DOWNLOAD} color="#FFFFFF" size={20} />}
     </Pressable>
   );
 };

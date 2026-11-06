@@ -1,7 +1,7 @@
 import { type FC } from "react";
 import { View } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { getPlatform } from "@/platforms/platforms";
 import { useTheme } from "@/theme/use-theme";
@@ -43,7 +43,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
     >
       {variant !== "thread" && (
         <Icon
-          name={`brand-${platform}`}
+          name={definition.icon}
           color={definition.color}
           size={variant === "quote" ? 16 : 19}
         />
@@ -78,7 +78,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
               (
             </Typography>
             <Icon
-              name="repeat"
+              name={IconName.REPEAT}
               color={theme.colors.textSecondary}
               size={13}
               strokeWidth={2}
