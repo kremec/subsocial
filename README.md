@@ -60,6 +60,13 @@ Older posts are removed as new ones arrive, so the saved feed is a recent cache 
 
 ## Development
 
+Database migrations live in `drizzle/`. After changing `src/db/schema.ts`, run
+`bunx drizzle-kit generate --name <change>` and review the SQL before committing it.
+The app applies pending migrations before mounting its screens and when importing older backups.
+The initial migration uses `IF NOT EXISTS` to adopt existing databases without replacing data.
+Its JSON index expressions are corrected for [Drizzle Kit #6062](https://github.com/drizzle-team/drizzle-orm/issues/6062);
+review generated expression indexes until that fix reaches the stable tooling.
+
 Bun patches masked-view so Gradle does not change its manifest contents after installation,
 Expo UI so the shared Slider supports release callbacks and colors, and Drizzle so one-shot
 SQLite queries finalize their prepared statements. These patches are declared in package.json.
