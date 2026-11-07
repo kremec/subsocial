@@ -2,36 +2,32 @@ import * as Sharing from "expo-sharing";
 import {
   backupDatabaseAsync,
   defaultDatabaseDirectory,
-  deleteDatabaseAsync,
-  openDatabaseSync,
+  openDatabaseAsync,
 } from "expo-sqlite";
 
+import { showErrorToast } from "@/components/ui/toast";
 import { database } from "@/db/client";
 import { t } from "@/translation/use-translation";
 
 const exportDatabaseName = "subsocial-export.db";
 
-export async function exportDatabase(): Promise<void> {
-  // The temporary export does not exist before the first export.
-  await deleteDatabaseAsync(exportDatabaseName, defaultDatabaseDirectory).catch(
-    () => undefined,
-  );
-  const exported = openDatabaseSync(
+export function exportDatabase(): Promise<void> {
+  return openDatabaseAsync(
     exportDatabaseName,
     { useNewConnection: true },
     defaultDatabaseDirectory,
-  );
-
-  try {
-    await backupDatabaseAsync({
-      sourceDatabase: database,
-      destDatabase: exported,
-    });
-    await Sharing.shareAsync(
-      `file://${defaultDatabaseDirectory}/${exportDatabaseName}`,
-      { dialogTitle: t("exportDatabaseTitle") },
-    );
-  } finally {
-    exported.closeSync();
-  }
+  )
+    .then((exported) =>
+      backupDatabaseAsync({
+        sourceDatabase: database,
+        destDatabase: exported,
+      }).finally(() => exported.closeAsync()),
+    )
+    .then(() =>
+      Sharing.shareAsync(
+        `file://${defaultDatabaseDirectory}/${exportDatabaseName}`,
+        { dialogTitle: t("exportDatabaseTitle") },
+      ),
+    )
+    .catch(() => showErrorToast(t("feedExportError")));
 }
