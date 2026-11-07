@@ -7,12 +7,7 @@ import CookieManager, {
   type Cookies,
 } from "@preeternal/react-native-cookie-manager";
 
-import { facebookFeed } from "@/platforms/facebook/service";
-import { instagramFeed } from "@/platforms/instagram/service";
 import { hasSession, ownsHost } from "@/platforms/platforms";
-import { redditFeed } from "@/platforms/reddit/service";
-import { xFeed } from "@/platforms/x/service";
-import { youtubeFeed } from "@/platforms/youtube/service";
 import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
@@ -21,14 +16,6 @@ import { type PlatformDefinition } from "@/types/platform-definition";
 import { PlatformId } from "@/types/platform-id";
 
 const retryAt = new Map<string, number>();
-
-const collectors = {
-  [PlatformId.FACEBOOK]: facebookFeed,
-  [PlatformId.INSTAGRAM]: instagramFeed,
-  [PlatformId.REDDIT]: redditFeed,
-  [PlatformId.X]: xFeed,
-  [PlatformId.YOUTUBE]: youtubeFeed,
-};
 
 const cookieHost = (cookie: Cookie) => cookie.domain?.replace(/^\./, "") || "";
 const cookieValues = (cookies: Cookies) =>
@@ -138,5 +125,5 @@ export async function* platformFeed(
       return response;
     },
   };
-  yield* collectors[platform.id](request);
+  yield* platform.feed(request);
 }
