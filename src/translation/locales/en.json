@@ -24,8 +24,6 @@
   "feedMissingDates": "Publication dates unavailable for %{count} posts. Pull to retry.",
   "feedTimeout": "Refresh timed out. Pull to retry.",
   "feedPlatformError": "%{platform}: %{error}",
-  "invalidDatabase": "Not a Subsocial database",
-  "invalidImportedPostIdentity": "Invalid imported post identity",
   "exportDatabaseTitle": "Export Subsocial database",
   "feedRefreshing": "Refreshing %{platform}",
   "feedSearch": "Search feed",

@@ -5,7 +5,6 @@ import { useIsFocused } from "expo-router";
 
 import { Icon, IconName } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
-import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
 import { exportDatabase } from "@/db/export-database";
 import { importDatabase } from "@/db/import-database";
@@ -37,14 +36,10 @@ export const FeedScreen: FC<FeedScreenProps> = (props) => {
         loadingPlatforms={feed.collection}
         onImportData={() => {
           feed.pause();
-          void importDatabase()
-            .catch(() => showErrorToast(t("feedImportError")))
-            .finally(feed.reload);
+          void importDatabase().finally(feed.reload);
         }}
         onExportData={() => {
-          void exportDatabase().catch(() =>
-            showErrorToast(t("feedExportError")),
-          );
+          void exportDatabase();
         }}
         onTogglePlatform={feed.toggle}
       />
