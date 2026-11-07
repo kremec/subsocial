@@ -1,9 +1,10 @@
 import { IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
+import { PlatformId } from "@/types/platform-id";
 
 export const redditPlatform: PlatformDefinition = {
-  id: "reddit",
+  id: PlatformId.REDDIT,
   icon: IconName.BRAND_REDDIT,
   androidAppUrl: "reddit://reddit",
   androidPackage: "com.reddit.frontpage",

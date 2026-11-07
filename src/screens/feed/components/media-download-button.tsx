@@ -5,15 +5,19 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import { Icon, IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
-import { type FeedMedia } from "@/types/feed-media";
-import { type PlatformId } from "@/types/platform-id";
+import {
+  type FeedMedia,
+  FeedMediaType,
+  FeedMediaContentType,
+} from "@/types/feed-media";
+import { PlatformId } from "@/types/platform-id";
 
 // Streams are playlists rather than files, and YouTube only plays streams.
 export const canDownloadMedia = (media: FeedMedia, platform: PlatformId) =>
-  media.type === "image" ||
+  media.type === FeedMediaType.IMAGE ||
   (!!media.playable &&
-    platform !== "youtube" &&
-    media.contentType !== "hls" &&
+    platform !== PlatformId.YOUTUBE &&
+    media.contentType !== FeedMediaContentType.HLS &&
     !/\.m3u8(?:$|\/)|\/manifest\/hls/i.test(new URL(media.url).pathname));
 
 async function downloadMedia(media: FeedMedia) {
@@ -36,7 +40,7 @@ async function downloadMedia(media: FeedMedia) {
     ""
   ).toLowerCase();
   const extension =
-    media.type === "video"
+    media.type === FeedMediaType.VIDEO
       ? "mp4"
       : /^(jpe?g|png|gif|webp|avif|heic)$/.test(format)
         ? format
@@ -63,7 +67,9 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t(
-        media.type === "image" ? "mediaDownloadImage" : "mediaDownloadVideo",
+        media.type === FeedMediaType.IMAGE
+          ? "mediaDownloadImage"
+          : "mediaDownloadVideo",
       )}
       accessibilityState={{ busy }}
       disabled={busy}

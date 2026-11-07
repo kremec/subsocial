@@ -18,15 +18,16 @@ import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
 import { type FeedRequest } from "@/types/feed-request";
 import { type PlatformDefinition } from "@/types/platform-definition";
+import { PlatformId } from "@/types/platform-id";
 
 const retryAt = new Map<string, number>();
 
 const collectors = {
-  facebook: facebookFeed,
-  instagram: instagramFeed,
-  reddit: redditFeed,
-  x: xFeed,
-  youtube: youtubeFeed,
+  [PlatformId.FACEBOOK]: facebookFeed,
+  [PlatformId.INSTAGRAM]: instagramFeed,
+  [PlatformId.REDDIT]: redditFeed,
+  [PlatformId.X]: xFeed,
+  [PlatformId.YOUTUBE]: youtubeFeed,
 };
 
 const cookieHost = (cookie: Cookie) => cookie.domain?.replace(/^\./, "") || "";
@@ -82,7 +83,7 @@ export async function* platformFeed(
   await syncCookies(platform, true);
   // Facebook requires the device identity to serve its web API bootstrap.
   const userAgent =
-    platform.id === "facebook"
+    platform.id === PlatformId.FACEBOOK
       ? await Constants.getWebViewUserAgentAsync()
       : undefined;
   const request: FeedRequest = {

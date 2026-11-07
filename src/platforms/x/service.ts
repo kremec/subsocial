@@ -7,7 +7,7 @@ import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
-import { type FeedMedia } from "@/types/feed-media";
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -39,14 +39,18 @@ function postFor(value: Tweet | null | undefined): ExtractedItem | undefined {
     if (item.type === "photo" && poster) {
       const url = new URL(poster);
       url.searchParams.set("name", "orig");
-      media.push({ type: "image", url: url.href, aspectRatio: ratio });
+      media.push({
+        type: FeedMediaType.IMAGE,
+        url: url.href,
+        aspectRatio: ratio,
+      });
     } else {
       const variant = (item.video_info?.variants || [])
         .filter((entry) => entry.content_type === "video/mp4")
         .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
       if (variant?.url)
         media.push({
-          type: "video",
+          type: FeedMediaType.VIDEO,
           url: variant.url,
           posterUrl: poster || undefined,
           playable: true,

@@ -1,9 +1,10 @@
 import { IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
+import { PlatformId } from "@/types/platform-id";
 
 export const xPlatform: PlatformDefinition = {
-  id: "x",
+  id: PlatformId.X,
   icon: IconName.BRAND_X,
   androidAppUrl: "twitter://timeline",
   androidPackage: "com.twitter.android",
