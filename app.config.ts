@@ -1,36 +1,10 @@
-import { type ConfigPlugin, withAndroidManifest } from "expo/config-plugins";
+import { supportedLocales } from "./plugins/localization.js";
+import withPlatformAppQueries from "./plugins/platform-app-queries.js";
 
 const IS_DEV = process.env.APP_VARIANT === "development";
 
-// Android 11+ hides other apps unless the manifest declares them. Opening posts
-// in platform apps and checking which apps are installed both need this.
-const withPlatformAppQueries: ConfigPlugin = (config) =>
-  withAndroidManifest(config, (manifestConfig) => {
-    manifestConfig.modResults.manifest.queries.push({
-      package: [
-        "com.instagram.android",
-        "com.facebook.katana",
-        "com.reddit.frontpage",
-        "com.twitter.android",
-        "com.google.android.youtube",
-      ].map((name) => ({ $: { "android:name": name } })),
-      intent: [
-        "https",
-        "instagram",
-        "fb",
-        "reddit",
-        "twitter",
-        "vnd.youtube",
-      ].map((scheme) => ({
-        action: [{ $: { "android:name": "android.intent.action.VIEW" } }],
-        category: [
-          { $: { "android:name": "android.intent.category.BROWSABLE" } },
-        ],
-        data: [{ $: { "android:scheme": scheme } }],
-      })),
-    });
-    return manifestConfig;
-  });
+const appId = IS_DEV ? "com.subbyte.subsocial.dev" : "com.subbyte.subsocial";
+const projectId = "2236c731-2281-4d29-b10b-1338e1099ef7";
 
 export default {
   name: IS_DEV ? "subsocial (DEV)" : "subsocial",
@@ -40,16 +14,14 @@ export default {
     policy: "fingerprint",
   },
   updates: {
-    url: "https://u.expo.dev/2236c731-2281-4d29-b10b-1338e1099ef7",
+    url: `https://u.expo.dev/${projectId}`,
   },
   orientation: "default",
   icon: "./assets/icon.png",
   scheme: "subsocial",
   userInterfaceStyle: "automatic",
   ios: {
-    bundleIdentifier: IS_DEV
-      ? "com.subbyte.subsocial.dev"
-      : "com.subbyte.subsocial",
+    bundleIdentifier: appId,
     infoPlist: {
       LSApplicationQueriesSchemes: [
         "instagram",
@@ -61,7 +33,7 @@ export default {
     },
   },
   android: {
-    package: IS_DEV ? "com.subbyte.subsocial.dev" : "com.subbyte.subsocial",
+    package: appId,
     predictiveBackGestureEnabled: false,
   },
   plugins: [
@@ -70,6 +42,7 @@ export default {
     "expo-video",
     "expo-image",
     "expo-sqlite",
+    ["expo-localization", { supportedLocales }],
     withPlatformAppQueries,
     [
       "expo-splash-screen",
@@ -96,7 +69,7 @@ export default {
   },
   extra: {
     eas: {
-      projectId: "2236c731-2281-4d29-b10b-1338e1099ef7",
+      projectId,
     },
   },
 };
