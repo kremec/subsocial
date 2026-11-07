@@ -1,24 +1,14 @@
 import "expo-sqlite/localStorage/install";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { combine, createJSONStorage, persist } from "zustand/middleware";
 
-import { type FeedPosition } from "@/screens/feed/feed-rows";
-import { type PlatformId } from "@/types/platform-id";
+import { settingsSchema, type Settings } from "@/types/settings";
 
-interface Settings {
-  onboarded: boolean;
-  hiddenPlatforms: PlatformId[];
-  videosMuted: boolean;
-  feedPosition?: FeedPosition;
-}
-
-export const useSettingsStore = create<Settings>()(
+export const useSettingsStore = create(
   persist(
-    (): Settings => ({
-      onboarded: false,
-      hiddenPlatforms: [],
-      videosMuted: true,
-    }),
+    combine(settingsSchema.parse({}), (set) => ({
+      updateSettings: (patch: Partial<Settings>) => set(patch),
+    })),
     {
       name: "subsocial.settings",
       storage: createJSONStorage(() => localStorage),

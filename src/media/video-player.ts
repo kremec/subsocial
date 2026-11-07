@@ -22,7 +22,7 @@ player.bufferOptions = {
   preferredForwardBufferDuration: 5,
 };
 player.addListener("mutedChange", ({ muted }) =>
-  useSettingsStore.setState({ videosMuted: muted }),
+  useSettingsStore.getState().updateSettings({ videosMuted: muted }),
 );
 
 const positions = new Map<string, number>();
