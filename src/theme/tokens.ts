@@ -18,10 +18,6 @@ export const radius = {
   full: 999,
 } as const;
 
-export const fonts = {
-  rounded: Platform.select({ ios: "ui-rounded", default: "normal" }),
-};
-
 export const typography = {
   display: { fontSize: 32, lineHeight: 38, fontWeight: "700" },
   title: { fontSize: 24, lineHeight: 28, fontWeight: "700" },

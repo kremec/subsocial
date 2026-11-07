@@ -63,9 +63,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
           alignSelf: "center",
         }}
       >
-        <Typography variant="title" style={{ fontFamily: theme.fonts.rounded }}>
-          {t("appName")}
-        </Typography>
+        <Typography variant="title">{t("appName")}</Typography>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -83,7 +81,6 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
-              style={{ fontFamily: theme.fonts.rounded, letterSpacing: -0.5 }}
             >
               {t("onboardingTitle")}
             </Typography>

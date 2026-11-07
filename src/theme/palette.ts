@@ -1,4 +1,4 @@
-export const palette = {
+export const themePalettes = {
   light: {
     background: "#F7F7F5",
     backgroundElement: "#EFEFEC",

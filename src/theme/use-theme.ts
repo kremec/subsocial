@@ -1,24 +1,22 @@
 import { useColorScheme } from "react-native";
 
-import { palette } from "@/theme/palette";
-import { fonts, radius, spacing, typography } from "@/theme/tokens";
+import { themePalettes } from "@/theme/palette";
+import { radius, spacing, typography } from "@/theme/tokens";
 
 const themes = {
   light: {
     themeName: "light",
-    colors: palette.light,
+    colors: themePalettes.light,
     spacing,
     typography,
     radius,
-    fonts,
   },
   dark: {
     themeName: "dark",
-    colors: palette.dark,
+    colors: themePalettes.dark,
     spacing,
     typography,
     radius,
-    fonts,
   },
 } as const;
 

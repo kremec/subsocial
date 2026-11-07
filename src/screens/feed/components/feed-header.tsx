@@ -53,7 +53,6 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         numberOfLines={1}
         style={{
           flexShrink: 1,
-          fontFamily: theme.fonts.rounded,
         }}
       >
         {t("appName")}
