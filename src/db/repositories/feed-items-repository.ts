@@ -6,6 +6,7 @@ import { feedItemLimit } from "@/feed/collection";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { type ExtractedPost } from "@/types/extracted-post";
 import { type FeedItem } from "@/types/feed-item";
+import { FeedMediaType } from "@/types/feed-media";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -38,9 +39,9 @@ function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
     media: media?.map((item, index) => {
       const loaded = previous.media?.[index];
       const merged =
-        item.type === "video" &&
+        item.type === FeedMediaType.VIDEO &&
         !item.playable &&
-        loaded?.type === "video" &&
+        loaded?.type === FeedMediaType.VIDEO &&
         loaded.playable
           ? { ...item, url: loaded.url, playable: true }
           : item;

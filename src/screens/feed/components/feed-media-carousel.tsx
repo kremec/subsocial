@@ -18,7 +18,7 @@ import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useMediaStore } from "@/stores/media-store";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedMedia } from "@/types/feed-media";
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
 interface FeedMediaCarouselProps {
@@ -69,7 +69,8 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
     });
   };
   const selectedMedia = media[mediaIndex];
-  const playable = selectedMedia?.type === "video" && selectedMedia.playable;
+  const playable =
+    selectedMedia?.type === FeedMediaType.VIDEO && selectedMedia.playable;
   useLayoutEffect(() => {
     if (!playable || !view.current) return;
     setVideoView(rowId, postUrl, view.current);
@@ -97,7 +98,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   );
 
   const renderMedia = (media: FeedMedia, index: number) => {
-    if (media.type === "image")
+    if (media.type === FeedMediaType.IMAGE)
       return <FeedImage media={media} onPress={() => openAlbum(index)} />;
     const playing = media.playable && active && index === mediaIndex;
     return (

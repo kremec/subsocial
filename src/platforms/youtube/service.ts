@@ -18,6 +18,7 @@ import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
+import { FeedMediaType } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -216,7 +217,7 @@ export async function* youtubeFeed(
         publishedAt,
         media: [
           {
-            type: "video",
+            type: FeedMediaType.VIDEO,
             url: thumbnail,
             posterUrl: thumbnail,
             playable: true,

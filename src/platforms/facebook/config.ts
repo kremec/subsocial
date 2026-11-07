@@ -1,9 +1,10 @@
 import { IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
+import { PlatformId } from "@/types/platform-id";
 
 export const facebookPlatform: PlatformDefinition = {
-  id: "facebook",
+  id: PlatformId.FACEBOOK,
   icon: IconName.BRAND_FACEBOOK,
   androidAppUrl: "fb://feed",
   androidPackage: "com.facebook.katana",

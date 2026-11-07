@@ -24,7 +24,7 @@ import {
 } from "@/screens/feed/components/media-download-button";
 import { useMediaStore } from "@/stores/media-store";
 import { t } from "@/translation/use-translation";
-import { feedMediaSchema } from "@/types/feed-media";
+import { feedMediaSchema, FeedMediaType } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
 export const MediaScreen: FC = () => {
@@ -101,7 +101,7 @@ export const MediaScreen: FC = () => {
                   style={{ width, height: "100%" }}
                 >
                   {Math.abs(itemIndex - mediaIndex) <= 1 &&
-                    item.type === "image" && (
+                    item.type === FeedMediaType.IMAGE && (
                       <FullscreenImage
                         uri={item.url}
                         aspectRatio={item.aspectRatio}
@@ -111,7 +111,7 @@ export const MediaScreen: FC = () => {
                       />
                     )}
                   {Math.abs(itemIndex - mediaIndex) <= 1 &&
-                    item.type !== "image" && (
+                    item.type !== FeedMediaType.IMAGE && (
                       <View style={{ flex: 1 }}>
                         {!!item.posterUrl && (
                           <Image

@@ -3,7 +3,10 @@ import { View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedAttachment } from "@/types/feed-attachment";
+import {
+  type FeedAttachment,
+  FeedAttachmentType,
+} from "@/types/feed-attachment";
 
 interface PostAttachmentProps {
   attachment: FeedAttachment;
@@ -13,7 +16,7 @@ interface PostAttachmentProps {
 export const PostAttachment: FC<PostAttachmentProps> = (props) => {
   const { attachment, compact } = props;
   const theme = useTheme();
-  const event = attachment.type === "event";
+  const event = attachment.type === FeedAttachmentType.EVENT;
   const detail = event
     ? attachment.startsAtText
     : new URL(attachment.url).hostname.replace(/^www\./, "");

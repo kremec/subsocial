@@ -18,7 +18,7 @@ import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls
 import { useMediaStore } from "@/stores/media-store";
 import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
-import { type PlatformId } from "@/types/platform-id";
+import { PlatformId } from "@/types/platform-id";
 
 interface FeedVideoProps {
   index: number;
@@ -47,7 +47,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
   // The inline and fullscreen views share a key to resume the same playback.
   const playbackKey = `${postUrl}:${index}`;
   const youtube = useYouTubeMedia(
-    platform === "youtube" ? sourceId : undefined,
+    platform === PlatformId.YOUTUBE ? sourceId : undefined,
   );
   const { resolution, fail: failYouTube } = youtube;
   const [failed, setFailed] = useState(false);
@@ -56,7 +56,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
     failYouTube();
   }, [failYouTube]);
   const status =
-    platform === "youtube" && resolution?.status !== "ready"
+    platform === PlatformId.YOUTUBE && resolution?.status !== "ready"
       ? resolution?.status || "loading"
       : failed && "error";
   const video = withYouTubeStream(media, resolution);

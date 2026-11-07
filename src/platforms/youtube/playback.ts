@@ -6,13 +6,13 @@ import {
 } from "@/platforms/youtube/schemas/playback-response-schema";
 import { playbackVisitorSchema } from "@/platforms/youtube/schemas/playback-visitor-schema";
 import { t } from "@/translation/use-translation";
-import { type FeedMedia } from "@/types/feed-media";
+import { type FeedMedia, FeedMediaContentType } from "@/types/feed-media";
 
 export type YouTubeResolution =
   | {
       status: "ready";
       url: string;
-      contentType: "hls";
+      contentType: FeedMediaContentType.HLS;
       preferredAudioTrack?: string;
     }
   | { status: "error" | "verification" };
@@ -29,7 +29,7 @@ function youtubeStream(url: string) {
   return {
     status: "ready",
     url,
-    contentType: "hls",
+    contentType: FeedMediaContentType.HLS,
   } satisfies YouTubeResolution;
 }
 
