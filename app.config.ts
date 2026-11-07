@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { supportedLocales } from "./plugins/localization.js";
 import withPlatformAppQueries from "./plugins/platform-app-queries.js";
 
@@ -44,6 +46,14 @@ export default {
     "expo-sqlite",
     ["expo-localization", { supportedLocales }],
     withPlatformAppQueries,
+    [
+      "expo-build-properties",
+      {
+        android: {
+          usePrecompiledHeaders: true,
+        },
+      },
+    ],
     [
       "expo-splash-screen",
       {

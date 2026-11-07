@@ -14,9 +14,7 @@ type Catalog = Partial<
 >;
 const pluralizers: Partial<
   Record<string, Parameters<typeof createPluralizer>[0]["pluralizer"]>
-> = {};
-for (const [name, pluralizer] of Object.entries(plurals))
-  if (typeof pluralizer === "function") pluralizers[name] = pluralizer;
+> = plurals;
 
 const files = require.context("./locales", false, /\.json$/);
 const translations: Record<string, Catalog> = Object.fromEntries(
