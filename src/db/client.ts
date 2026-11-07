@@ -1,8 +1,9 @@
 import { openDatabaseSync } from "expo-sqlite";
 
-import migrations from "@drizzle/migrations";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { migrate } from "drizzle-orm/expo-sqlite/migrator";
+
+import migrations from "@drizzle/migrations";
 
 export const database = openDatabaseSync("subsocial.db");
 database.execSync("PRAGMA journal_mode = WAL");

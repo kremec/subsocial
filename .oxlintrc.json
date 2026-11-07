@@ -4,6 +4,7 @@
   "rules": {
     "no-restricted-imports": ["error", { "patterns": ["./**", "../**"] }],
     "react/rules-of-hooks": "error",
+    "react/unsupported-syntax": "error",
     "react/todo": "error"
   }
 }
