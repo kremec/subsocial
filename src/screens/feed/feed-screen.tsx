@@ -16,15 +16,10 @@ import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
-interface FeedScreenProps {
-  webKitReady: boolean;
-}
-
-export const FeedScreen: FC<FeedScreenProps> = (props) => {
-  const { webKitReady } = props;
+export const FeedScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const feed = useFeedRefresh(focused, webKitReady);
+  const feed = useFeedRefresh(focused);
   const visible = focused && feed.foreground;
 
   return (

@@ -1,44 +1,33 @@
-import { type FC, use } from "react";
+import { type FC, Fragment, useState } from "react";
+import { Platform } from "react-native";
 
-import { Stack } from "expo-router";
+import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
+import { WebView } from "react-native-webview";
 
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-
-import { Toast } from "@/components/ui/toast";
-import { databaseReady } from "@/db/client";
-import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
-import { useTheme } from "@/theme/use-theme";
+import { AppLoadingScreen } from "@/components/app-loading-screen";
+import { AppStack } from "@/components/app-stack";
+import { db } from "@/db/client";
+import migrations from "@drizzle/migrations";
 
 export const AppRoot: FC = () => {
-  use(databaseReady);
-  const { colors, themeName } = useTheme();
-  usePlatformShortcuts();
+  const { success, error } = useMigrations(db, migrations);
+  const [webKitReady, setWebKitReady] = useState(Platform.OS !== "ios");
+
+  if (error) throw error;
+  if (success && webKitReady) return <AppStack />;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          orientation: "portrait",
-          statusBarStyle: themeName === "dark" ? "light" : "dark",
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="browser" options={{ presentation: "modal" }} />
-        <Stack.Screen name="search" options={{ presentation: "modal" }} />
-        <Stack.Screen
-          name="media"
-          options={{
-            presentation: "transparentModal",
-            orientation: "default",
-            animation: "fade",
-            statusBarHidden: true,
-            contentStyle: { backgroundColor: "black" },
-          }}
+    <Fragment>
+      {/* iOS needs a mounted WKWebView before reading persisted login cookies. */}
+      {!webKitReady && (
+        <WebView
+          pointerEvents="none"
+          source={{ html: "" }}
+          onLoadEnd={() => setWebKitReady(true)}
+          style={{ position: "absolute", width: 1, height: 1, opacity: 0 }}
         />
-      </Stack>
-      <Toast />
-    </GestureHandlerRootView>
+      )}
+      <AppLoadingScreen />
+    </Fragment>
   );
 };

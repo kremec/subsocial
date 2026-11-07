@@ -21,7 +21,7 @@ const withMember = (list: PlatformId[], id: PlatformId, member: boolean) => [
   ...(member ? [id] : []),
 ];
 
-export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
+export function useFeedRefresh(focused: boolean) {
   const [items, setItems] = useState(listFeedItems);
   const [connected, setConnected] = useState(listConnectedPlatforms);
   const [failed, setFailed] = useState<PlatformId[]>([]);
@@ -100,7 +100,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
   });
 
   useEffect(() => {
-    if (!focused || !foreground || !webKitReady || paused.current) return;
+    if (!focused || !foreground || paused.current) return;
     const current = new AbortController();
     controller.current = current;
     void collect(current.signal).catch(() => {
@@ -109,7 +109,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
       showErrorToast(t("connectionsCheckFailed"));
     });
     return () => current.abort();
-  }, [focused, foreground, webKitReady, pass]);
+  }, [focused, foreground, pass]);
 
   const restart = () => {
     controller.current?.abort();
@@ -126,7 +126,7 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     attention,
     foreground,
     toggle: (platform: PlatformId) =>
-      useSettingsStore.setState({
+      useSettingsStore.getState().updateSettings({
         hiddenPlatforms: withMember(
           hidden,
           platform,

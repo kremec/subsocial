@@ -6,7 +6,7 @@ import {
 } from "expo-sqlite";
 
 import { showErrorToast } from "@/components/ui/toast";
-import { database } from "@/db/client";
+import { expoDb } from "@/db/client";
 import { t } from "@/translation/use-translation";
 
 const exportDatabaseName = "subsocial-export.db";
@@ -19,7 +19,7 @@ export function exportDatabase(): Promise<void> {
   )
     .then((exported) =>
       backupDatabaseAsync({
-        sourceDatabase: database,
+        sourceDatabase: expoDb,
         destDatabase: exported,
       }).finally(() => exported.closeAsync()),
     )

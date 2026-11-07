@@ -16,19 +16,14 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
-interface OnboardingScreenProps {
-  webKitReady: boolean;
-}
-
-export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
-  const { webKitReady } = props;
+export const OnboardingScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
   const [connected, setConnected] = useState(listConnectedPlatforms);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!focused || !webKitReady) return;
+    if (!focused) return;
     let current = true;
     void syncPlatformSessions()
       .then((platforms) => {
@@ -44,10 +39,9 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
     return () => {
       current = false;
     };
-  }, [focused, webKitReady]);
+  }, [focused]);
 
-  const canContinue =
-    focused && webKitReady && !checking && connected.length > 0;
+  const canContinue = focused && !checking && connected.length > 0;
 
   return (
     <Screen
@@ -115,7 +109,6 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
                         })
                       : t("connectPlatform", { platform: platform.label })
                   }
-                  disabled={!webKitReady}
                   onPress={() => {
                     setChecking(true);
                     openBrowser(
@@ -159,7 +152,9 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
           accessibilityRole="button"
           accessibilityLabel={t("continueToFeed")}
           disabled={!canContinue}
-          onPress={() => useSettingsStore.setState({ onboarded: true })}
+          onPress={() =>
+            useSettingsStore.getState().updateSettings({ onboarded: true })
+          }
           style={({ pressed }) => ({
             minHeight: 52,
             alignItems: "center",

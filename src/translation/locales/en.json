@@ -1,4 +1,5 @@
 {
+  "loading": "Loading…",
   "connectionsCheckFailed": "Could not check platform connections.",
   "onboardingTitle": "Your feeds, together.",
   "onboardingDescription": "Connect at least one platform to continue.",

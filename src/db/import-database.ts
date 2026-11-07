@@ -2,7 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import {
   defaultDatabaseDirectory,
-  openDatabaseSync,
+  openDatabaseAsync,
   type SQLiteDatabase,
 } from "expo-sqlite";
 
@@ -47,7 +47,7 @@ export function importDatabase(): Promise<void> {
           from: result.assets[0].uri,
           to: importUri,
         });
-        imported = openDatabaseSync(
+        imported = await openDatabaseAsync(
           importDatabaseName,
           { useNewConnection: true },
           defaultDatabaseDirectory,
