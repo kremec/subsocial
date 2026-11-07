@@ -1,13 +1,15 @@
 import { type FC } from "react";
 import { Pressable, View } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedPost, type PlatformId } from "@/feed/types";
 import { openPost } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
+import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface ThreadCardProps {
   post: FeedPost;
@@ -15,13 +17,10 @@ interface ThreadCardProps {
   start: boolean;
   end: boolean;
   gapBefore: boolean;
-  activePostUrl?: string;
-  onActivate: (url: string) => void;
 }
 
 export const ThreadCard: FC<ThreadCardProps> = (props) => {
-  const { post, platform, start, end, gapBefore, activePostUrl, onActivate } =
-    props;
+  const { post, platform, start, end, gapBefore } = props;
   const definition = getPlatform(platform);
   const theme = useTheme();
 
@@ -61,11 +60,15 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
               }}
             />
             <View style={{ backgroundColor: theme.colors.background }}>
-              <Icon name="dots" color={theme.colors.textSecondary} size={16} />
+              <Icon
+                name={IconName.DOTS}
+                color={theme.colors.textSecondary}
+                size={16}
+              />
             </View>
           </View>
           <Typography variant="bodySmall" color={theme.colors.accent}>
-            Show this thread
+            {t("showThread")}
           </Typography>
         </Pressable>
       )}
@@ -84,7 +87,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
             marginRight: theme.spacing.sm,
           }}
         >
-          <Icon name={`brand-${platform}`} color={definition.color} size={19} />
+          <Icon name={definition.icon} color={definition.color} size={19} />
           {!end && (
             <View
               style={{
@@ -99,13 +102,7 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <PostContent
-            post={post}
-            platform={platform}
-            variant="thread"
-            activePostUrl={activePostUrl}
-            onActivate={onActivate}
-          />
+          <PostContent post={post} platform={platform} variant="thread" />
         </View>
       </View>
     </View>

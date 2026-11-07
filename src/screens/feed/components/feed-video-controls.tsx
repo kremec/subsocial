@@ -10,30 +10,36 @@ import {
 import { Pressable, View } from "react-native";
 
 import { useEvent } from "expo";
-import { type VideoPlayer, VideoView } from "expo-video";
+import { VideoView } from "expo-video";
 
-import { MenuView } from "@expo/ui/community/menu";
 import {
   Gesture,
   GestureDetector,
   type GestureType,
 } from "react-native-gesture-handler";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
+import { player } from "@/media/video-player";
 import { FeedVideoMuteButton } from "@/screens/feed/components/feed-video-mute-button";
-import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
-import { canDownloadMedia } from "@/screens/feed/download-media";
+import {
+  canDownloadMedia,
+  MediaDownloadButton,
+} from "@/screens/feed/components/media-download-button";
+import { t } from "@/translation/use-translation";
+import { type FeedMedia } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedVideoControlsProps {
-  player: VideoPlayer;
   media: FeedMedia;
+  platform: PlatformId;
   counter?: ReactNode;
   fullscreen: boolean;
   onFullscreen: () => void;
   navigationGestures?: GestureType[];
 }
+
+const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 const timeText = (seconds: number) => {
   const time = Math.max(0, Math.floor(seconds));
@@ -42,14 +48,14 @@ const timeText = (seconds: number) => {
 
 export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   const {
-    player,
     media,
+    platform,
     counter,
     fullscreen,
     onFullscreen,
     navigationGestures,
   } = props;
-  const downloadable = !fullscreen && canDownloadMedia(media);
+  const downloadable = !fullscreen && canDownloadMedia(media, platform);
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -69,7 +75,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       if (!scrubbing.current) setCurrentTime(event.currentTime);
     });
     return () => listener.remove();
-  }, [player]);
+  }, []);
   useEffect(() => {
     if (!controlsVisible || !isPlaying || interacting) return;
     const timeout = setTimeout(() => setControlsVisible(false), 3000);
@@ -78,17 +84,15 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
   const seekTo = useCallback(
     (position: number) => {
       const time = Math.max(0, Math.min(duration, position));
-      // VideoPlayer setters update the native player.
-      // oxlint-disable-next-line react/immutability
       player.currentTime = time;
       setCurrentTime(time);
     },
-    [player, duration],
+    [duration],
   );
   const togglePlayback = useCallback(() => {
     if (player.playing) player.pause();
     else player.play();
-  }, [player]);
+  }, []);
   const playPauseTap = useMemo(
     () =>
       Gesture.Tap()
@@ -122,7 +126,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           });
         return Gesture.Exclusive(double, single);
       }),
-    [player, seekTo, playPauseTap],
+    [seekTo, playPauseTap],
   );
   const scrubGesture = useMemo(() => {
     const seekAt = (x: number) => seekTo((x / trackWidth) * duration);
@@ -159,7 +163,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
       tap.blocksExternalGesture(...navigationGestures);
     }
     return Gesture.Race(drag, tap);
-  }, [player, duration, trackWidth, seekTo, navigationGestures]);
+  }, [duration, trackWidth, seekTo, navigationGestures]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "black" }}>
@@ -193,7 +197,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             <View
               collapsable={false}
               accessibilityRole="button"
-              accessibilityLabel="Show or hide video controls"
+              accessibilityLabel={t("mediaToggleControls")}
               onAccessibilityTap={() =>
                 setControlsVisible((visible) => !visible)
               }
@@ -207,7 +211,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           <View
             collapsable={false}
             accessibilityRole="button"
-            accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
+            accessibilityLabel={t(isPlaying ? "mediaPause" : "mediaPlay")}
             onAccessibilityTap={togglePlayback}
             style={{
               position: "absolute",
@@ -221,7 +225,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             }}
           >
             <Icon
-              name={isPlaying ? "player-pause" : "player-play"}
+              name={isPlaying ? IconName.PLAYER_PAUSE : IconName.PLAYER_PLAY}
               color="white"
               size={36}
             />
@@ -260,7 +264,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
                 setTrackWidth(event.nativeEvent.layout.width)
               }
               accessibilityRole="adjustable"
-              accessibilityLabel="Video progress"
+              accessibilityLabel={t("mediaProgress")}
               accessibilityValue={{ min: 0, max: duration, now: currentTime }}
               accessibilityActions={[
                 { name: "increment" },
@@ -314,34 +318,32 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
             <Typography variant="caption" color="white" style={{ flex: 1 }}>
               {timeText(currentTime)} / {timeText(duration)}
             </Typography>
-            <MenuView
-              onOpenMenu={() => setInteracting(true)}
-              onCloseMenu={() => setInteracting(false)}
-              actions={[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => ({
-                id: String(rate),
-                title: `${rate}×`,
-                state: rate === playbackRate ? "on" : "off",
-              }))}
-              onPressAction={(event) => {
-                // oxlint-disable-next-line react/immutability
-                player.playbackRate = Number(event.nativeEvent.event);
-              }}
-            >
-              <View
-                accessibilityRole="button"
-                accessibilityLabel={`Playback speed ${playbackRate} times`}
-                style={{ paddingHorizontal: 8, paddingVertical: 5 }}
-              >
-                <Typography variant="bodySmall" color="white">
-                  {playbackRate}×
-                </Typography>
-              </View>
-            </MenuView>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={
-                fullscreen ? "Exit fullscreen" : "Enter fullscreen"
-              }
+              accessibilityLabel={t("mediaPlaybackSpeed", {
+                rate: playbackRate,
+              })}
+              hitSlop={8}
+              onPress={() => {
+                const next = playbackRates.indexOf(playbackRate) + 1;
+                player.playbackRate =
+                  playbackRates[next % playbackRates.length];
+              }}
+              style={({ pressed }) => ({
+                paddingHorizontal: 8,
+                paddingVertical: 5,
+                opacity: pressed ? 0.65 : 1,
+              })}
+            >
+              <Typography variant="bodySmall" color="white">
+                {playbackRate}×
+              </Typography>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(
+                fullscreen ? "mediaExitFullscreen" : "mediaEnterFullscreen",
+              )}
               hitSlop={8}
               onPress={onFullscreen}
               style={({ pressed }) => ({
@@ -353,7 +355,7 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
               })}
             >
               <Icon
-                name={fullscreen ? "compact" : "fullscreen"}
+                name={fullscreen ? IconName.COMPACT : IconName.FULLSCREEN}
                 color="white"
                 size={20}
               />

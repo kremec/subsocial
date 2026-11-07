@@ -25,9 +25,9 @@ Scroll through posts, threads, images, and videos from your visible platforms.
 Tap Show more to expand long posts, or tap an image to open it full screen.
 Open an original post in the platform's app when installed, or in the built-in browser.
 
-The feed refreshes automatically on the first app open each day. Pull down to refresh it manually.
-Saved posts remain readable while new posts load. Open the feed menu to see which platforms are
-still refreshing.
+The feed refreshes automatically whenever you open the app. Pull down to refresh it manually.
+Saved posts remain readable while new posts load. The header shows which platforms are still
+refreshing.
 
 Feed refreshes use direct requests with your on-device login session. If a platform needs you to
 sign in again, a "needs attention" notice appears below the header. Tap its globe icon to handle
@@ -48,17 +48,29 @@ To disconnect a platform or switch accounts, use the logout button in the browse
 This deletes that platform's saved posts and login cookies from subsocial. Logging out of YouTube
 also clears the Google sign-in cookies used by YouTube.
 
-#### Export data
+#### Export and import data
 
 Tap the export icon at the top of the feed menu to share a backup of the feed database.
 The backup includes saved posts and media metadata, but not login cookies or app preferences.
+Tap the import icon to replace the saved feed with a backup using the current database schema.
 
 The app keeps the newest 500 feed groups per platform, including complete threads.
 Older posts are removed as new ones arrive, so the saved feed is a recent cache rather than an archive.
 
 ## Development
 
-Bun patches LegendList 3.6.0 so Fabric updates the content dimensions together with row positions
-and the scroll anchor. Separate animated dimension updates caused a brief jump when platforms
-were shown or hidden. Keep the patch until an upstream release fixes this behavior, and check
-scrolled platform toggles frame by frame before removing it.
+Database migrations live in `drizzle/`. After changing `src/db/schema.ts`, run
+`bunx drizzle-kit generate --name <change>` and review the SQL before committing it.
+The app applies pending migrations before mounting its screens. Imports copy validated data into
+the current schema without replacing its migration journal or upgrading the backup.
+The initial migration retains existing tables and rows while creating a missing Drizzle journal.
+The initial migration's JSON index expressions are corrected for [Drizzle Kit #6062](https://github.com/drizzle-team/drizzle-orm/issues/6062);
+review generated expression indexes until that fix reaches the stable tooling.
+
+Bun patches masked-view so Gradle does not change its manifest contents after installation,
+Expo UI so the shared Slider supports release callbacks and colors, and Drizzle so one-shot
+SQLite queries finalize their prepared statements. These patches are declared in package.json.
+
+Bun also patches expo-quick-actions 6.0.2 so an Android shortcut with a `targetUrl` param opens
+that URL in the platform's own app, using the app's icon. Upstream shortcuts can only reopen
+subsocial. Keep the patch until upstream supports external shortcut targets.

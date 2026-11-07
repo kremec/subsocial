@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
 
 import {
   type Action,
@@ -9,14 +9,11 @@ import {
   setItems,
 } from "expo-quick-actions";
 
-import {
-  getInstalledPlatformIds,
-  openPlatformApp,
-} from "@/platforms/open-post";
+import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 
 const shortcutId = (platformId: string) => `platform:${platformId}`;
-let handledInitialShortcut = false;
+let pendingInitialShortcut = initial;
 
 function openShortcut(action: Action) {
   const platform = platforms.find(({ id }) => action.id === shortcutId(id));
@@ -24,29 +21,25 @@ function openShortcut(action: Action) {
 }
 
 async function updatePlatformShortcuts() {
-  const installedPlatformIds =
-    Platform.OS === "android" ? undefined : await getInstalledPlatformIds();
-  const shortcutPlatforms = platforms.filter(
-    ({ id }) => !installedPlatformIds || installedPlatformIds.includes(id),
-  );
-
-  await setItems(
-    shortcutPlatforms
-      .slice(0, Platform.OS === "android" ? undefined : maxCount)
-      .map((platform) => ({
+  const items = await Promise.all(
+    platforms.map(async (platform) => {
+      if (!(await canOpenPlatformApp(platform.id))) return;
+      return {
         id: shortcutId(platform.id),
         title: platform.label,
         params: { targetUrl: platform.androidAppUrl },
-      })),
+      };
+    }),
   );
+
+  await setItems(items.filter((item) => item !== undefined).slice(0, maxCount));
 }
 
 export function usePlatformShortcuts() {
   useEffect(() => {
-    if (initial && !handledInitialShortcut) {
-      handledInitialShortcut = true;
-      openShortcut(initial);
-    }
+    const action = pendingInitialShortcut;
+    pendingInitialShortcut = undefined;
+    if (action) openShortcut(action);
 
     void updatePlatformShortcuts().catch(() => undefined);
     const appStateSubscription = AppState.addEventListener(

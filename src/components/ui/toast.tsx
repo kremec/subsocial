@@ -1,45 +1,49 @@
 import { type FC } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
 
 import ToastMessage, { type ToastConfig } from "react-native-toast-message";
 
+import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
 
 export const showErrorToast = (message: string): void => {
   ToastMessage.show({
     type: "error",
-    text1: "Couldn’t complete that",
-    text2: message,
+    text1: message,
     onPress: ToastMessage.hide,
   });
 };
 
-export const Toast: FC = () => {
+interface ToastProps {
+  topOffset?: number;
+}
+
+export const Toast: FC<ToastProps> = (props) => {
+  const { topOffset = 56 } = props;
   const { colors } = useTheme();
   const config: ToastConfig = {
     error: (params) => {
-      const { onPress, text1, text2 } = params;
+      const { onPress, text1 } = params;
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={text1}
           onPress={onPress}
           style={{
             width: "92%",
             maxWidth: 420,
             borderRadius: 14,
             backgroundColor: colors.errorSurface,
-            gap: 4,
             padding: 14,
           }}
         >
-          <Text style={{ color: colors.danger, fontWeight: "600" }}>
+          <Typography variant="bodySmallRelaxed" accessibilityRole="alert">
             {text1}
-          </Text>
-          <Text style={{ color: colors.text, lineHeight: 20 }}>{text2}</Text>
+          </Typography>
         </Pressable>
       );
     },
   };
 
-  return <ToastMessage config={config} topOffset={56} />;
+  return <ToastMessage config={config} topOffset={topOffset} />;
 };

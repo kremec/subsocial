@@ -1,31 +1,26 @@
 import { Platform } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
-import { collectionKnownKey } from "@/feed/collection";
+import { db } from "@/db/client";
 import {
   connectPlatform,
   disconnectPlatform,
-  deletePlatformData,
   listConnectedPlatforms,
-} from "@/feed/database";
-import { type PlatformId } from "@/feed/types";
-import { type PlatformDefinition, platforms } from "@/platforms/platforms";
+} from "@/db/repositories/connections-repository";
+import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
+import { hasSession, platforms } from "@/platforms/platforms";
+import { type PlatformDefinition } from "@/types/platform-definition";
+import { type PlatformId } from "@/types/platform-id";
 
 export async function syncPlatformSession(
   platform: PlatformDefinition,
 ): Promise<boolean | undefined> {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
-    const connected = platform.sessionCookieGroups.every((group) =>
-      group.some((name) => !!cookies[name]?.value),
-    );
-
-    if (connected) connectPlatform(platform.id);
-    else disconnectPlatform(platform.id);
-    return connected;
+    // Keep configured accounts until explicit logout, even if login expires.
+    if (hasSession(platform, cookies)) connectPlatform(platform.id);
+    return listConnectedPlatforms().includes(platform.id);
   } catch {
     return undefined;
   }
@@ -41,7 +36,7 @@ export async function resetPlatformSession(
 ): Promise<void> {
   const urls = new Set([
     platform.startUrl,
-    platform.loginUrl || platform.startUrl,
+    platform.loginUrl,
     ...platform.dataDomains.map((domain) => `https://${domain}`),
   ]);
   for (const useWebKit of Platform.OS === "ios" ? [false, true] : [true]) {
@@ -54,6 +49,8 @@ export async function resetPlatformSession(
       );
     }
   }
-  deletePlatformData(platform.id);
-  Storage.removeItemSync(collectionKnownKey(platform.id));
+  db.transaction(() => {
+    deletePlatformPosts(platform.id);
+    disconnectPlatform(platform.id);
+  });
 }

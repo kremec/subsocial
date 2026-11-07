@@ -1,14 +1,47 @@
 import { toByteArray } from "base64-js";
 
 import {
-  youtubeStream,
-  type YouTubeResolution,
-} from "@/platforms/youtube/media";
-import {
   playbackResponseSchema,
-  playbackVisitorSchema,
   type PlaybackResponse,
 } from "@/platforms/youtube/schemas/playback-response-schema";
+import { playbackVisitorSchema } from "@/platforms/youtube/schemas/playback-visitor-schema";
+import { t } from "@/translation/use-translation";
+import { type FeedMedia, FeedMediaContentType } from "@/types/feed-media";
+
+export type YouTubeResolution =
+  | {
+      status: "ready";
+      url: string;
+      contentType: FeedMediaContentType.HLS;
+      preferredAudioTrack?: string;
+    }
+  | { status: "error" | "verification" };
+
+function youtubeStream(url: string) {
+  const source = new URL(url);
+  if (
+    source.protocol !== "https:" ||
+    !source.hostname.endsWith(".googlevideo.com") ||
+    !/\/manifest\/hls_(?:playlist|variant)\//.test(source.pathname)
+  ) {
+    throw new Error(t("youtubeInvalidStream"));
+  }
+  return {
+    status: "ready",
+    url,
+    contentType: FeedMediaContentType.HLS,
+  } satisfies YouTubeResolution;
+}
+
+// Streams expire, so they replace the saved poster only while playing.
+export function withYouTubeStream(
+  media: FeedMedia,
+  resolution: YouTubeResolution | undefined,
+): FeedMedia {
+  if (resolution?.status !== "ready") return media;
+  const { url, contentType, preferredAudioTrack } = resolution;
+  return { ...media, url, contentType, preferredAudioTrack };
+}
 
 // Keep this client aligned with NewPipeExtractor's ClientsConstants.
 const client = {
@@ -53,16 +86,14 @@ function isOriginal(tags: Record<string, string>) {
   );
 }
 
-export function selectYouTubePlaylist(
+function selectYouTubePlaylist(
   url: string,
   playlist: string,
   streamingData: PlaybackResponse["streamingData"],
 ): YouTubeResolution {
   const master = youtubeStream(url);
-  if (master.contentType !== "hls")
-    throw new Error("Expected a YouTube HLS playlist");
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
-  if (lines[0] !== "#EXTM3U") throw new Error("Invalid video playlist");
+  if (lines[0] !== "#EXTM3U") throw new Error(t("youtubeInvalidPlaylist"));
   const formats = [
     ...(streamingData?.formats || []),
     ...(streamingData?.adaptiveFormats || []),
@@ -91,7 +122,7 @@ export function selectYouTubePlaylist(
     if (selected?.NAME)
       return { ...master, preferredAudioTrack: selected.NAME };
     if (new Set(audio.map((tags) => tags.NAME)).size > 1 || tracks.length > 1)
-      throw new Error("Could not identify the original audio");
+      throw new Error(t("youtubeOriginalAudioUnavailable"));
     return master;
   }
 
@@ -99,9 +130,9 @@ export function selectYouTubePlaylist(
     if (!line.startsWith("#EXT-X-STREAM-INF:")) return [];
     const tags = attributes(line);
     const uri = lines[index + 1];
-    if (!uri || uri.startsWith("#")) throw new Error("Invalid video variant");
+    if (!uri || uri.startsWith("#"))
+      throw new Error(t("youtubeInvalidVariant"));
     const source = youtubeStream(new URL(uri, url).href);
-    if (source.contentType !== "hls") throw new Error("Invalid video variant");
     const height = Number((tags.RESOLUTION || "").split("x")[1]);
     return [
       {
@@ -115,7 +146,7 @@ export function selectYouTubePlaylist(
   });
   if (!variants.length) {
     if (tracks.length > 1)
-      throw new Error("Original audio needs a master playlist");
+      throw new Error(t("youtubeOriginalAudioNeedsMaster"));
     return master;
   }
   const originals = variants.filter((variant) => variant.original);
@@ -126,8 +157,7 @@ export function selectYouTubePlaylist(
           (variant) => original && variant.audioId === original.id,
         )
       : variants;
-  if (!candidates.length)
-    throw new Error("Could not identify the original audio");
+  if (!candidates.length) throw new Error(t("youtubeOriginalAudioUnavailable"));
   const capped = candidates.filter((variant) => variant.height <= 720);
   const selected = (capped.length ? capped : candidates).sort((left, right) =>
     capped.length
@@ -144,7 +174,7 @@ export async function resolveYouTubePlayback(
 ): Promise<YouTubeResolution> {
   const checkAborted = () => {
     if (signal.aborted)
-      throw new DOMException("Playback aborted", "AbortError");
+      throw new DOMException(t("youtubePlaybackAborted"), "AbortError");
   };
   const load = async (url: string, body?: object) => {
     checkAborted();
@@ -155,7 +185,7 @@ export async function resolveYouTubePlayback(
       credentials: "omit",
       signal,
     });
-    if (!response.ok) throw new Error("Could not load YouTube playback");
+    if (!response.ok) throw new Error(t("youtubePlaybackLoadFailed"));
     return response;
   };
   const visitorResponse = await load(
@@ -198,12 +228,10 @@ export async function resolveYouTubePlayback(
     };
   }
   if (player.videoDetails?.videoId !== videoId)
-    throw new Error("YouTube returned a different video");
+    throw new Error(t("youtubeWrongVideo"));
   const url = player.streamingData?.hlsManifestUrl;
-  if (!url) throw new Error("YouTube did not return a playable stream");
-  const source = youtubeStream(url);
-  if (source.contentType !== "hls")
-    throw new Error("YouTube did not return a video playlist");
+  if (!url) throw new Error(t("youtubeStreamUnavailable"));
+  youtubeStream(url);
   const response = await load(url);
   const playlist = await response.text();
   checkAborted();

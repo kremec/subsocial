@@ -1,12 +1,10 @@
+import { type FC, useRef, useState } from "react";
 import {
-  type FC,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Pressable, ScrollView, View } from "react-native";
+  Pressable,
+  ScrollView,
+  View,
+  type ScrollViewInstance,
+} from "react-native";
 
 import { Image } from "expo-image";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
@@ -14,22 +12,20 @@ import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { feedMediaSchema } from "@/feed/schemas";
-import { type PlatformId } from "@/feed/types";
-import { openBrowser, openPost } from "@/platforms/open-post";
-import {
-  withYouTubeStream,
-  youtubePlaybackStatus,
-} from "@/platforms/youtube/media";
-import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
+import { openPost } from "@/platforms/open-post";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
-import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
-import { canDownloadMedia } from "@/screens/feed/download-media";
-import { MediaAlbumContext } from "@/screens/media/media-video-provider";
+import {
+  canDownloadMedia,
+  MediaDownloadButton,
+} from "@/screens/feed/components/media-download-button";
+import { useMediaStore } from "@/stores/media-store";
+import { t } from "@/translation/use-translation";
+import { feedMediaSchema, FeedMediaType } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 export const MediaScreen: FC = () => {
   const {
@@ -47,47 +43,25 @@ export const MediaScreen: FC = () => {
     index: string;
     sourceId?: string;
   }>();
-  const routeMedia = useMemo(
-    () => feedMediaSchema.array().parse(JSON.parse(encodedMedia)),
-    [encodedMedia],
-  );
+  const media = feedMediaSchema.array().parse(JSON.parse(encodedMedia));
   const focused = useIsFocused();
-  const youtubeItem = sourceId
-    ? { id: `${platform}:${sourceId}`, sourceId, platform }
-    : undefined;
-  const youtube = useYouTubeMedia(youtubeItem, focused);
-  const media = withYouTubeStream(
-    { platform, media: routeMedia },
-    youtube.resolution,
-  ).media;
   const [mediaIndex, setMediaIndex] = useState(Number(index));
   const selectedMedia = media[mediaIndex]!;
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
-  const carousel = useRef<ScrollView>(null);
-  const album = useContext(MediaAlbumContext);
-  const setSelection = album?.setSelection;
-  useEffect(() => () => setSelection?.(undefined), [setSelection]);
-  const pagingGesture = useMemo(() => Gesture.Native(), []);
-  const closeGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(!zoomed)
-        .maxPointers(1)
-        .activeOffsetY(80)
-        .failOffsetX([-20, 20])
-        .simultaneousWithExternalGesture(pagingGesture)
-        .runOnJS(true)
-        .onEnd((event) => {
-          if (event.translationY > 80) router.back();
-        }),
-    [zoomed, pagingGesture],
-  );
-
-  const navigationGestures = useMemo(
-    () => [pagingGesture, closeGesture],
-    [pagingGesture, closeGesture],
-  );
+  const carousel = useRef<ScrollViewInstance>(null);
+  const pagingGesture = Gesture.Native();
+  const closeGesture = Gesture.Pan()
+    .enabled(!zoomed)
+    .maxPointers(1)
+    .activeOffsetY(80)
+    .failOffsetX([-20, 20])
+    .simultaneousWithExternalGesture(pagingGesture)
+    .runOnJS(true)
+    .onEnd((event) => {
+      if (event.translationY > 80) router.back();
+    });
+  const navigationGestures = [pagingGesture, closeGesture];
 
   return (
     <GestureDetector gesture={closeGesture}>
@@ -115,7 +89,9 @@ export const MediaScreen: FC = () => {
                   event.nativeEvent.contentOffset.x / width,
                 );
                 setMediaIndex(selectedIndex);
-                setSelection?.({ postUrl, index: selectedIndex });
+                useMediaStore.setState({
+                  album: { postUrl, index: selectedIndex },
+                });
               }}
               style={{ flex: 1 }}
             >
@@ -125,16 +101,17 @@ export const MediaScreen: FC = () => {
                   style={{ width, height: "100%" }}
                 >
                   {Math.abs(itemIndex - mediaIndex) <= 1 &&
-                    (item.type === "image" ? (
+                    item.type === FeedMediaType.IMAGE && (
                       <FullscreenImage
                         uri={item.url}
                         aspectRatio={item.aspectRatio}
-                        onClose={() => router.back()}
                         onZoomChange={
                           itemIndex === mediaIndex ? setZoomed : undefined
                         }
                       />
-                    ) : (
+                    )}
+                  {Math.abs(itemIndex - mediaIndex) <= 1 &&
+                    item.type !== FeedMediaType.IMAGE && (
                       <View style={{ flex: 1 }}>
                         {!!item.posterUrl && (
                           <Image
@@ -145,35 +122,20 @@ export const MediaScreen: FC = () => {
                         )}
                         {focused && itemIndex === mediaIndex && (
                           <SafeAreaView style={{ flex: 1 }}>
-                            {item.playable ? (
+                            {item.playable && (
                               <FeedVideo
                                 key={item.url}
-                                playbackKey={`${postUrl}:${itemIndex}`}
+                                index={itemIndex}
                                 media={item}
+                                platform={platform}
+                                postUrl={postUrl}
+                                sourceId={sourceId}
                                 fullscreen
-                                playbackStatus={
-                                  youtubeItem &&
-                                  youtubePlaybackStatus(
-                                    youtubeItem,
-                                    youtube.resolution,
-                                  )
-                                }
-                                onError={
-                                  platform === "youtube" && youtubeItem
-                                    ? () => youtube.fail(youtubeItem.id)
-                                    : undefined
-                                }
-                                onRetry={
-                                  platform === "youtube"
-                                    ? youtube.retry
-                                    : undefined
-                                }
-                                onVerification={() =>
-                                  openBrowser(platform, postUrl)
-                                }
+                                onFullscreen={() => router.back()}
                                 navigationGestures={navigationGestures}
                               />
-                            ) : (
+                            )}
+                            {!item.playable && (
                               <Pressable
                                 accessibilityRole="button"
                                 onPress={() =>
@@ -186,20 +148,20 @@ export const MediaScreen: FC = () => {
                                 }}
                               >
                                 <Typography
+                                  color="white"
                                   style={{
-                                    color: "white",
                                     backgroundColor: "rgba(0, 0, 0, 0.5)",
                                     padding: 16,
                                   }}
                                 >
-                                  Open video in original post
+                                  {t("mediaOpenOriginal")}
                                 </Typography>
                               </Pressable>
                             )}
                           </SafeAreaView>
                         )}
                       </View>
-                    ))}
+                    )}
                 </View>
               ))}
             </ScrollView>
@@ -213,20 +175,19 @@ export const MediaScreen: FC = () => {
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <View>
-              {canDownloadMedia(selectedMedia) &&
-                (selectedMedia.type === "image" || selectedMedia.playable) && (
-                  <MediaDownloadButton media={selectedMedia} />
-                )}
+              {canDownloadMedia(selectedMedia, platform) && (
+                <MediaDownloadButton media={selectedMedia} />
+              )}
             </View>
             <IconButton
-              accessibilityLabel="Close fullscreen"
+              accessibilityLabel={t("mediaCloseFullscreen")}
               onPress={() => router.back()}
               style={{
                 backgroundColor: "rgba(0, 0, 0, 0.5)",
                 borderColor: "rgba(255, 255, 255, 0.3)",
               }}
             >
-              <Icon name="x" color="white" size={24} />
+              <Icon name={IconName.X} color="white" size={24} />
             </IconButton>
           </View>
         </SafeAreaView>
@@ -237,8 +198,8 @@ export const MediaScreen: FC = () => {
           >
             <Typography
               variant="caption"
+              color="white"
               style={{
-                color: "white",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 12,

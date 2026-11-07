@@ -2,8 +2,11 @@ import { type FC } from "react";
 import { View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedAttachment } from "@/feed/types";
 import { useTheme } from "@/theme/use-theme";
+import {
+  type FeedAttachment,
+  FeedAttachmentType,
+} from "@/types/feed-attachment";
 
 interface PostAttachmentProps {
   attachment: FeedAttachment;
@@ -13,7 +16,7 @@ interface PostAttachmentProps {
 export const PostAttachment: FC<PostAttachmentProps> = (props) => {
   const { attachment, compact } = props;
   const theme = useTheme();
-  const event = attachment.type === "event";
+  const event = attachment.type === FeedAttachmentType.EVENT;
   const detail = event
     ? attachment.startsAtText
     : new URL(attachment.url).hostname.replace(/^www\./, "");
@@ -29,11 +32,13 @@ export const PostAttachment: FC<PostAttachmentProps> = (props) => {
         </Typography>
       )}
       <Typography
-        variant={compact ? "bodySmall" : event ? "body" : "titleSmall"}
-        style={{
-          fontWeight: "400",
-          lineHeight: compact ? 20 : event ? 23 : 24,
-        }}
+        variant={
+          compact
+            ? "bodySmallRelaxed"
+            : event
+              ? "bodyRegular"
+              : "titleSmallRegular"
+        }
       >
         {attachment.title}
       </Typography>

@@ -1,37 +1,94 @@
-import { type FC, type ReactNode, useCallback, useState } from "react";
+import {
+  type FC,
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia } from "@/feed/types";
-import { NativeFeedVideo } from "@/screens/feed/components/native-feed-video";
-
-export type PlaybackStatus = "loading" | "error" | "verification";
+import { showVideo } from "@/media/video-player";
+import { openBrowser } from "@/platforms/open-post";
+import { withYouTubeStream } from "@/platforms/youtube/playback";
+import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
+import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
+import { useMediaStore } from "@/stores/media-store";
+import { t } from "@/translation/use-translation";
+import { type FeedMedia } from "@/types/feed-media";
+import { PlatformId } from "@/types/platform-id";
 
 interface FeedVideoProps {
-  playbackKey: string;
+  index: number;
   media: FeedMedia;
+  platform: PlatformId;
+  postUrl: string;
+  sourceId?: string;
   fullscreen?: boolean;
-  onFullscreen?: () => void;
+  onFullscreen: () => void;
   navigationGestures?: GestureType[];
   counter?: ReactNode;
-  playbackStatus?: PlaybackStatus;
-  onRetry?: () => void;
-  onError?: () => void;
-  onVerification?: () => void;
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
-  const { counter, playbackStatus, onRetry, onError, onVerification } = props;
+  const {
+    index,
+    media,
+    platform,
+    postUrl,
+    sourceId,
+    fullscreen = false,
+    onFullscreen,
+    navigationGestures,
+    counter,
+  } = props;
+  // The inline and fullscreen views share a key to resume the same playback.
+  const playbackKey = `${postUrl}:${index}`;
+  const youtube = useYouTubeMedia(
+    platform === PlatformId.YOUTUBE ? sourceId : undefined,
+  );
+  const { resolution, fail: failYouTube } = youtube;
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => {
     setFailed(true);
-    onError?.();
-  }, [onError]);
-  const status = playbackStatus || (failed ? "error" : undefined);
+    failYouTube();
+  }, [failYouTube]);
+  const status =
+    platform === PlatformId.YOUTUBE && resolution?.status !== "ready"
+      ? resolution?.status || "loading"
+      : failed && "error";
+  const video = withYouTubeStream(media, resolution);
+  const loaded = useMediaStore(
+    (state) =>
+      state.loaded?.playbackKey === playbackKey &&
+      state.loaded.url === video.url,
+  );
 
-  if (!status) return <NativeFeedVideo {...props} onError={fail} />;
+  // Load this video into the shared player while it can play.
+  useLayoutEffect(() => {
+    if (!status)
+      return showVideo({
+        playbackKey,
+        media: withYouTubeStream(media, resolution),
+        onError: fail,
+      });
+  }, [status, playbackKey, media, resolution, fail]);
+
+  if (!status) {
+    if (!loaded) return counter || null;
+    return (
+      <FeedVideoControls
+        media={video}
+        platform={platform}
+        counter={counter}
+        fullscreen={fullscreen}
+        onFullscreen={onFullscreen}
+        navigationGestures={navigationGestures}
+      />
+    );
+  }
 
   return (
     <View
@@ -44,25 +101,23 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
       }}
     >
       {counter}
-      {status === "loading" ? (
-        <ActivityIndicator color="white" />
-      ) : (
+      {status === "loading" && <ActivityIndicator color="white" />}
+      {status !== "loading" && (
         <Pressable
           accessibilityRole="button"
           style={{ padding: 16 }}
-          onPress={
-            status === "verification"
-              ? onVerification
-              : () => {
-                  setFailed(false);
-                  onRetry?.();
-                }
-          }
+          onPress={() => {
+            if (status === "verification") openBrowser(platform, postUrl);
+            else {
+              setFailed(false);
+              youtube.retry();
+            }
+          }}
         >
-          <Typography style={{ color: "white" }}>
+          <Typography color="white">
             {status === "verification"
-              ? "Video needs verification. Tap to open."
-              : "Couldn't load video. Tap to retry."}
+              ? t("mediaVerification")
+              : t("mediaVideoError")}
           </Typography>
         </Pressable>
       )}

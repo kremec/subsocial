@@ -1,18 +1,16 @@
-import { type FC, useEffect, useState } from "react";
-import { AccessibilityInfo, View } from "react-native";
+import { type FC, useState } from "react";
+import { View } from "react-native";
 
 import { router } from "expo-router";
 
-import Animated, { useReducedMotion } from "react-native-reanimated";
-
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type PlatformId } from "@/feed/types";
 import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
-import { RefreshPlatformIcon } from "@/screens/feed/components/refresh-platform-icon";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedHeaderProps {
   activePlatforms: PlatformId[];
@@ -35,16 +33,6 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
     onTogglePlatform,
   } = props;
   const theme = useTheme();
-  const systemReducedMotion = useReducedMotion();
-  const [reducedMotion, setReducedMotion] = useState(systemReducedMotion);
-  useEffect(() => {
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReducedMotion,
-    );
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
-    return () => subscription.remove();
-  }, []);
   const [menuVisible, setMenuVisible] = useState(false);
   const pendingPlatforms = platforms.filter((platform) =>
     loadingPlatforms.includes(platform.id),
@@ -68,49 +56,47 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
           fontFamily: theme.fonts.rounded,
         }}
       >
-        subsocial
+        {t("appName")}
       </Typography>
-      <View style={{ flex: 1, alignItems: "center", overflow: "hidden" }}>
-        <Animated.View
-          style={{
-            height: 36,
-            maxWidth: "100%",
-            width: pendingPlatforms.length
-              ? pendingPlatforms.length * 26 + 10
-              : 0,
-            transition: reducedMotion
-              ? "none"
-              : "width 300ms cubic-bezier(0.33, 1, 0.68, 1)",
-          }}
-        >
-          {platforms.map((platform) => (
-            <RefreshPlatformIcon
-              key={platform.id}
-              platform={platform}
-              reducedMotion={reducedMotion}
-              count={pendingPlatforms.length}
-              position={pendingPlatforms.findIndex(
-                (item) => item.id === platform.id,
-              )}
-            />
-          ))}
-        </Animated.View>
-      </View>
-      <IconButton
-        accessibilityLabel="Search feed"
-        onPress={() => router.push("/search")}
-        style={{ width: 36, height: 36 }}
-      >
-        <Icon name="search" color={theme.colors.text} size={22} />
-      </IconButton>
-      <IconButton
-        onPress={() => setMenuVisible(true)}
+      <View
         style={{
-          width: 36,
-          height: 36,
+          flex: 1,
+          flexDirection: "row",
+          justifyContent: "center",
+          overflow: "hidden",
         }}
       >
-        <Icon name="dots" color={theme.colors.text} size={22} />
+        {pendingPlatforms.map((platform) => (
+          <View
+            key={platform.id}
+            accessible
+            accessibilityLabel={t("feedRefreshing", {
+              platform: platform.label,
+            })}
+            style={{
+              width: 26,
+              height: 36,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name={platform.icon} color={platform.color} size={18} />
+          </View>
+        ))}
+      </View>
+      <IconButton
+        size={36}
+        accessibilityLabel={t("feedSearch")}
+        onPress={() => router.push("/search")}
+      >
+        <Icon name={IconName.SEARCH} color={theme.colors.text} size={22} />
+      </IconButton>
+      <IconButton
+        size={36}
+        accessibilityLabel={t("feedMenu")}
+        onPress={() => setMenuVisible(true)}
+      >
+        <Icon name={IconName.DOTS} color={theme.colors.text} size={22} />
       </IconButton>
 
       <FeedMenu

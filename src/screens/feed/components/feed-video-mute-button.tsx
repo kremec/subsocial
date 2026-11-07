@@ -1,8 +1,11 @@
-import { type FC, useContext, useEffect, useState } from "react";
+import { type FC } from "react";
 import { Pressable } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
-import { FeedVideoPlayerContext } from "@/screens/feed/feed-video-player";
+import { useEvent } from "expo";
+
+import { Icon, IconName } from "@/components/ui/icon";
+import { player } from "@/media/video-player";
+import { t } from "@/translation/use-translation";
 
 interface FeedVideoMuteButtonProps {
   inline?: boolean;
@@ -10,28 +13,16 @@ interface FeedVideoMuteButtonProps {
 
 export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
   const { inline } = props;
-  const player = useContext(FeedVideoPlayerContext);
-  const [muted, setMuted] = useState(player?.muted ?? true);
-  useEffect(() => {
-    if (!player) return;
-    const listener = player.addListener("mutedChange", (event) =>
-      setMuted(event.muted),
-    );
-    return () => listener.remove();
-  }, [player]);
+  const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={muted ? "Unmute all videos" : "Mute all videos"}
+      accessibilityLabel={t(muted ? "mediaUnmute" : "mediaMute")}
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
-        if (player) {
-          // VideoPlayer is a mutable native object; this setter emits mutedChange.
-          // oxlint-disable-next-line react/immutability
-          player.muted = !player.muted;
-        }
+        player.muted = !player.muted;
       }}
       style={({ pressed }) => ({
         ...(!inline && { position: "absolute", bottom: 8, right: 8 }),
@@ -44,7 +35,11 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      <Icon name={muted ? "volume-off" : "volume"} color="#FFFFFF" size={16} />
+      <Icon
+        name={muted ? IconName.VOLUME_OFF : IconName.VOLUME}
+        color="#FFFFFF"
+        size={16}
+      />
     </Pressable>
   );
 };

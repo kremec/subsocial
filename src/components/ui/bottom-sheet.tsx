@@ -7,6 +7,7 @@ import {
 } from "@expo/ui/community/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Toast } from "@/components/ui/toast";
 import { useTheme } from "@/theme/use-theme";
 
 interface BottomSheetProps {
@@ -34,6 +35,7 @@ export const BottomSheet: FC<PropsWithChildren<BottomSheetProps>> = (props) => {
       >
         {children}
       </BottomSheetScrollView>
+      {visible && <Toast topOffset={0} />}
     </NativeBottomSheet>
   );
 };

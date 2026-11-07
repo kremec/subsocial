@@ -1,4 +1,5 @@
-import { type FeedItem, type FeedPost } from "@/feed/types";
+import { type FeedItem } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
 
 export interface FeedRow {
   id: string;
@@ -57,4 +58,47 @@ export function rowsForItems(items: FeedItem[]): Map<FeedItem, FeedRow[]> {
       ];
     }),
   );
+}
+
+// Saved reading position, which survives row key changes as threads grow.
+export interface FeedPosition {
+  id: string;
+  viewOffset: number;
+  postId?: string;
+  branchId?: string;
+}
+
+const postIdFor = (row: FeedRow) =>
+  `${row.item.platform}:${(row.post ?? row.item).sourceId}`;
+
+export const positionFor = (
+  row: FeedRow,
+  viewOffset: number,
+): FeedPosition => ({
+  id: row.id,
+  viewOffset,
+  postId: postIdFor(row),
+  branchId: row.item.id,
+});
+
+export function findPositionIndex(
+  rows: FeedRow[],
+  position: FeedPosition,
+): number {
+  const exact = rows.findIndex((row) => row.id === position.id);
+  if (exact >= 0 || !position.postId) return exact;
+  // Row keys change when branches grow, so find the post in its saved branch.
+  let firstPost = -1;
+  for (const [index, row] of rows.entries()) {
+    if (postIdFor(row) !== position.postId) continue;
+    if (firstPost < 0) firstPost = index;
+    if (
+      row.item.id === position.branchId ||
+      row.item.thread?.some(
+        (post) => `${row.item.platform}:${post.sourceId}` === position.branchId,
+      )
+    )
+      return index;
+  }
+  return firstPost;
 }
