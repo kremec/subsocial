@@ -22,18 +22,13 @@ import {
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
+import { findPositionIndex, positionFor } from "@/feed/feed-rows";
 import { FeedCard } from "@/screens/feed/components/feed-card";
-import {
-  type FeedRow,
-  findPositionIndex,
-  positionFor,
-  rowsForItems,
-} from "@/screens/feed/feed-rows";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
-import { type FeedItem } from "@/types/feed-item";
+import { type FeedItem, type FeedRow } from "@/types/feed-item";
 import { type FeedPost } from "@/types/feed-post";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
@@ -60,7 +55,7 @@ const postText = (post: FeedPost): string =>
   ].join(" ");
 
 const getItemType = (row: FeedRow) =>
-  row.post ? "thread" : row.item.media.length ? "media" : "text";
+  row.threaded ? "thread" : row.post.media?.length ? "media" : "text";
 
 interface FeedListProps {
   items: FeedItem[];
@@ -90,17 +85,14 @@ export const FeedList: FC<FeedListProps> = (props) => {
   const filteredItems = terms.length
     ? items.filter((item) => {
         const text = normalize(
-          [
-            item.platform,
-            postText(item),
-            ...(item.thread ?? []).map(postText),
-          ].join(" "),
+          [item.platform, ...item.rows.map((row) => postText(row.post))].join(
+            " ",
+          ),
         );
         return terms.every((term) => text.includes(term));
       })
     : items;
-  const itemRows = rowsForItems(items);
-  const rows = filteredItems.flatMap((item) => itemRows.get(item)!);
+  const rows = filteredItems.flatMap((item) => item.rows);
   const localList = useRef<LegendListRef>(null);
   const list = listRef ?? localList;
   const readingRowId = useRef<string>(undefined);
@@ -127,7 +119,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     const element: ViewInstance | undefined = state.elementAtIndex(index);
     element?.measureInWindow((_x, rowY) => {
       viewport.current?.measureInWindow((_left, viewportY) => {
-        useSettingsStore.setState({
+        useSettingsStore.getState().updateSettings({
           feedPosition: positionFor(row, rowY - viewportY),
         });
       });
@@ -192,8 +184,9 @@ export const FeedList: FC<FeedListProps> = (props) => {
         renderItem={({ item: row }) => (
           <FeedCard
             rowId={row.id}
-            item={row.item}
             post={row.post}
+            platform={row.platform}
+            threaded={row.threaded}
             threadStart={row.threadStart}
             threadEnd={row.threadEnd}
             threadGapBefore={row.threadGapBefore}

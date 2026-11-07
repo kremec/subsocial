@@ -5,16 +5,17 @@ import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
 import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedItem } from "@/types/feed-item";
 import { type FeedPost } from "@/types/feed-post";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedCardProps {
   rowId: string;
-  item: FeedItem;
-  post?: FeedPost;
-  threadStart?: boolean;
-  threadEnd?: boolean;
-  threadGapBefore?: boolean;
+  post: FeedPost;
+  platform: PlatformId;
+  threaded: boolean;
+  threadStart: boolean;
+  threadEnd: boolean;
+  threadGapBefore: boolean;
   activePostUrl?: string;
   onActivate: (rowId: string, postUrl: string) => void;
   onVideoView: (
@@ -27,8 +28,9 @@ interface FeedCardProps {
 export const FeedCard: FC<FeedCardProps> = memo((props) => {
   const {
     rowId,
-    item,
     post,
+    platform,
+    threaded,
     threadStart,
     threadEnd,
     threadGapBefore,
@@ -47,16 +49,16 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
         setVideoView: onVideoView,
       }}
     >
-      {post && (
+      {threaded && (
         <ThreadCard
           post={post}
-          platform={item.platform}
-          start={!!threadStart}
-          end={!!threadEnd}
-          gapBefore={!!threadGapBefore}
+          platform={platform}
+          start={threadStart}
+          end={threadEnd}
+          gapBefore={threadGapBefore}
         />
       )}
-      {!post && (
+      {!threaded && (
         <View
           style={{
             paddingVertical: theme.spacing.lg,
@@ -64,7 +66,7 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
             borderBottomColor: theme.colors.border,
           }}
         >
-          <PostContent post={item} platform={item.platform} variant="feed" />
+          <PostContent post={post} platform={platform} variant="feed" />
         </View>
       )}
     </FeedVideoContext>

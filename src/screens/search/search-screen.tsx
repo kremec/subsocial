@@ -9,7 +9,7 @@ import { ModalHeader } from "@/components/modal-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
-import { listFeedItems } from "@/db/repositories/feed-items-repository";
+import { listFeedItems } from "@/feed/feed-rows";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";

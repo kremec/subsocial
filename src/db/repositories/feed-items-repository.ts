@@ -5,7 +5,6 @@ import { feedItems } from "@/db/schema";
 import { feedItemLimit } from "@/feed/collection";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { type ExtractedPost } from "@/types/extracted-post";
-import { type FeedItem } from "@/types/feed-item";
 import { FeedMediaType } from "@/types/feed-media";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
@@ -132,79 +131,14 @@ export function saveExtraction(
   });
 }
 
-// Build oldest-first branches. Missing parents split branches; unlinked posts
-// keep module order. Saved prefixes let later replies resume or fork a branch.
-function threadBranches(rows: FeedItemRow[]): FeedItemRow[][] {
-  let branch: FeedItemRow[] = [];
-  const branches = new Set<FeedItemRow[]>();
-  const paths = new Map<string, { branch: FeedItemRow[]; length: number }>();
-  for (const row of rows) {
-    const { replyToSourceId, threadContextSourceId } = row.post;
-    const parent =
-      (replyToSourceId && paths.get(replyToSourceId)) ||
-      (threadContextSourceId && paths.get(threadContextSourceId));
-    if (parent)
-      branch =
-        parent.branch.length === parent.length
-          ? parent.branch
-          : parent.branch.slice(0, parent.length);
-    else if (replyToSourceId) branch = [];
-    branch.push(row);
-    branches.add(branch);
-    paths.set(row.sourceId, { branch, length: branch.length });
-  }
-  return [...branches];
-}
-
-// Unchanged threads keep their items so rendered rows can skip updates.
-const cachedThreads = new Map<string, { key: string; items: FeedItem[] }>();
-
-function itemsForThread(id: string, rows: FeedItemRow[]): FeedItem[] {
-  const key = JSON.stringify(rows);
-  const cached = cachedThreads.get(id);
-  if (cached?.key === key) return cached.items;
-  rows.sort(
-    (left, right) =>
-      left.publishedAt! - right.publishedAt! ||
-      left.sourceId.localeCompare(right.sourceId),
-  );
-  // Each branch is ranked by its own latest post, not a sibling's activity.
-  const items = threadBranches(rows).map((branch): FeedItem => {
-    const latest = branch.at(-1)!;
-    return {
-      ...postFromRow(latest),
-      media: latest.post.media ?? [],
-      id: latest.id,
-      platform: latest.platform,
-      publishedAt: latest.publishedAt!,
-      thread: branch.length > 1 ? branch.map(postFromRow) : undefined,
-    };
-  });
-  cachedThreads.set(id, { key, items });
-  return items;
-}
-
-export function listFeedItems(): FeedItem[] {
-  const threads = new Map<string, FeedItemRow[]>();
+export function listFeedPosts(): FeedItemRow[] {
   // Keep undated saved posts without placing them in the chronological feed.
-  for (const row of db
+  return db
     .select()
     .from(feedItems)
     .where(isNotNull(feedItems.publishedAt))
     .orderBy(desc(feedItems.publishedAt), desc(feedItems.id))
-    .all()) {
-    const thread = threads.get(row.threadId) ?? [];
-    thread.push(row);
-    threads.set(row.threadId, thread);
-  }
-  for (const id of cachedThreads.keys())
-    if (!threads.has(id)) cachedThreads.delete(id);
-  return [...threads]
-    .flatMap(([id, rows]) => itemsForThread(id, rows))
-    .sort(
-      (left, right) =>
-        right.publishedAt - left.publishedAt || right.id.localeCompare(left.id),
-    );
+    .all();
 }
 
 // Keep the newest threads per platform so busy platforms cannot evict others.

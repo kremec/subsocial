@@ -8,7 +8,7 @@ import {
 } from "react";
 import { type ViewInstance } from "react-native";
 
-import { type FeedItem } from "@/types/feed-item";
+import { type FeedRow } from "@/types/feed-item";
 
 interface ActiveVideo {
   rowId: string;
@@ -31,7 +31,7 @@ const sameVideo = (left?: ActiveVideo, right?: ActiveVideo) =>
   left?.rowId === right?.rowId && left?.postUrl === right?.postUrl;
 
 export function useFeedVideoVisibility(
-  rows: readonly Pick<FeedItem, "id">[],
+  rows: readonly Pick<FeedRow, "id">[],
   enabled: boolean,
 ) {
   const viewport = useRef<ViewInstance>(null);

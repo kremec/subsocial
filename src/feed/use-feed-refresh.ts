@@ -3,11 +3,9 @@ import { AppState } from "react-native";
 
 import { showErrorToast } from "@/components/ui/toast";
 import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
-import {
-  listFeedItems,
-  pruneFeedItems,
-} from "@/db/repositories/feed-items-repository";
+import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
+import { listFeedItems } from "@/feed/feed-rows";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
