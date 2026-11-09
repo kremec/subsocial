@@ -31,7 +31,3 @@ export const feedItems = sqliteTable(
     ),
   ],
 );
-
-export const connections = sqliteTable("connections", {
-  platform: text().$type<PlatformId>().primaryKey().notNull(),
-});

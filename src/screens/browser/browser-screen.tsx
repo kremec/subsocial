@@ -9,10 +9,10 @@ import { ModalHeader } from "@/components/modal-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
-import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type PlatformId } from "@/types/platform-id";
@@ -23,8 +23,8 @@ export const BrowserScreen: FC = () => {
   const platform = getPlatform(params.platform);
   const webView = useRef<WebView<object>>(null);
   const [resetting, setResetting] = useState(false);
-  const [connected, setConnected] = useState(() =>
-    listConnectedPlatforms().includes(platform.id),
+  const connected = useSettingsStore((state) =>
+    state.settings.connectedPlatforms.includes(platform.id),
   );
 
   // Clear the session only after the WebView unmounts, so it can't restore cookies.
@@ -138,9 +138,7 @@ export const BrowserScreen: FC = () => {
           webviewDebuggingEnabled={__DEV__}
           onShouldStartLoadWithRequest={stayInWebView}
           onLoadEnd={() => {
-            void syncPlatformSession(platform).then((connected) => {
-              if (connected !== undefined) setConnected(connected);
-            });
+            void syncPlatformSession(platform);
           }}
           style={{ flex: 1, backgroundColor: theme.colors.background }}
         />

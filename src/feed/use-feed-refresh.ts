@@ -2,7 +2,6 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { showErrorToast } from "@/components/ui/toast";
-import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
 import { listFeedItems } from "@/feed/feed-rows";
@@ -21,7 +20,9 @@ const withMember = (list: PlatformId[], id: PlatformId, member: boolean) => [
 
 export function useFeedRefresh(focused: boolean) {
   const [items, setItems] = useState(listFeedItems);
-  const [connected, setConnected] = useState(listConnectedPlatforms);
+  const [connected, setConnected] = useState(
+    () => useSettingsStore.getState().settings.connectedPlatforms,
+  );
   const [failed, setFailed] = useState<PlatformId[]>([]);
   const [attention, setAttention] = useState<PlatformId[]>([]);
   const [collection, setCollection] = useState<PlatformId[]>([]);
@@ -139,7 +140,6 @@ export function useFeedRefresh(focused: boolean) {
     reload: () => {
       paused.current = false;
       setItems(listFeedItems());
-      setConnected(listConnectedPlatforms());
       setFailed([]);
       setAttention([]);
       restart();

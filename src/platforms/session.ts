@@ -2,14 +2,9 @@ import { Platform } from "react-native";
 
 import CookieManager from "@preeternal/react-native-cookie-manager";
 
-import { db } from "@/db/client";
-import {
-  connectPlatform,
-  disconnectPlatform,
-  listConnectedPlatforms,
-} from "@/db/repositories/connections-repository";
 import { deletePlatformPosts } from "@/db/repositories/feed-items-repository";
 import { hasSession, platforms } from "@/platforms/platforms";
+import { useSettingsStore } from "@/stores/settings-store";
 import { type PlatformDefinition } from "@/types/platform-definition";
 import { type PlatformId } from "@/types/platform-id";
 
@@ -18,9 +13,19 @@ export async function syncPlatformSession(
 ): Promise<boolean | undefined> {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
+    const { settings, updateSettings } = useSettingsStore.getState();
+    const connected = settings.connectedPlatforms.includes(platform.id);
     // Keep configured accounts until explicit logout, even if login expires.
-    if (hasSession(platform, cookies)) connectPlatform(platform.id);
-    return listConnectedPlatforms().includes(platform.id);
+    if (!connected && hasSession(platform, cookies)) {
+      updateSettings({
+        connectedPlatforms: [
+          ...settings.connectedPlatforms,
+          platform.id,
+        ].sort(),
+      });
+      return true;
+    }
+    return connected;
   } catch {
     return undefined;
   }
@@ -28,7 +33,7 @@ export async function syncPlatformSession(
 
 export async function syncPlatformSessions(): Promise<PlatformId[]> {
   await Promise.all(platforms.map(syncPlatformSession));
-  return listConnectedPlatforms();
+  return useSettingsStore.getState().settings.connectedPlatforms;
 }
 
 export async function resetPlatformSession(
@@ -49,8 +54,11 @@ export async function resetPlatformSession(
       );
     }
   }
-  db.transaction(() => {
-    deletePlatformPosts(platform.id);
-    disconnectPlatform(platform.id);
+  deletePlatformPosts(platform.id);
+  const { settings, updateSettings } = useSettingsStore.getState();
+  updateSettings({
+    connectedPlatforms: settings.connectedPlatforms.filter(
+      (id) => id !== platform.id,
+    ),
   });
 }

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { showErrorToast } from "@/components/ui/toast";
 import { db } from "@/db/client";
-import { connections, feedItems } from "@/db/schema";
+import { feedItems } from "@/db/schema";
 import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
@@ -56,17 +56,11 @@ export function importDatabase(): Promise<void> {
         const items = importedRowSchema
           .array()
           .parse(source.select().from(feedItems).all());
-        const accounts = z
-          .array(z.object({ platform: platformIdSchema }))
-          .parse(source.select().from(connections).all());
 
         // Replace data atomically, keeping the live schema and migration journal.
         db.transaction(() => {
           db.delete(feedItems).run();
-          db.delete(connections).run();
           for (const item of items) db.insert(feedItems).values(item).run();
-          for (const account of accounts)
-            db.insert(connections).values(account).run();
         });
       } finally {
         await imported?.closeAsync().catch(console.warn);

@@ -1,20 +1,17 @@
 import { type FC, Fragment, useState } from "react";
 import { Platform } from "react-native";
 
-import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { WebView } from "react-native-webview";
 
+import { useAppBootstrap } from "@/bootstrap/use-app-bootstrap";
 import { AppLoadingScreen } from "@/components/app-loading-screen";
 import { AppStack } from "@/components/app-stack";
-import { db } from "@/db/client";
-import migrations from "@drizzle/migrations";
 
 export const AppRoot: FC = () => {
-  const { success, error } = useMigrations(db, migrations);
+  const { ready } = useAppBootstrap();
   const [webKitReady, setWebKitReady] = useState(Platform.OS !== "ios");
 
-  if (error) throw error;
-  if (success && webKitReady) return <AppStack />;
+  if (ready && webKitReady) return <AppStack />;
 
   return (
     <Fragment>

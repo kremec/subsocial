@@ -8,7 +8,6 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
-import { listConnectedPlatforms } from "@/db/repositories/connections-repository";
 import { openBrowser } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
@@ -19,16 +18,17 @@ import { t } from "@/translation/use-translation";
 export const OnboardingScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [connected, setConnected] = useState(listConnectedPlatforms);
+  const connected = useSettingsStore(
+    (state) => state.settings.connectedPlatforms,
+  );
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     if (!focused) return;
     let current = true;
     void syncPlatformSessions()
-      .then((platforms) => {
+      .then(() => {
         if (!current) return;
-        setConnected(platforms);
         setChecking(false);
       })
       .catch(() => {
