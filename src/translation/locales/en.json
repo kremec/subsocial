@@ -1,7 +1,6 @@
 {
   "loading": "Loading…",
   "connectionsCheckFailed": "Could not check platform connections.",
-  "settingsLoadFailed": "Could not load your settings.",
   "onboardingTitle": "Your feeds, together.",
   "onboardingDescription": "Connect at least one platform to continue.",
   "managePlatformConnection": "%{platform}, connected. Manage connection",
