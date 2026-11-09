@@ -16,7 +16,7 @@ interface PlayerVideo {
 export const player = createVideoPlayer(null);
 player.loop = true;
 player.timeUpdateEventInterval = 0.25;
-player.muted = useSettingsStore.getState().videosMuted;
+player.muted = useSettingsStore.getState().settings.videosMuted;
 player.bufferOptions = {
   minBufferForPlayback: 0.5,
   preferredForwardBufferDuration: 5,

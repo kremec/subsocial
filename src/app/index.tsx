@@ -5,7 +5,7 @@ import { OnboardingScreen } from "@/screens/onboarding/onboarding-screen";
 import { useSettingsStore } from "@/stores/settings-store";
 
 const FeedRoute: FC = () => {
-  const onboarded = useSettingsStore((state) => state.onboarded);
+  const onboarded = useSettingsStore((state) => state.settings.onboarded);
 
   return (
     <Fragment>

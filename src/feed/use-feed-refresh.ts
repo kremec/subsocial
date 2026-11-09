@@ -29,7 +29,7 @@ export function useFeedRefresh(focused: boolean) {
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
   );
-  const hidden = useSettingsStore((state) => state.hiddenPlatforms);
+  const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
   const pending = useRef<PlatformId[]>([]);
   const controller = useRef<AbortController>(undefined);
   const paused = useRef(false);

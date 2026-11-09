@@ -102,7 +102,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     updateVideoVisibility({ rowId, postUrl });
   const [initialScrollIndex] = useState(() => {
     if (!rememberPosition) return undefined;
-    const position = useSettingsStore.getState().feedPosition;
+    const position = useSettingsStore.getState().settings.feedPosition;
     if (!position) return undefined;
     const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
