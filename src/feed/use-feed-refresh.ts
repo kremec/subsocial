@@ -13,7 +13,12 @@ import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
 import { type PlatformId, platformIdSchema } from "@/types/platform-id";
 
-type CollectionStatus = "queued" | "collecting" | "failed" | "attention";
+type CollectionStatus =
+  | "queued"
+  | "collecting"
+  | "retrying"
+  | "failed"
+  | "attention";
 
 export function useFeedRefresh(focused: boolean) {
   const [items, setItems] = useState(listFeedItems);
@@ -35,7 +40,9 @@ export function useFeedRefresh(focused: boolean) {
   const platforms = platformIdSchema.options;
   const collection =
     focused && foreground && !paused
-      ? platforms.filter((id) => statuses[id] === "collecting")
+      ? platforms.filter(
+          (id) => statuses[id] === "collecting" || statuses[id] === "retrying",
+        )
       : [];
   const setStatus = (id: PlatformId, status?: CollectionStatus) =>
     setStatuses((current) => ({ ...current, [id]: status }));
@@ -61,6 +68,7 @@ export function useFeedRefresh(focused: boolean) {
           added ||
           statuses[id] === "queued" ||
           statuses[id] === "collecting" ||
+          statuses[id] === "retrying" ||
           statuses[id] === "attention",
       );
       refreshOnForeground.current = false;
@@ -70,7 +78,11 @@ export function useFeedRefresh(focused: boolean) {
         Object.fromEntries(
           platforms.map((id) => [
             id,
-            queue.includes(id) ? "collecting" : statuses[id],
+            queue.includes(id)
+              ? statuses[id] === "attention" || statuses[id] === "retrying"
+                ? "retrying"
+                : "collecting"
+              : statuses[id],
           ]),
         ),
       );
@@ -107,7 +119,11 @@ export function useFeedRefresh(focused: boolean) {
         Object.fromEntries(
           Object.entries(current).map(([id, status]) => [
             id,
-            status === "collecting" ? "queued" : status,
+            status === "collecting"
+              ? "queued"
+              : status === "retrying"
+                ? "attention"
+                : status,
           ]),
         ),
       );
@@ -139,7 +155,9 @@ export function useFeedRefresh(focused: boolean) {
     ),
     active: platforms.filter((id) => !hidden.includes(id)),
     collection,
-    attention: platforms.filter((id) => statuses[id] === "attention"),
+    attention: platforms.filter(
+      (id) => statuses[id] === "attention" || statuses[id] === "retrying",
+    ),
     foreground,
     toggle: (id: PlatformId) =>
       useSettingsStore.getState().updateSettings({
