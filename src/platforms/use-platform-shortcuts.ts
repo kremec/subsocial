@@ -35,8 +35,10 @@ async function updatePlatformShortcuts() {
   await setItems(items.filter((item) => item !== undefined).slice(0, maxCount));
 }
 
-export function usePlatformShortcuts() {
+export function usePlatformShortcuts(enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
+
     const action = pendingInitialShortcut;
     pendingInitialShortcut = undefined;
     if (action) openShortcut(action);
@@ -54,5 +56,5 @@ export function usePlatformShortcuts() {
       appStateSubscription.remove();
       shortcutSubscription.remove();
     };
-  }, []);
+  }, [enabled]);
 }
