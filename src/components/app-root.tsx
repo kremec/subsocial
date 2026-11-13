@@ -30,8 +30,8 @@ export const AppRoot: FC = () => {
         }}
       >
         <Stack.Screen name="index" />
-        <Stack.Screen name="browser" options={{ presentation: "modal" }} />
-        <Stack.Screen name="search" options={{ presentation: "modal" }} />
+        <Stack.Screen name="browser" />
+        <Stack.Screen name="search" />
         <Stack.Screen
           name="media"
           options={{
