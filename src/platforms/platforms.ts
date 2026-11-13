@@ -24,9 +24,9 @@ const definitions: Record<PlatformId, PlatformDefinition> = {
 
 export const platforms = Object.values(definitions);
 export function getPlatform(id: PlatformId): PlatformDefinition {
-  const platform = definitions[id];
-  if (!platform) throw new Error(t("unknownPlatform", { platform: id }));
-  return platform;
+  if (!Object.hasOwn(definitions, id))
+    throw new Error(t("unknownPlatform", { platform: id }));
+  return definitions[id];
 }
 
 export const hasSession = (platform: PlatformDefinition, cookies: Cookies) =>
