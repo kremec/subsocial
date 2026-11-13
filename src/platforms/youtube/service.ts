@@ -2,67 +2,70 @@ import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
 
-import { type ExtractedItem } from "@/feed/types";
+import { asObject, asString, nestedObjects } from "@/platforms/json";
+import { readBootstrap } from "@/platforms/read-bootstrap";
 import {
-  type Json,
-  type JsonObject,
-  object,
-  string,
-  objects,
-  bootstrap,
-} from "@/platforms/json";
-import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-} from "@/platforms/types";
-import { browseResponseSchema } from "@/platforms/youtube/schemas/browse-response-schema";
+  browseRoots,
+  browseResponseSchema,
+} from "@/platforms/youtube/schemas/browse-response-schema";
 import { configSchema } from "@/platforms/youtube/schemas/config-schema";
 import {
   playerResponseSchema,
   type PlayerResponse,
 } from "@/platforms/youtube/schemas/player-response-schema";
 import { videoRendererSchema } from "@/platforms/youtube/schemas/video-renderer-schema";
+import { t } from "@/translation/use-translation";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
+import { FeedMediaType } from "@/types/feed-media";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedRequest } from "@/types/feed-request";
 
-function videos(data: Json) {
-  const found = new Map<string, JsonObject>();
+// Renderer trees vary between desktop, mobile, and continuation responses.
+// Keep the tree intact and validate individual video renderers when traversing it.
+
+function videos(response: Record<string, unknown>) {
+  const found = new Map<string, Record<string, unknown>>();
   let continuation = "";
-  const visit = (value: Json | undefined) => {
+  const visit = (value: unknown) => {
     if (!value || typeof value !== "object") return;
     if (Array.isArray(value)) {
       for (const item of value) visit(item);
       return;
     }
-    const node = object(value);
-    const lockup = object(node.lockupViewModel);
-    const renderer = object(
+    const node = asObject(value);
+    const lockup = asObject(node.lockupViewModel);
+    const renderer = asObject(
       node.videoRenderer || node.videoWithContextRenderer,
     );
     const video =
       lockup.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" ? lockup : renderer;
-    const id = string(video.contentId) || string(video.videoId);
+    const id = asString(video.contentId) || asString(video.videoId);
     if (id) {
       found.set(id, video);
       return;
     }
-    const token = string(
-      object(
-        object(object(node.continuationItemRenderer).continuationEndpoint)
-          .continuationCommand,
+    const token = asString(
+      asObject(
+        node,
+        "continuationItemRenderer",
+        "continuationEndpoint",
+        "continuationCommand",
       ).token,
     );
     if (token) continuation = token;
-    const browse = object(
+    const browse = asObject(
       node.twoColumnBrowseResultsRenderer ||
         node.singleColumnBrowseResultsRenderer,
     );
     if (Array.isArray(browse.tabs)) {
       for (const tab of browse.tabs) {
-        const renderer = object(object(tab).tabRenderer);
+        const renderer = asObject(tab, "tabRenderer");
         if (renderer.selected === true) visit(renderer.content);
       }
     }
-    visit(object(node.richItemRenderer).content);
+    visit(asObject(node, "richItemRenderer").content);
     // Follow feed containers only. Featured and Shorts shelves are not chronological.
     for (const key of [
       "richGridRenderer",
@@ -76,15 +79,11 @@ function videos(data: Json) {
       "appendContinuationItemsAction",
       "reloadContinuationItemsCommand",
     ]) {
-      const renderer = object(node[key]);
+      const renderer = asObject(node[key]);
       visit(renderer.contents || renderer.items || renderer.continuationItems);
     }
   };
-  const response = object(data);
-  visit(response.contents);
-  visit(response.onResponseReceivedActions);
-  visit(response.onResponseReceivedEndpoints);
-  visit(response.continuationContents);
+  for (const key of browseRoots) visit(response[key]);
   return { found, continuation };
 }
 
@@ -93,24 +92,20 @@ export async function* youtubeFeed(
 ): AsyncGenerator<FeedPage> {
   const response = await request.fetch(
     "https://www.youtube.com/feed/subscriptions",
-    {
-      signal: request.signal,
-    },
   );
   const html = await response.text();
-  const config = configSchema.parse(bootstrap(html, "ytcfg.set({"));
-  if (config.LOGGED_IN !== true)
-    throw new FeedAccessError("Open YouTube to sign in again.");
+  const config = configSchema.parse(readBootstrap(html, "ytcfg.set({"));
+  if (config.LOGGED_IN !== true) throw new FeedAccessError(t("youtubeSignIn"));
   const context = config.INNERTUBE_CONTEXT;
-  if (!context) throw new Error("YouTube feed context was incomplete.");
+  if (!context) throw new FeedError(t("youtubeFeedContextIncomplete"));
   const origin = new URL(response.url).origin;
-  let data: Json = browseResponseSchema.parse(
-    bootstrap(html, "var ytInitialData = "),
+  let data: Record<string, unknown> = browseResponseSchema.parse(
+    readBootstrap(html, "var ytInitialData = "),
   );
   const api = async (
     endpoint: string,
-    body: JsonObject,
-  ): Promise<JsonObject> => {
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> => {
     const timestamp = Math.floor(Date.now() / 1000);
     const user = config.USER_SESSION_ID;
     const authorization = [
@@ -134,7 +129,9 @@ export async function* youtubeFeed(
       })
       .join(" ");
     if (!authorization)
-      throw new FeedAccessError("Open YouTube to renew your login.");
+      throw new FeedAccessError(
+        t("platformRenewLogin", { platform: t("platformYoutube") }),
+      );
     const headers = new Headers({
       "Content-Type": "application/json",
       Authorization: authorization,
@@ -149,37 +146,20 @@ export async function* youtubeFeed(
         method: "POST",
         headers,
         body: JSON.stringify({ context, ...body }),
-        signal: request.signal,
       },
     );
-    const data = z.record(z.string(), z.json()).parse(await response.json());
-    if (data.error)
-      throw new Error("YouTube API request failed. Try again later.");
+    const data = z.record(z.string(), z.unknown()).parse(await response.json());
+    if (data.error) throw new FeedError(t("youtubeApiFailed"));
     return data;
   };
-  let pending = request.pendingItems ?? [];
   const seen = new Set<string>();
   const cursors = new Set<string>();
   while (!request.signal.aborted) {
     const page = videos(data);
-    if (pending.length) {
-      page.found = new Map([
-        ...pending.map((item): [string, JsonObject] => [
-          item.sourceId,
-          {
-            videoId: item.sourceId,
-            title: { simpleText: item.text || "" },
-            shortBylineText: { simpleText: item.authorName || "" },
-          },
-        ]),
-        ...page.found,
-      ]);
-      pending = [];
-    }
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);
-      const live = [...objects(video)].some(
+      const live = [...nestedObjects(video)].some(
         (node) =>
           node.style === "LIVE" ||
           node.style === "BADGE_STYLE_TYPE_LIVE_NOW" ||
@@ -208,7 +188,7 @@ export async function* youtubeFeed(
           microformat?.publishDate,
           microformat?.uploadDate,
         ]
-          .map((value) => Date.parse(string(value)))
+          .map((value) => Date.parse(asString(value)))
           .find((value) => value > 0);
         if (!publishedAt) {
           yield { items: [], failedSourceIds: [sourceId], end: false };
@@ -235,12 +215,11 @@ export async function* youtubeFeed(
         sourceId,
         url: `https://www.youtube.com/watch?v=${sourceId}`,
         authorName: author,
-        authorHandle: author,
         text: title,
         publishedAt,
         media: [
           {
-            type: "video",
+            type: FeedMediaType.VIDEO,
             url: thumbnail,
             posterUrl: thumbnail,
             playable: true,
@@ -253,7 +232,9 @@ export async function* youtubeFeed(
       yield { items: [item], end: false };
     }
     if (page.continuation && cursors.has(page.continuation))
-      throw new Error("YouTube did not advance the feed.");
+      throw new FeedError(
+        t("feedDidNotAdvance", { platform: t("platformYoutube") }),
+      );
     const end = !page.continuation;
     yield { items: [], end };
     if (end) return;

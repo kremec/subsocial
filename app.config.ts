@@ -1,4 +1,11 @@
+/// <reference types="node" />
+
+import { supportedLocales } from "./plugins/localization.js";
+import withPlatformAppQueries from "./plugins/platform-app-queries.js";
+
 const IS_DEV = process.env.APP_VARIANT === "development";
+const appId = IS_DEV ? "com.subbyte.subsocial.dev" : "com.subbyte.subsocial";
+const projectId = "2236c731-2281-4d29-b10b-1338e1099ef7";
 
 export default {
   name: IS_DEV ? "subsocial (DEV)" : "subsocial",
@@ -8,16 +15,14 @@ export default {
     policy: "fingerprint",
   },
   updates: {
-    url: "https://u.expo.dev/2236c731-2281-4d29-b10b-1338e1099ef7",
+    url: `https://u.expo.dev/${projectId}`,
   },
   orientation: "default",
   icon: "./assets/icon.png",
   scheme: "subsocial",
   userInterfaceStyle: "automatic",
   ios: {
-    bundleIdentifier: IS_DEV
-      ? "com.subbyte.subsocial.dev"
-      : "com.subbyte.subsocial",
+    bundleIdentifier: appId,
     infoPlist: {
       LSApplicationQueriesSchemes: [
         "instagram",
@@ -29,7 +34,7 @@ export default {
     },
   },
   android: {
-    package: IS_DEV ? "com.subbyte.subsocial.dev" : "com.subbyte.subsocial",
+    package: appId,
     predictiveBackGestureEnabled: false,
   },
   plugins: [
@@ -38,32 +43,42 @@ export default {
     "expo-video",
     "expo-image",
     "expo-sqlite",
-    "./plugins/with-platform-app-queries",
+    ["expo-localization", { supportedLocales }],
+    withPlatformAppQueries,
+    [
+      "expo-build-properties",
+      {
+        android: {
+          usePrecompiledHeaders: true,
+        },
+      },
+    ],
     [
       "expo-splash-screen",
       {
         backgroundColor: "#F7F7F5",
-        android: { image: "./assets/splash-icon.png", imageWidth: 76 },
+        image: "./assets/splash-icon.png",
+        imageWidth: 76,
+        dark: { backgroundColor: "#111110" },
       },
     ],
     [
       "expo-dev-client",
       {
-        addGeneratedScheme: !!IS_DEV,
+        addGeneratedScheme: IS_DEV,
       },
     ],
   ],
   experiments: {
     inlineModules: {
-      watchedDirectories: ["src/platforms"],
+      watchedDirectories: ["src/modules"],
     },
     typedRoutes: true,
     reactCompiler: true,
   },
   extra: {
-    staging: IS_DEV,
     eas: {
-      projectId: "2236c731-2281-4d29-b10b-1338e1099ef7",
+      projectId,
     },
   },
 };

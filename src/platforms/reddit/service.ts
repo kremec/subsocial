@@ -1,133 +1,127 @@
-import {
-  type ExtractedItem,
-  type ExtractedPost,
-  type FeedMedia,
-} from "@/feed/types";
-import {
-  listingSchema,
-  type RedditPost,
-} from "@/platforms/reddit/schemas/listing-schema";
-import { type FeedPage, type FeedRequest } from "@/platforms/types";
+import { type Element } from "domhandler";
+import { parseDocument } from "htmlparser2";
 
-const aspectRatio = (width: number | undefined, height: number | undefined) =>
-  typeof width === "number" &&
-  typeof height === "number" &&
-  width > 0 &&
-  height > 0
-    ? width / height
-    : undefined;
+import { aspectRatio } from "@/platforms/aspect-ratio";
+import { paginateFeed } from "@/platforms/paginate-feed";
+import { elements, postFor } from "@/platforms/reddit/post-extraction";
+import { t } from "@/translation/use-translation";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedError } from "@/types/feed-error";
+import { FeedMediaType } from "@/types/feed-media";
+import { type FeedRequest } from "@/types/feed-request";
 
-function mediaFor(post: RedditPost): FeedMedia[] {
-  const preview = post.preview?.images?.[0]?.source;
-  const video = post.secure_media?.reddit_video || post.media?.reddit_video;
-  const videoUrl = video?.hls_url || video?.fallback_url;
-  if (videoUrl)
-    return [
-      {
-        type: "video",
-        url: videoUrl,
-        posterUrl: preview?.url || undefined,
-        playable: true,
-        contentType: video?.hls_url ? "hls" : "progressive",
-        aspectRatio: aspectRatio(video?.width, video?.height),
-      },
-    ];
-  // Text posts keep embedded media in metadata without gallery_data.
-  const gallery =
-    post.gallery_data?.items ??
-    Array.from(
-      (post.selftext ?? "").matchAll(
-        /^https:\/\/(?:i|preview)\.redd\.it\/([a-z0-9]+)\.\S+$/gm,
-      ),
-      (match) => ({ media_id: match[1] }),
-    );
-  const galleryMedia = gallery.flatMap((entry): FeedMedia[] => {
-    const metadata = post.media_metadata?.[entry.media_id];
-    if (metadata?.status !== "valid" || !metadata.s) return [];
-    const source = metadata.s;
-    const url = source.mp4 || source.u || source.gif;
-    if (!url) return [];
-    return [
-      {
-        type: source.mp4 ? "video" : "image",
-        url,
-        playable: source.mp4 ? true : undefined,
-        aspectRatio: aspectRatio(source.x, source.y),
-      },
-    ];
-  });
-  if (galleryMedia.length) return galleryMedia;
-  const imageUrl = post.url_overridden_by_dest || post.url || "";
-  // External link previews belong to the linked page, not the post's media.
-  if (!/^https:\/\/(?:i|preview)\.redd\.it\//.test(imageUrl)) return [];
-  return [
-    {
-      type: "image",
-      url: preview?.url || imageUrl,
-      aspectRatio: aspectRatio(preview?.width, preview?.height),
-    },
-  ];
+const origin = "https://www.reddit.com";
+
+function redditUrl(path: string): URL {
+  const url = new URL(path, origin);
+  if (url.origin !== origin) throw new FeedError(t("redditFeedUnreadable"));
+  return url;
 }
 
-function postFor(post: RedditPost): ExtractedPost | undefined {
-  const sourceId = post.name;
-  const permalink = post.permalink;
-  if (!sourceId || !permalink.startsWith("/")) return;
-  const crosspost = post.crosspost_parent_list?.[0];
-  const quote = crosspost ? postFor(crosspost) : undefined;
-  const media = quote ? [] : mediaFor(post);
-  const text = media.length
-    ? post.selftext
-        ?.split("\n")
-        .filter((line) => !media.some((item) => item.url === line.trim()))
-        .join("\n")
-        .trim()
-    : post.selftext;
-  return {
-    sourceId,
-    url: `https://www.reddit.com${permalink}`,
-    authorName: post.author,
-    authorHandle: post.subreddit_name_prefixed,
-    title: post.title,
-    text: text || undefined,
-    publishedAt:
-      typeof post.created_utc === "number"
-        ? post.created_utc * 1000
-        : undefined,
-    media,
-    quote,
-  };
-}
-
-export async function* redditFeed(
-  request: FeedRequest,
-): AsyncGenerator<FeedPage> {
-  let after = "";
-  const cursors = new Set<string>();
-  while (!request.signal.aborted) {
-    const url = new URL("https://www.reddit.com/new.json?limit=25&raw_json=1");
-    if (after) url.searchParams.set("after", after);
-    const response = await request.fetch(url.href, { signal: request.signal });
-    const listing = listingSchema.safeParse(await response.json());
-    if (!listing.success)
-      throw new Error(
-        "Could not read Reddit feed. Open Reddit to check your login.",
-      );
-    const { data } = listing.data;
-    const items: ExtractedItem[] = [];
-    const excludedSourceIds: string[] = [];
-    for (const post of data.children) {
-      if (post.promoted || post.is_promoted) {
-        if (post.name) excludedSourceIds.push(post.name);
-        continue;
-      }
-      const item = postFor(post);
-      if (item) items.push({ ...item, media: item.media ?? [] });
-    }
-    after = data.after || "";
-    const end = !after || cursors.has(after);
-    yield { items, excludedSourceIds, end };
-    if (end) return;
-    cursors.add(after);
+async function postContent(request: FeedRequest, url: string) {
+  try {
+    return await request.fetch(url);
+  } catch (error) {
+    if (
+      error instanceof FeedError &&
+      error.status &&
+      [403, 404, 410].includes(error.status)
+    )
+      return;
+    throw error;
   }
 }
+
+async function postDetails(request: FeedRequest, permalink: string) {
+  const path = redditUrl(permalink).pathname.match(
+    /^\/(r|user)\/([^/]+)\/comments\/([a-z0-9]+)\//,
+  );
+  if (!path) throw new FeedError(t("redditFeedUnreadable"));
+  const community = path[1] === "user" ? `u_${path[2]}` : path[2];
+  const response = await postContent(
+    request,
+    `${origin}/svc/shreddit/partial-post/${community}/t3_${path[3]}?postViewContext=CommentsPage&shreddit_pdp_safety_moderation=enabled`,
+  );
+  if (!response) return;
+  return elements(parseDocument(await response.text())).find(
+    (node) =>
+      node.name === "shreddit-post" && node.attribs.id === `t3_${path[3]}`,
+  );
+}
+
+async function postWithDetails(
+  request: FeedRequest,
+  element: Element,
+  isDetail = false,
+): Promise<ExtractedItem> {
+  let item = postFor(element);
+  const type = element.attribs["post-type"];
+  if (!isDetail && type === "multi_media") {
+    const source = await postDetails(request, item.url);
+    if (source) item = postFor(source);
+  }
+  if (type === "crosspost") {
+    const permalink = element.attribs["content-href"];
+    const quote = permalink && (await postDetails(request, permalink));
+    if (quote) item.quote = await postWithDetails(request, quote, true);
+    item.media = [];
+  }
+  for (const media of item.media) {
+    if (
+      media.type !== FeedMediaType.VIDEO ||
+      media.aspectRatio ||
+      !media.url.startsWith("https://v.redd.it/")
+    )
+      continue;
+    const response = await postContent(request, media.url);
+    if (!response) continue;
+    const dimensions = (await response.text()).match(
+      /^#EXT-X-STREAM-INF:[^\r\n]*\bRESOLUTION=(\d+)x(\d+)/m,
+    );
+    if (dimensions)
+      media.aspectRatio = aspectRatio(
+        Number(dimensions[1]),
+        Number(dimensions[2]),
+      );
+  }
+  return item;
+}
+
+export const redditFeed = (request: FeedRequest) => {
+  let url = redditUrl(
+    "/svc/shreddit/feeds/interest-home-feed?feed=following&sort=NEW",
+  );
+  return paginateFeed(request, t("platformReddit"), async () => {
+    const response = await request.fetch(url.href);
+    const nodes = elements(parseDocument(await response.text()));
+    const posts = nodes.filter((node) => node.name === "shreddit-post");
+    const ads = nodes.filter((node) => node.name === "shreddit-ad-post");
+    if (
+      !posts.length &&
+      !ads.length &&
+      !nodes.some((node) => node.attribs.id === "empty-feed-content")
+    )
+      throw new FeedError(t("redditFeedUnreadable"));
+    const items: ExtractedItem[] = [];
+    for (const post of posts) items.push(await postWithDetails(request, post));
+    const next = nodes.find(
+      (node) =>
+        node.name === "faceplate-partial" &&
+        node.attribs.slot === "load-after" &&
+        node.attribs.id === "feed-next-page-partial",
+    )?.attribs.src;
+    let cursor = "";
+    if (next) {
+      url = redditUrl(next);
+      cursor =
+        url.searchParams.get("cursor") || url.searchParams.get("after") || "";
+      if (!cursor) throw new FeedError(t("redditFeedUnreadable"));
+    }
+    return {
+      items,
+      excludedSourceIds: ads.map((ad) => ad.attribs.id).filter(Boolean),
+      end: !cursor,
+      cursor,
+    };
+  });
+};

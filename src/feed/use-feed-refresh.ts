@@ -1,50 +1,51 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
-
 import { showErrorToast } from "@/components/ui/toast";
-import { collectionKnownKey, collectorConcurrency } from "@/feed/collection";
-import {
-  listConnectedPlatforms,
-  listFeedItems,
-  listSourceIds,
-  pruneFeedItems,
-} from "@/feed/database";
-import { type CollectionResult } from "@/feed/feed-collector";
-import { platformIdSchema } from "@/feed/schemas";
-import { type PlatformId } from "@/feed/types";
+import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
+import { collectFeed } from "@/feed/collect-feed";
+import { listFeedItems } from "@/feed/feed-rows";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
+import { useSettingsStore } from "@/stores/settings-store";
+import { t } from "@/translation/use-translation";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
+import { type PlatformId, platformIdSchema } from "@/types/platform-id";
 
-interface RefreshRun {
-  startedAt: number;
-  queue: PlatformId[];
-  known: Partial<Record<PlatformId, string[]>>;
-  results: CollectionResult[];
-  attention: PlatformId[];
-}
+type CollectionStatus =
+  | "queued"
+  | "collecting"
+  | "retrying"
+  | "failed"
+  | "attention";
 
-export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
+export function useFeedRefresh(focused: boolean) {
   const [items, setItems] = useState(listFeedItems);
-  const [connected, setConnected] = useState(listConnectedPlatforms);
-  const [failed, setFailed] = useState<PlatformId[]>([]);
-  const [hidden, setHidden] = useState<PlatformId[]>(() => {
-    const value = Storage.getItemSync("hidden-platforms") || "[]";
-    return platformIdSchema.array().parse(JSON.parse(value));
-  });
+  // Keep the last processed connections so returning from login detects additions.
+  const [connected, setConnected] = useState(
+    () => useSettingsStore.getState().settings.connectedPlatforms,
+  );
+  const [statuses, setStatuses] = useState<
+    Partial<Record<PlatformId, CollectionStatus>>
+  >({});
+  const [pass, setPass] = useState(0);
+  const [paused, setPaused] = useState(false);
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
   );
-  const [run, setRun] = useState<RefreshRun>();
-  const running = useRef<RefreshRun>(undefined);
+  const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
+  const controller = useRef<AbortController>(undefined);
   const refreshOnForeground = useRef(true);
-  const active = useMemo(
-    () => platformIdSchema.options.filter((id) => !hidden.includes(id)),
-    [hidden],
-  );
-  const attention = run?.attention ?? [];
-  const collection = (run?.queue ?? []).filter((id) => !attention.includes(id));
+  const platforms = platformIdSchema.options;
+  const collection =
+    focused && foreground && !paused
+      ? platforms.filter(
+          (id) => statuses[id] === "collecting" || statuses[id] === "retrying",
+        )
+      : [];
+  const setStatus = (id: PlatformId, status?: CollectionStatus) =>
+    setStatuses((current) => ({ ...current, [id]: status }));
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
@@ -56,188 +57,126 @@ export function useFeedRefresh(focused: boolean, webKitReady: boolean) {
     return () => listener.remove();
   }, []);
 
-  const begin = (platforms: PlatformId[], restart = false) => {
-    const current = running.current;
-    const collecting = current?.queue.some(
-      (id) => !current.attention.includes(id),
-    );
-    if (collecting && !restart) return;
-    const waiting = collecting ? undefined : current;
-    const queue = [...new Set([...(waiting?.queue ?? []), ...platforms])];
-    const known = Object.fromEntries(
-      queue.map((id) => {
-        if (waiting?.queue.includes(id)) return [id, waiting.known[id]];
-        // Preserve even an empty boundary so interrupted initial collections can finish.
-        const key = collectionKnownKey(id);
-        const previous = Storage.getItemSync(key);
-        const value = previous
-          ? (JSON.parse(previous) as string[])
-          : listSourceIds(id);
-        Storage.setItemSync(key, JSON.stringify(value));
-        return [id, value];
-      }),
-    );
-    running.current = queue.length
-      ? {
-          // Keep login collectors mounted while healthy platforms refresh again.
-          startedAt: waiting?.startedAt ?? performance.now(),
-          queue,
-          known,
-          results: [],
-          attention: waiting?.attention ?? [],
-        }
-      : undefined;
-    setRun(running.current);
-  };
-
-  const sync = useEffectEvent((platforms: PlatformId[]) => {
-    const added = platforms.some((id) => !connected.includes(id));
-    setConnected(platforms);
-    // Logout removes the collection boundary; expired sessions keep it.
-    setFailed((current) =>
-      current.filter(
+  const collect = useEffectEvent(async (signal: AbortSignal) => {
+    try {
+      const platforms = await syncPlatformSessions();
+      if (signal.aborted) return;
+      const added = platforms.some((id) => !connected.includes(id));
+      const queue = platforms.filter(
         (id) =>
-          platforms.includes(id) ||
-          !!Storage.getItemSync(collectionKnownKey(id)),
-      ),
-    );
-    // Remove deleted posts without publishing a refresh that is still staged.
-    const savedIds = new Set(
-      listFeedItems().flatMap((item) =>
-        (item.thread ?? [item]).map(
-          (post) => `${item.platform}:${post.sourceId}`,
+          refreshOnForeground.current ||
+          added ||
+          statuses[id] === "queued" ||
+          statuses[id] === "collecting" ||
+          statuses[id] === "retrying" ||
+          statuses[id] === "attention",
+      );
+      refreshOnForeground.current = false;
+      setConnected(platforms);
+      setItems(listFeedItems());
+      setStatuses(
+        Object.fromEntries(
+          platforms.map((id) => [
+            id,
+            queue.includes(id)
+              ? statuses[id] === "attention" || statuses[id] === "retrying"
+                ? "retrying"
+                : "collecting"
+              : statuses[id],
+          ]),
         ),
-      ),
-    );
-    setItems((current) => current.filter((item) => savedIds.has(item.id)));
-    if (added || refreshOnForeground.current) begin(platforms, added);
-    refreshOnForeground.current = false;
+      );
+      if (!queue.length) return;
+      await Promise.all(
+        queue.map(async (id) => {
+          try {
+            await collectFeed(getPlatform(id), signal);
+            if (!signal.aborted) setStatus(id);
+          } catch (error) {
+            if (signal.aborted) return;
+            if (error instanceof FeedAccessError) setStatus(id, "attention");
+            else {
+              setStatus(id, "failed");
+              showErrorToast(
+                t("feedPlatformError", {
+                  platform: getPlatform(id).label,
+                  error:
+                    error instanceof FeedError
+                      ? error.message
+                      : t("feedRefreshFailed"),
+                }),
+              );
+            }
+          }
+        }),
+      );
+      if (signal.aborted) return;
+      pruneFeedItems();
+      setItems(listFeedItems());
+    } catch {
+      if (signal.aborted) return;
+      setStatuses((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([id, status]) => [
+            id,
+            status === "collecting"
+              ? "queued"
+              : status === "retrying"
+                ? "attention"
+                : status,
+          ]),
+        ),
+      );
+      showErrorToast(t("connectionsCheckFailed"));
+    }
   });
 
   useEffect(() => {
-    if (!focused || !foreground || !webKitReady) return;
-    let cancelled = false;
-    void syncPlatformSessions()
-      .then((platforms) => {
-        if (!cancelled) sync(platforms);
-      })
-      .catch(() => {
-        if (!cancelled) showErrorToast("Could not check platform connections.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [focused, foreground, webKitReady]);
+    if (!focused || !foreground || paused) return;
+    const current = new AbortController();
+    controller.current = current;
+    // Starts asynchronous collection; state updates follow the session lookup.
+    // oxlint-disable-next-line react/set-state-in-effect
+    void collect(current.signal);
+    return () => current.abort();
+  }, [focused, foreground, paused, pass]);
 
-  const finish = (runId: number, result: CollectionResult) => {
-    const current = running.current;
-    if (
-      !current ||
-      current.startedAt !== runId ||
-      !current.queue.includes(result.platform)
-    )
-      return;
-    setFailed((failed) => {
-      const next = failed.filter((id) => id !== result.platform);
-      if (result.error) next.push(result.platform);
-      return next;
-    });
-    if (!result.error)
-      Storage.removeItemSync(collectionKnownKey(result.platform));
-    const next = {
-      ...current,
-      queue: current.queue.filter((id) => id !== result.platform),
-      results: [...current.results, result],
-      attention: current.attention.filter((id) => id !== result.platform),
-    };
-    running.current = next;
-    if (next.queue.length) {
-      if (next.queue.every((id) => next.attention.includes(id)))
-        setItems(listFeedItems());
-      setRun(next);
-      return;
-    }
-    pruneFeedItems();
-    const incoming = listFeedItems();
-    setItems(incoming);
-    const errors = next.results.filter((result) => result.error);
-    if (errors.length)
-      showErrorToast(
-        errors
-          .map(
-            (result) =>
-              `${getPlatform(result.platform).label}: ${result.error}`,
-          )
-          .join("\n"),
-      );
-    if (__DEV__) {
-      console.info(
-        "[refresh]",
-        JSON.stringify({
-          totalMs: Math.round(result.finishedAt - next.startedAt),
-          concurrency: collectorConcurrency,
-          platforms: next.results,
-        }),
-      );
-    }
-    running.current = undefined;
-    setRun(undefined);
-  };
-
-  const needsAttention = (
-    runId: number,
-    platform: PlatformId,
-    needed: boolean,
-  ) => {
-    const current = running.current;
-    if (
-      !current ||
-      current.startedAt !== runId ||
-      !current.queue.includes(platform)
-    )
-      return;
-    if (needed)
-      setFailed((failed) =>
-        failed.includes(platform) ? failed : [...failed, platform],
-      );
-    const attention = current.attention.filter((id) => id !== platform);
-    if (needed) attention.push(platform);
-    const next = { ...current, attention };
-    running.current = next;
-    setRun(next);
-    if (next.queue.every((id) => attention.includes(id)))
-      setItems(listFeedItems());
-  };
-
-  const toggle = (platform: PlatformId) => {
-    const next = hidden.includes(platform)
-      ? hidden.filter((id) => id !== platform)
-      : [...hidden, platform];
-    Storage.setItemSync("hidden-platforms", JSON.stringify(next));
-    setHidden(next);
+  const restart = () => {
+    controller.current?.abort();
+    refreshOnForeground.current = true;
+    setPass((current) => current + 1);
   };
 
   return {
     items,
     connected,
-    failed,
-    active,
+    failed: platforms.filter(
+      (id) => statuses[id] === "failed" || statuses[id] === "attention",
+    ),
+    active: platforms.filter((id) => !hidden.includes(id)),
     collection,
-    collectors: run?.queue ?? [],
-    attention,
-    needsAttention,
+    attention: platforms.filter(
+      (id) => statuses[id] === "attention" || statuses[id] === "retrying",
+    ),
     foreground,
-    runId: run?.startedAt,
-    known: run?.known ?? {},
-    finish,
-    toggle,
-    reload: () => {
-      running.current = undefined;
-      setRun(undefined);
-      setFailed([]);
-      setConnected(listConnectedPlatforms());
-      setItems(listFeedItems());
+    toggle: (id: PlatformId) =>
+      useSettingsStore.getState().updateSettings({
+        hiddenPlatforms: hidden.includes(id)
+          ? hidden.filter((item) => item !== id)
+          : [...hidden, id],
+      }),
+    pause: () => {
+      setPaused(true);
+      controller.current?.abort();
     },
-    refresh: () => begin(connected),
+    reload: () => {
+      setPaused(false);
+      setItems(listFeedItems());
+      setStatuses({});
+      restart();
+    },
+    refresh: () => {
+      if (!collection.length) restart();
+    },
   };
 }

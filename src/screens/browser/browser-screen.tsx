@@ -1,87 +1,48 @@
 import { type FC, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, View } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
-import { Icon } from "@/components/ui/icon";
+import { ScreenHeader } from "@/components/screen-header";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
-import { Typography } from "@/components/ui/typography";
-import { listConnectedPlatforms } from "@/feed/database";
-import { type PlatformId } from "@/feed/types";
-import { canOpenPlatformApp, openPlatformApp } from "@/platforms/open-post";
+import { openPlatformApp } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
 import { resetPlatformSession, syncPlatformSession } from "@/platforms/session";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
+import { type PlatformId } from "@/types/platform-id";
 
 export const BrowserScreen: FC = () => {
   const theme = useTheme();
-  const webView = useRef<WebView>(null);
-  const [resetting, setResetting] = useState(false);
   const params = useLocalSearchParams<{ platform: PlatformId; url?: string }>();
   const platform = getPlatform(params.platform);
-  const [connected, setConnected] = useState(() =>
-    listConnectedPlatforms().includes(platform.id),
+  const webView = useRef<WebView<object>>(null);
+  const [resetting, setResetting] = useState(false);
+  const connected = useSettingsStore((state) =>
+    state.settings.connectedPlatforms.includes(platform.id),
   );
-  const [installed, setInstalled] = useState(false);
-  const url = params.url || platform.loginUrl || platform.startUrl;
 
-  useEffect(() => {
-    let current = true;
-    const update = () => {
-      void canOpenPlatformApp(platform.id).then((value) => {
-        if (current) setInstalled(value);
-      });
-    };
-    update();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") update();
-    });
-    return () => {
-      current = false;
-      subscription.remove();
-    };
-  }, [platform.id]);
-
+  // Clear the session only after the WebView unmounts, so it can't restore cookies.
   useEffect(() => {
     if (!resetting) return;
+    const listener = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => true,
+    );
     void resetPlatformSession(platform).then(
       () => router.back(),
-      (error: Error) => {
+      () => {
         setResetting(false);
-        Alert.alert("Could not log out", error.message);
+        Alert.alert(t("logoutFailed"), t("logoutRetry"));
       },
     );
+    return () => listener.remove();
   }, [platform, resetting]);
-
-  const confirmReset = () => {
-    const google =
-      platform.id === "youtube"
-        ? " This also clears Google sign-in data used by YouTube."
-        : "";
-    Alert.alert(
-      `Log out of ${platform.label}?`,
-      `Delete this platform's saved posts and login cookies from this app. You can then sign in with another account.${google}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log out and delete data",
-          style: "destructive",
-          onPress: () => {
-            webView.current?.stopLoading();
-            setResetting(true);
-          },
-        },
-      ],
-    );
-  };
-
-  const closeBrowser = async () => {
-    await syncPlatformSession(platform);
-    router.back();
-  };
 
   const stayInWebView = (request: WebViewNavigation) => {
     const url = request.url.replace(/^x-safari-(https?):/, "$1:");
@@ -93,77 +54,67 @@ export const BrowserScreen: FC = () => {
     return false;
   };
 
+  const logOut = () =>
+    Alert.alert(
+      t("logoutConfirm", { platform: platform.label }),
+      t("logoutDescription"),
+      [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: t("logoutDelete"),
+          style: "destructive",
+          onPress: () => {
+            webView.current?.stopLoading();
+            setResetting(true);
+          },
+        },
+      ],
+    );
+
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
       <Stack.Screen options={{ gestureEnabled: !resetting }} />
-      <View
-        style={{
-          height: 56,
-          paddingHorizontal: theme.spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
+      <ScreenHeader
+        title={platform.label}
+        backDisabled={resetting}
+        onBack={() => router.back()}
       >
-        <Typography
-          style={{
-            flex: 1,
-            fontWeight: "600",
-          }}
-        >
-          {platform.label}
-        </Typography>
         {connected && (
           <IconButton
-            disabled={resetting}
-            onPress={confirmReset}
-            style={({ pressed }) => ({
-              borderWidth: 0,
-              backgroundColor: "transparent",
-              opacity: pressed || resetting ? 0.45 : 1,
+            size={44}
+            accessibilityLabel={t("logoutPlatform", {
+              platform: platform.label,
             })}
-          >
-            <Icon name="logout" color={theme.colors.text} size={22} />
-          </IconButton>
-        )}
-        {installed && (
-          <IconButton
             disabled={resetting}
-            onPress={() => {
-              void openPlatformApp(platform.id).catch(() =>
-                Alert.alert(
-                  `Could not open ${platform.label}`,
-                  "Make sure the app is installed and can open this link.",
-                ),
-              );
-            }}
-            style={({ pressed }) => ({
-              borderWidth: 0,
-              backgroundColor: "transparent",
-              opacity: pressed || resetting ? 0.45 : 1,
-            })}
+            onPress={logOut}
+            style={resetting && { opacity: 0.45 }}
           >
-            <Icon name="external-link" color={theme.colors.text} size={22} />
+            <Icon name={IconName.LOGOUT} color={theme.colors.text} size={22} />
           </IconButton>
         )}
         <IconButton
-          disabled={resetting}
-          onPress={() => void closeBrowser()}
-          style={({ pressed }) => ({
-            borderWidth: 0,
-            backgroundColor: "transparent",
-            opacity: pressed ? 0.45 : 1,
+          size={44}
+          accessibilityLabel={t("openPlatformApp", {
+            platform: platform.label,
           })}
+          disabled={resetting}
+          onPress={() =>
+            void openPlatformApp(platform.id).catch(() =>
+              Alert.alert(
+                t("openPlatformFailed", { platform: platform.label }),
+                t("openPlatformDescription"),
+              ),
+            )
+          }
+          style={resetting && { opacity: 0.45 }}
         >
           <Icon
-            name="x"
+            name={IconName.EXTERNAL_LINK}
             color={theme.colors.text}
-            size={24}
-            strokeWidth={1.8}
+            size={22}
           />
         </IconButton>
-      </View>
+      </ScreenHeader>
       {resetting && (
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
@@ -172,23 +123,22 @@ export const BrowserScreen: FC = () => {
         </View>
       )}
       {!resetting && (
-        <WebView
+        <WebView<object>
           ref={webView}
-          source={{ uri: url }}
+          source={{ uri: params.url || platform.loginUrl }}
           // Handle every scheme here so WebView cannot launch an external browser.
           originWhitelist={["*"]}
           javaScriptEnabled
           domStorageEnabled
           thirdPartyCookiesEnabled
-          setSupportMultipleWindows={false}
-          webviewDebuggingEnabled={__DEV__}
+          allowsInlineMediaPlayback
           allowsBackForwardNavigationGestures
           startInLoadingState
+          setSupportMultipleWindows={false}
+          webviewDebuggingEnabled={__DEV__}
           onShouldStartLoadWithRequest={stayInWebView}
           onLoadEnd={() => {
-            void syncPlatformSession(platform).then((value) => {
-              if (value !== undefined) setConnected(value);
-            });
+            void syncPlatformSession(platform);
           }}
           style={{ flex: 1, backgroundColor: theme.colors.background }}
         />

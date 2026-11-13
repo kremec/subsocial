@@ -3,55 +3,52 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { useIsFocused } from "expo-router";
 
-import { Icon } from "@/components/ui/icon";
+import { PlatformIcon } from "@/components/platform-icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
 import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
-import { listConnectedPlatforms } from "@/feed/database";
 import { openBrowser } from "@/platforms/open-post";
-import { PlatformIcon } from "@/platforms/platform-icon";
 import { platforms } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
-import { WebKitBootstrap } from "@/platforms/web-kit-bootstrap";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 
-interface OnboardingScreenProps {
-  onContinue: () => void;
-}
-
-export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
-  const { onContinue } = props;
+export const OnboardingScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [webKitReady, setWebKitReady] = useState(false);
-  const [connected, setConnected] = useState(listConnectedPlatforms);
+  const connected = useSettingsStore(
+    (state) => state.settings.connectedPlatforms,
+  );
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!focused || !webKitReady) return;
+    if (!focused) return;
     let current = true;
     void syncPlatformSessions()
-      .then((platforms) => {
+      .then(() => {
         if (!current) return;
-        setConnected(platforms);
         setChecking(false);
       })
       .catch(() => {
         if (!current) return;
         setChecking(false);
-        showErrorToast("Could not check platform connections.");
+        showErrorToast(t("connectionsCheckFailed"));
       });
     return () => {
       current = false;
     };
-  }, [focused, webKitReady]);
+  }, [focused]);
 
-  const canContinue =
-    focused && webKitReady && !checking && connected.length > 0;
+  const canContinue = focused && !checking && connected.length > 0;
 
   return (
-    <Screen style={{ gap: 0, paddingBottom: theme.spacing.lg }}>
-      {!webKitReady && <WebKitBootstrap onReady={() => setWebKitReady(true)} />}
+    <Screen
+      style={{
+        paddingBottom: theme.spacing.lg,
+      }}
+    >
       <View
         style={{
           flex: 1,
@@ -60,9 +57,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
           alignSelf: "center",
         }}
       >
-        <Typography variant="title" style={{ fontFamily: theme.fonts.rounded }}>
-          subsocial
-        </Typography>
+        <Typography variant="title">{t("appName")}</Typography>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -80,12 +75,11 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
-              style={{ fontFamily: theme.fonts.rounded, letterSpacing: -0.5 }}
             >
-              Your feeds, together.
+              {t("onboardingTitle")}
             </Typography>
             <Typography color={theme.colors.textSecondary}>
-              Connect at least one platform to continue.
+              {t("onboardingDescription")}
             </Typography>
           </View>
 
@@ -110,18 +104,16 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
                   accessibilityRole="button"
                   accessibilityLabel={
                     isConnected
-                      ? `${platform.label}, connected. Manage connection`
-                      : `Connect ${platform.label}`
+                      ? t("managePlatformConnection", {
+                          platform: platform.label,
+                        })
+                      : t("connectPlatform", { platform: platform.label })
                   }
-                  accessibilityState={{ disabled: !webKitReady }}
-                  disabled={!webKitReady}
                   onPress={() => {
                     setChecking(true);
                     openBrowser(
                       platform.id,
-                      isConnected
-                        ? platform.startUrl
-                        : platform.loginUrl || platform.startUrl,
+                      isConnected ? platform.startUrl : platform.loginUrl,
                     );
                   }}
                   style={({ pressed }) => ({
@@ -143,10 +135,10 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
                     {platform.label}
                   </Typography>
                   <Typography variant="bodySmall" color={statusColor}>
-                    {isConnected ? "Connected" : "Connect"}
+                    {t(isConnected ? "connected" : "connect")}
                   </Typography>
                   <Icon
-                    name={isConnected ? "check" : "chevron-right"}
+                    name={isConnected ? IconName.CHECK : IconName.CHEVRON_RIGHT}
                     color={statusColor}
                     size={18}
                   />
@@ -158,10 +150,11 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue to feed"
-          accessibilityState={{ disabled: !canContinue }}
+          accessibilityLabel={t("continueToFeed")}
           disabled={!canContinue}
-          onPress={onContinue}
+          onPress={() =>
+            useSettingsStore.getState().updateSettings({ onboarded: true })
+          }
           style={({ pressed }) => ({
             minHeight: 52,
             alignItems: "center",
@@ -179,7 +172,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
               canContinue ? theme.colors.background : theme.colors.textSecondary
             }
           >
-            Continue
+            {t("continue")}
           </Typography>
         </Pressable>
       </View>

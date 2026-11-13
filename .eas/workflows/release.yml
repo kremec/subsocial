@@ -1,9 +1,5 @@
 name: Production Android Release
 
-defaults:
-  tools:
-    bun: "1.4.2"
-
 on:
   push:
     branches:

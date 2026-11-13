@@ -1,18 +1,6 @@
 import { z } from "zod";
 
-const textSchema = z
-  .object({
-    content: z.string().optional(),
-    simpleText: z.string().optional(),
-    runs: z.array(z.object({ text: z.string() })).optional(),
-  })
-  .transform(
-    (value) =>
-      value.content ||
-      value.simpleText ||
-      value.runs?.map((run) => run.text).join("") ||
-      "",
-  );
+import { textSchema } from "@/platforms/youtube/schemas/text-schema";
 
 export const videoRendererSchema = z.object({
   contentId: z.string().optional(),

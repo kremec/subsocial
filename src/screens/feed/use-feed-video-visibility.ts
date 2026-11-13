@@ -1,19 +1,45 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { type View } from "react-native";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
+import { type ViewInstance } from "react-native";
 
-import { type FeedItem } from "@/feed/types";
+import { type MediaAlbum } from "@/media/fullscreen-media";
+import { type FeedRow } from "@/types/feed-item";
 
 interface ActiveVideo {
   rowId: string;
   postUrl: string;
 }
 
+// Lets each card's videos activate themselves and report their layout.
+export const FeedMediaContext = createContext<{
+  rowId: string;
+  activePostUrl?: string;
+  openMedia: (album: MediaAlbum) => void;
+  activate: (rowId: string, postUrl: string) => void;
+  setVideoView: (
+    rowId: string,
+    postUrl: string,
+    view: ViewInstance | null,
+  ) => void;
+} | null>(null);
+
+const sameVideo = (left?: ActiveVideo, right?: ActiveVideo) =>
+  left?.rowId === right?.rowId && left?.postUrl === right?.postUrl;
+
 export function useFeedVideoVisibility(
-  rows: readonly Pick<FeedItem, "id">[],
+  rows: readonly Pick<FeedRow, "id">[],
   enabled: boolean,
 ) {
-  const viewport = useRef<View>(null);
-  const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
+  const viewport = useRef<ViewInstance>(null);
+  const videoViews = useRef(
+    new Map<string, ActiveVideo & { view: ViewInstance }>(),
+  );
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const updateVideoVisibility = useCallback(
     (preferred?: ActiveVideo) => {
@@ -26,15 +52,11 @@ export function useFeedVideoVisibility(
       for (const candidate of videoViews.current.values()) {
         const { top, height } = candidate.view.getBoundingClientRect();
         if (height <= 0 || bounds.height <= 0) continue;
-        const fraction =
-          Math.max(
-            0,
-            Math.min(top + height, bounds.bottom) - Math.max(top, bounds.top),
-          ) / Math.min(height, bounds.height);
+        const visibleHeight =
+          Math.min(top + height, bounds.bottom) - Math.max(top, bounds.top);
+        const fraction = visibleHeight / Math.min(height, bounds.height);
         if (fraction < 0.5) continue;
-        const requested =
-          candidate.rowId === preferred?.rowId &&
-          candidate.postUrl === preferred.postUrl;
+        const requested = sameVideo(candidate, preferred);
         if (
           requested ||
           fraction > bestFraction ||
@@ -47,15 +69,13 @@ export function useFeedVideoVisibility(
         if (requested) break;
       }
       setActiveVideo((current) =>
-        current?.rowId === video?.rowId && current?.postUrl === video?.postUrl
-          ? current
-          : video,
+        sameVideo(current, video) ? current : video,
       );
     },
     [enabled],
   );
   const onVideoView = useCallback(
-    (rowId: string, postUrl: string, view: View | null) => {
+    (rowId: string, postUrl: string, view: ViewInstance | null) => {
       const key = `${rowId}:${postUrl}`;
       if (view) videoViews.current.set(key, { rowId, postUrl, view });
       else videoViews.current.delete(key);
@@ -63,7 +83,8 @@ export function useFeedVideoVisibility(
     },
     [updateVideoVisibility],
   );
-  useEffect(() => updateVideoVisibility(), [rows, updateVideoVisibility]);
+  const updateForRows = useEffectEvent(() => updateVideoVisibility());
+  useEffect(() => updateForRows(), [rows, enabled]);
 
   return {
     viewport,

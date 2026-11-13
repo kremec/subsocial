@@ -1,12 +1,15 @@
-import { type PlatformDefinition } from "@/platforms/types";
+import { IconName } from "@/components/ui/icon";
+import { t } from "@/translation/use-translation";
+import { PlatformId } from "@/types/platform-id";
 
-export const instagramPlatform: PlatformDefinition = {
-  id: "instagram",
+export const instagramPlatform = {
+  id: PlatformId.INSTAGRAM,
+  icon: IconName.BRAND_INSTAGRAM,
   androidAppUrl: "instagram://mainfeed",
   androidPackage: "com.instagram.android",
   appScheme: "instagram",
   dataDomains: ["instagram.com", "cdninstagram.com"],
-  label: "Instagram",
+  label: t("platformInstagram"),
   color: "#E1306C",
   startUrl: "https://www.instagram.com/?variant=following",
   loginUrl:

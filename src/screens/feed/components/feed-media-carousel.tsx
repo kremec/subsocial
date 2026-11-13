@@ -1,23 +1,23 @@
 import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import {
+  Pressable,
+  View,
+  type ViewInstance,
+  type ScrollViewInstance,
+} from "react-native";
+
+import { Image } from "expo-image";
 
 import { ScrollView } from "react-native-gesture-handler";
 
+import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { type FeedMedia, type PlatformId } from "@/feed/types";
-import {
-  FeedImage,
-  originalXImageUrl,
-} from "@/screens/feed/components/feed-image";
-import {
-  FeedVideo,
-  type PlaybackStatus,
-} from "@/screens/feed/components/feed-video";
-import { FeedVideoPreview } from "@/screens/feed/components/feed-video-preview";
-import { FeedVideoLayoutContext } from "@/screens/feed/feed-video-player";
-import { MediaAlbumContext } from "@/screens/media/media-video-provider";
-import { openMedia } from "@/screens/media/open-media";
+import { FeedImage } from "@/screens/feed/components/feed-image";
+import { FeedVideo } from "@/screens/feed/components/feed-video";
+import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
+import { type PlatformId } from "@/types/platform-id";
 
 interface FeedMediaCarouselProps {
   postUrl: string;
@@ -25,70 +25,42 @@ interface FeedMediaCarouselProps {
   androidUrl?: string;
   sourceId?: string;
   media: FeedMedia[];
-  active: boolean;
-  playbackStatus?: PlaybackStatus;
-  onActivate: () => void;
-  onRetry?: () => void;
-  onPlaybackError?: () => void;
-  onVerification?: () => void;
   onPress: () => void;
 }
 
 export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
-  const {
-    postUrl,
-    platform,
-    androidUrl,
-    sourceId,
-    media,
-    active,
-    playbackStatus,
-    onActivate,
-    onRetry,
-    onPlaybackError,
-    onVerification,
-    onPress,
-  } = props;
+  const { postUrl, platform, androidUrl, sourceId, media, onPress } = props;
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
-  const view = useRef<View>(null);
-  const carousel = useRef<ScrollView>(null);
-  const setVideoView = useContext(FeedVideoLayoutContext);
-  const album = useContext(MediaAlbumContext);
-  const selection = album?.selection;
-  useLayoutEffect(() => {
-    if (selection?.postUrl !== postUrl) return;
-    // Fullscreen and inline views keep the same album position.
-    // oxlint-disable-next-line react/set-state-in-effect
-    setMediaIndex(selection.index);
-    carousel.current?.scrollTo({
-      x: selection.index * mediaWidth,
-      animated: false,
-    });
-  }, [selection, postUrl, mediaWidth]);
+  const view = useRef<ViewInstance>(null);
+  const carousel = useRef<ScrollViewInstance>(null);
+  const { rowId, activePostUrl, activate, setVideoView, openMedia } =
+    useContext(FeedMediaContext)!;
+  const active = activePostUrl === postUrl;
   const openAlbum = (index: number) => {
-    album?.setSelection({ postUrl, index });
-    openMedia(
-      media.map((item) =>
-        item.type === "image"
-          ? { ...item, url: originalXImageUrl(item.url) }
-          : item,
-      ),
-      platform,
+    setMediaIndex(index);
+    openMedia({
+      media,
       postUrl,
-      index,
+      platform,
       androidUrl,
       sourceId,
-    );
+      index,
+      onIndexChange: setMediaIndex,
+    });
   };
+  useLayoutEffect(() => {
+    carousel.current?.scrollTo({ x: mediaIndex * mediaWidth, animated: false });
+  }, [mediaIndex, mediaWidth]);
   const selectedMedia = media[mediaIndex];
-  const playable = selectedMedia?.type === "video" && selectedMedia.playable;
+  const playable =
+    selectedMedia?.type === FeedMediaType.VIDEO && selectedMedia.playable;
   useLayoutEffect(() => {
     if (!playable || !view.current) return;
-    setVideoView?.(postUrl, view.current);
-    return () => setVideoView?.(postUrl, null);
-  }, [setVideoView, postUrl, playable, mediaWidth, mediaIndex]);
+    setVideoView(rowId, postUrl, view.current);
+    return () => setVideoView(rowId, postUrl, null);
+  }, [setVideoView, rowId, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
   const counter = media.length > 1 && (
@@ -104,48 +76,75 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: "rgba(0, 0, 0, 0.62)",
       }}
     >
-      <Typography
-        variant="caption"
-        style={{
-          color: "#FFFFFF",
-          fontWeight: "600",
-        }}
-      >
+      <Typography variant="caption" color="#FFFFFF">
         {mediaIndex + 1}/{media.length}
       </Typography>
     </View>
   );
 
-  const renderMedia = (media: FeedMedia, index: number) =>
-    media.type === "video" ? (
+  const renderMedia = (media: FeedMedia, index: number) => {
+    if (media.type === FeedMediaType.IMAGE)
+      return <FeedImage media={media} onPress={() => openAlbum(index)} />;
+    const playing = media.playable && active && index === mediaIndex;
+    return (
       <View style={{ flex: 1 }}>
-        <FeedVideoPreview
-          media={media}
-          onPress={media.playable ? onActivate : onPress}
-          showPlayButton={!(media.playable && active && index === mediaIndex)}
-        />
-        {media.playable && active && index === mediaIndex && (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            if (media.playable) activate(rowId, postUrl);
+            else onPress();
+          }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          {!!media.posterUrl && (
+            <Image
+              source={{ uri: media.posterUrl }}
+              recyclingKey={media.posterUrl}
+              cachePolicy="memory-disk"
+              contentFit="cover"
+              style={{ position: "absolute", inset: 0 }}
+            />
+          )}
+          {!playing && (
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: theme.radius.full,
+                backgroundColor: "rgba(0, 0, 0, 0.62)",
+              }}
+            >
+              <Icon
+                name={IconName.PLAYER_PLAY}
+                color="#FFFFFF"
+                size={25}
+                filled
+              />
+            </View>
+          )}
+        </Pressable>
+        {playing && (
           <Pressable
             onPress={(event) => event.stopPropagation()}
             style={{ position: "absolute", inset: 0 }}
           >
             <FeedVideo
               key={media.url}
-              playbackKey={`${postUrl}:${index}`}
+              index={index}
               media={media}
+              platform={platform}
+              postUrl={postUrl}
+              sourceId={sourceId}
               counter={counter}
-              playbackStatus={playbackStatus}
-              onRetry={onRetry}
-              onError={onPlaybackError}
-              onVerification={onVerification}
               onFullscreen={() => openAlbum(index)}
             />
           </Pressable>
         )}
       </View>
-    ) : (
-      <FeedImage media={media} onPress={() => openAlbum(index)} />
     );
+  };
 
   return (
     <View
@@ -153,7 +152,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView?.(postUrl, view.current);
+        if (playable) setVideoView(rowId, postUrl, view.current);
       }}
       style={{
         width: "100%",
@@ -162,38 +161,36 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: theme.colors.backgroundElement,
       }}
     >
-      {media.length === 1
-        ? renderMedia(media[0], 0)
-        : mediaWidth > 0 && (
-            <ScrollView
-              ref={carousel}
-              horizontal
-              pagingEnabled
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={false}
-              onContentSizeChange={(width) =>
-                carousel.current?.scrollTo({
-                  x: (mediaIndex * width) / media.length,
-                  animated: false,
-                })
-              }
-              onMomentumScrollEnd={(event) => {
-                setMediaIndex(
-                  Math.round(event.nativeEvent.contentOffset.x / mediaWidth),
-                );
-              }}
+      {media.length === 1 && renderMedia(media[0], 0)}
+      {media.length !== 1 && mediaWidth > 0 && (
+        <ScrollView
+          ref={carousel}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          onContentSizeChange={(width) =>
+            carousel.current?.scrollTo({
+              x: (mediaIndex * width) / media.length,
+              animated: false,
+            })
+          }
+          onMomentumScrollEnd={(event) => {
+            setMediaIndex(
+              Math.round(event.nativeEvent.contentOffset.x / mediaWidth),
+            );
+          }}
+        >
+          {media.map((media, index) => (
+            <View
+              key={`${media.url}:${index}`}
+              style={{ width: mediaWidth, height: "100%" }}
             >
-              {media.map((media, index) => (
-                <View
-                  key={`${media.url}:${index}`}
-                  style={{ width: mediaWidth, height: "100%" }}
-                >
-                  {Math.abs(index - mediaIndex) <= 1 &&
-                    renderMedia(media, index)}
-                </View>
-              ))}
-            </ScrollView>
-          )}
+              {Math.abs(index - mediaIndex) <= 1 && renderMedia(media, index)}
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
       {!(active && playable) && counter}
     </View>

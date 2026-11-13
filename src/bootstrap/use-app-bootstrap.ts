@@ -1,19 +1,27 @@
 import { useEffect, useState } from "react";
 
-import { initializeDatabase } from "@/feed/database";
+import { migrateDatabase } from "@/db/database-migration";
+import { logError } from "@/logging/logger";
 
 export function useAppBootstrap() {
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string>();
 
   useEffect(() => {
-    void Promise.resolve()
-      .then(initializeDatabase)
-      .then(() => setReady(true))
-      .catch((error) =>
-        setError(error instanceof Error ? error.message : String(error)),
-      );
+    let active = true;
+
+    void migrateDatabase()
+      .then(() => {
+        if (!active) return;
+        setReady(true);
+      })
+      .catch((error) => {
+        logError("db.migration", "failed", error);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  return { ready, error };
+  return { ready };
 }

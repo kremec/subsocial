@@ -1,57 +1,56 @@
-import type { ExtractedItem, FeedMedia } from "@/feed/types";
-import { bootstrap, type Json } from "@/platforms/json";
-import {
-  FeedAccessError,
-  type FeedPage,
-  type FeedRequest,
-} from "@/platforms/types";
+import { z } from "zod";
 
-import {
-  feedResponseSchema,
-  tokenSchema,
-  type Media,
-  type Variant,
-} from "./schemas/feed-response-schema";
+import { aspectRatio } from "@/platforms/aspect-ratio";
+import { feedResponseSchema } from "@/platforms/instagram/schemas/feed-response-schema";
+import { type Media } from "@/platforms/instagram/schemas/media-schema";
+import { type Variant } from "@/platforms/instagram/schemas/variant-schema";
+import { paginateFeed } from "@/platforms/paginate-feed";
+import { readBootstrap } from "@/platforms/read-bootstrap";
+import { t } from "@/translation/use-translation";
+import { type ExtractedItem } from "@/types/extracted-item";
+import { FeedAccessError } from "@/types/feed-access-error";
+import { FeedError } from "@/types/feed-error";
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
+import { type FeedPage } from "@/types/feed-page";
+import { type FeedRequest } from "@/types/feed-request";
 
 const largest = (values: Variant[] | null | undefined) =>
-  values
-    ?.slice()
-    .sort(
-      (left, right) =>
-        (right.width || 0) * (right.height || 0) -
-        (left.width || 0) * (left.height || 0),
-    )[0];
+  values?.reduce<Variant | undefined>(
+    (best, value) =>
+      !best ||
+      (value.width || 0) * (value.height || 0) >
+        (best.width || 0) * (best.height || 0)
+        ? value
+        : best,
+    undefined,
+  );
 
 const mediaFor = (record: Media): FeedMedia[] => {
   const image = largest(record.image_versions2?.candidates);
   const video = largest(record.video_versions);
   const url = video?.url || image?.url;
   if (!url) return [];
-  const width = video?.width || image?.width || record.original_width;
-  const height = video?.height || image?.height || record.original_height;
+  const isVideo = record.media_type === 2 || !!video;
   return [
     {
-      type: record.media_type === 2 || video ? "video" : "image",
+      type: isVideo ? FeedMediaType.VIDEO : FeedMediaType.IMAGE,
       url,
       posterUrl: video ? image?.url : undefined,
-      playable: record.media_type === 2 || video ? !!video : undefined,
-      aspectRatio: width && height ? width / height : undefined,
+      playable: isVideo ? !!video : undefined,
+      aspectRatio: aspectRatio(
+        video?.width || image?.width || record.original_width,
+        video?.height || image?.height || record.original_height,
+      ),
     },
   ];
 };
 
-export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
+const instagramPage = (value: unknown): FeedPage & { cursor: string } => {
   const parsed = feedResponseSchema.safeParse(value);
-  if (!parsed.success) {
-    const pagination = parsed.error.issues.some((issue) =>
-      issue.path.includes("page_info"),
+  if (!parsed.success)
+    throw new FeedError(
+      t("platformFeedUnavailable", { platform: t("platformInstagram") }),
     );
-    throw new Error(
-      pagination
-        ? "Instagram feed pagination unavailable."
-        : "Instagram feed unavailable.",
-    );
-  }
   const connection = parsed.data;
   const items: ExtractedItem[] = [];
   for (const edge of connection.edges) {
@@ -89,32 +88,27 @@ export const instagramPage = (value: Json): FeedPage & { cursor: string } => {
 export async function* instagramFeed(
   request: FeedRequest,
 ): AsyncGenerator<FeedPage> {
-  const html = await (
-    await request.fetch("https://www.instagram.com/", {
-      signal: request.signal,
-    })
-  ).text();
+  const html = await (await request.fetch("https://www.instagram.com/")).text();
   if (!request.cookies.csrftoken)
-    throw new FeedAccessError("Open Instagram to renew your login.");
-  const fbDtsg = tokenSchema.parse(
-    bootstrap(
-      html.slice(html.lastIndexOf('"DTSGInitData",[],')),
-      '"DTSGInitData",[],',
-    ),
-  ).token;
-  const lsd = tokenSchema.parse(
-    bootstrap(html.slice(html.lastIndexOf('"LSD",[],')), '"LSD",[],'),
-  ).token;
-  let cursor: string | null = null;
-  const cursors = new Set<string>();
-  do {
+    throw new FeedAccessError(
+      t("platformRenewLogin", { platform: t("platformInstagram") }),
+    );
+  const token = (name: string) => {
+    const marker = `"${name}",[],`;
+    return z
+      .object({ token: z.string().min(1) })
+      .parse(readBootstrap(html.slice(html.lastIndexOf(marker)), marker)).token;
+  };
+  const fbDtsg = token("DTSGInitData");
+  const lsd = token("LSD");
+  yield* paginateFeed(request, t("platformInstagram"), async (cursor) => {
     const body = new URLSearchParams({
       fb_dtsg: fbDtsg,
       lsd,
       // Observed in Instagram's following-feed web request. No device or analytics fields are needed.
       doc_id: "29018433597758912",
       variables: JSON.stringify({
-        after: cursor,
+        after: cursor || null,
         before: null,
         first: 12,
         last: null,
@@ -130,7 +124,6 @@ export async function* instagramFeed(
       "https://www.instagram.com/graphql/query",
       {
         method: "POST",
-        signal: request.signal,
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "X-CSRFToken": request.cookies.csrftoken,
@@ -138,12 +131,6 @@ export async function* instagramFeed(
         body: body.toString(),
       },
     );
-    const page = instagramPage(await response.json());
-    yield page;
-    if (page.end) return;
-    if (cursors.has(page.cursor))
-      throw new Error("Instagram did not advance the feed.");
-    cursors.add(page.cursor);
-    cursor = page.cursor;
-  } while (!request.signal.aborted);
+    return instagramPage(await response.json());
+  });
 }

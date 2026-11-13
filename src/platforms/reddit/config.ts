@@ -1,12 +1,20 @@
-import { type PlatformDefinition } from "@/platforms/types";
+import { IconName } from "@/components/ui/icon";
+import { t } from "@/translation/use-translation";
+import { PlatformId } from "@/types/platform-id";
 
-export const redditPlatform: PlatformDefinition = {
-  id: "reddit",
+export const redditPlatform = {
+  id: PlatformId.REDDIT,
+  icon: IconName.BRAND_REDDIT,
   androidAppUrl: "reddit://reddit",
   androidPackage: "com.reddit.frontpage",
   appScheme: "reddit",
-  dataDomains: ["reddit.com", "redditmedia.com", "redditstatic.com"],
-  label: "Reddit",
+  dataDomains: [
+    "reddit.com",
+    "redditmedia.com",
+    "redditstatic.com",
+    "v.redd.it",
+  ],
+  label: t("platformReddit"),
   color: "#FF4500",
   startUrl: "https://www.reddit.com/",
   loginUrl: "https://www.reddit.com/login/",

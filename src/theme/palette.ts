@@ -1,4 +1,4 @@
-export const palette = {
+export const themePalettes = {
   light: {
     background: "#F7F7F5",
     backgroundElement: "#EFEFEC",
@@ -31,5 +31,5 @@ export const palette = {
   },
 } as const;
 
-export type ThemeName = keyof typeof palette;
-export type ThemeColors = (typeof palette)[ThemeName];
+export type Palette = (typeof themePalettes)[keyof typeof themePalettes];
+export type PaletteColor = Palette[keyof Palette];

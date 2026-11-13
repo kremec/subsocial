@@ -1,51 +1,65 @@
 import {
   type FC,
+  Fragment,
   type RefObject,
-  useCallback,
   useEffect,
   useEffectEvent,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { AppState, RefreshControl, View } from "react-native";
+import {
+  AppState,
+  RefreshControl,
+  View,
+  type ViewInstance,
+} from "react-native";
 
-import Storage from "expo-sqlite/kv-store";
+import { useIsFocused } from "expo-router";
 
 import {
   LegendList,
   type LegendListRef,
   type OnViewableItemsChangedInfo,
 } from "@legendapp/list/react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
-import { Icon } from "@/components/ui/icon";
+import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
-import { type FeedItem } from "@/feed/types";
-import { useYouTubeMedia } from "@/platforms/youtube/media-resolver";
-import { EmptyFeed } from "@/screens/feed/components/empty-feed";
+import { findPositionIndex, positionFor } from "@/feed/feed-rows";
+import { FullscreenMedia, type MediaAlbum } from "@/media/fullscreen-media";
 import { FeedCard } from "@/screens/feed/components/feed-card";
-import { FeedImageTransitionContext } from "@/screens/feed/components/feed-image";
-import {
-  type FeedPosition,
-  findPositionIndex,
-  positionFor,
-} from "@/screens/feed/feed-position";
-import { type FeedRow, rowsForItems } from "@/screens/feed/feed-rows";
-import { indexFeedItems, searchFeedItems } from "@/screens/feed/search-feed";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
+import { type FeedItem, type FeedRow } from "@/types/feed-item";
+import { type FeedPost } from "@/types/feed-post";
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
-const positionKey = "feed-position";
+
+// The back-to-top pill stays hidden within the first two screens of the feed.
+const nearTop = (state: { scroll: number; scrollLength: number }) =>
+  state.scroll <= state.scrollLength * 2;
+
+// Lowercase and drop accents so "cafe" also finds "Café".
+const normalize = (text: string) =>
+  text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+
+const postText = (post: FeedPost): string =>
+  [
+    post.title,
+    post.text,
+    post.authorName,
+    post.authorHandle,
+    post.context,
+    post.attachment?.title,
+    post.attachment?.description,
+    post.attachment?.startsAtText,
+    post.quote && postText(post.quote),
+  ].join(" ");
 
 const getItemType = (row: FeedRow) =>
-  row.post ? "thread" : row.item.media.length ? "media" : "text";
+  row.threaded ? "thread" : row.post.media?.length ? "media" : "text";
 
 interface FeedListProps {
   items: FeedItem[];
@@ -68,50 +82,40 @@ export const FeedList: FC<FeedListProps> = (props) => {
     listRef,
   } = props;
   const theme = useTheme();
+  const focused = useIsFocused();
   const searching = query !== undefined;
-  const searchIndex = useMemo(
-    () => (searching ? indexFeedItems(items) : undefined),
-    [items, searching],
-  );
-  const filteredItems = useMemo(
-    () =>
-      searchIndex && query?.trim()
-        ? searchFeedItems(searchIndex, query)
-        : items,
-    [items, searchIndex, query],
-  );
-  const itemRows = useMemo(() => rowsForItems(items), [items]);
-  const rows = useMemo(
-    () => filteredItems.flatMap((item) => itemRows.get(item)!),
-    [filteredItems, itemRows],
-  );
+  const terms = normalize(query ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const filteredItems = terms.length
+    ? items.filter((item) => {
+        const text = normalize(
+          [item.platform, ...item.rows.map((row) => postText(row.post))].join(
+            " ",
+          ),
+        );
+        return terms.every((term) => text.includes(term));
+      })
+    : items;
+  const rows = filteredItems.flatMap((item) => item.rows);
   const localList = useRef<LegendListRef>(null);
   const list = listRef ?? localList;
+  const [album, setAlbum] = useState<MediaAlbum>();
+  const playing = visible && !album;
   const readingRowId = useRef<string>(undefined);
   const { viewport, activeVideo, updateVideoVisibility, onVideoView } =
-    useFeedVideoVisibility(rows, visible);
-  const activatePost = useCallback(
-    (rowId: string, postUrl: string) =>
-      updateVideoVisibility({ rowId, postUrl }),
-    [updateVideoVisibility],
-  );
+    useFeedVideoVisibility(rows, playing);
+  const activatePost = (rowId: string, postUrl: string) =>
+    updateVideoVisibility({ rowId, postUrl });
   const [initialScrollIndex] = useState(() => {
     if (!rememberPosition) return undefined;
-    const saved = Storage.getItemSync(positionKey);
-    if (!saved) return undefined;
-    const position: FeedPosition = JSON.parse(saved);
+    const position = useSettingsStore.getState().settings.feedPosition;
+    if (!position) return undefined;
     const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
   });
   const [showBackToTop, setShowBackToTop] = useState(false);
   const previousScrollY = useRef(0);
-  const pillOffset = useSharedValue(-70);
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: pillOffset.get() }],
-  }));
-  useEffect(() => {
-    pillOffset.set(withTiming(showBackToTop ? 0 : -70, { duration: 180 }));
-  }, [showBackToTop, pillOffset]);
   const savePosition = () => {
     if (!rememberPosition) return;
     const state = list.current?.getState();
@@ -119,13 +123,12 @@ export const FeedList: FC<FeedListProps> = (props) => {
       readingRowId.current && state?.indexByKey(readingRowId.current);
     if (typeof index !== "number" || !state) return;
     const row = rows[index];
-    const element: View | undefined = state.elementAtIndex(index);
+    const element: ViewInstance | undefined = state.elementAtIndex(index);
     element?.measureInWindow((_x, rowY) => {
       viewport.current?.measureInWindow((_left, viewportY) => {
-        Storage.setItemSync(
-          positionKey,
-          JSON.stringify(positionFor(row, rowY - viewportY)),
-        );
+        useSettingsStore.getState().updateSettings({
+          feedPosition: positionFor(row, rowY - viewportY),
+        });
       });
     });
   };
@@ -136,19 +139,15 @@ export const FeedList: FC<FeedListProps> = (props) => {
     });
     return () => listener.remove();
   }, []);
-  const visibleRow = rows.find((row) => row.id === activeVideo?.rowId);
-  const media = useYouTubeMedia(visibleRow?.item, visible);
-  const extraData = useMemo(
-    () => [activeVideo, media.resolution, visible],
-    [activeVideo, media.resolution, visible],
-  );
+  const extraData = [activeVideo, playing];
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
-    const visible = info.viewableItems.filter((row) => row.isViewable);
-    readingRowId.current = visible[0]?.item.id;
+    readingRowId.current = info.viewableItems.find(
+      (row) => row.isViewable,
+    )?.item.id;
     const state = list.current?.getState();
-    if (state && state.scroll <= state.scrollLength * 2) {
+    if (state && nearTop(state)) {
       previousScrollY.current = state.scroll;
       setShowBackToTop(false);
     }
@@ -156,129 +155,130 @@ export const FeedList: FC<FeedListProps> = (props) => {
   };
 
   return (
-    <View
-      ref={viewport}
-      collapsable={false}
-      onLayout={() => updateVideoVisibility()}
-      style={{ flex: 1 }}
-    >
-      <LegendList
-        ref={list}
-        initialScrollIndex={initialScrollIndex}
-        onScroll={() => {
-          updateVideoVisibility();
-          const state = list.current?.getState();
-          if (!state) return;
-          const delta = state.scroll - previousScrollY.current;
-          if (state.scroll <= state.scrollLength * 2) {
-            setShowBackToTop(false);
-          } else if (Math.abs(delta) > 2) {
-            setShowBackToTop(delta < 0);
-          }
-          if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
-        }}
-        scrollEventThrottle={16}
-        onContentSizeChange={() => updateVideoVisibility()}
-        onScrollEndDrag={() => {
-          savePosition();
-          updateVideoVisibility();
-        }}
-        onMomentumScrollEnd={() => {
-          savePosition();
-          updateVideoVisibility();
-        }}
-        data={rows}
-        recycleItems
-        extraData={extraData}
-        getItemType={getItemType}
-        keyExtractor={(row) => row.id}
-        renderItem={({ item: row }) => (
-          <FeedImageTransitionContext value={searching ? 0 : 150}>
+    <Fragment>
+      <View
+        ref={viewport}
+        collapsable={false}
+        onLayout={() => updateVideoVisibility()}
+        style={{ flex: 1 }}
+      >
+        <LegendList
+          ref={list}
+          initialScrollIndex={initialScrollIndex}
+          onScroll={() => {
+            updateVideoVisibility();
+            const state = list.current?.getState();
+            if (!state) return;
+            const delta = state.scroll - previousScrollY.current;
+            if (nearTop(state)) setShowBackToTop(false);
+            else if (Math.abs(delta) > 2) setShowBackToTop(delta < 0);
+            if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
+          }}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => updateVideoVisibility()}
+          onScrollEndDrag={() => {
+            savePosition();
+            updateVideoVisibility();
+          }}
+          onMomentumScrollEnd={() => {
+            savePosition();
+            updateVideoVisibility();
+          }}
+          data={rows}
+          recycleItems
+          extraData={extraData}
+          getItemType={getItemType}
+          keyExtractor={(row) => row.id}
+          renderItem={({ item: row }) => (
             <FeedCard
               rowId={row.id}
-              item={row.item}
               post={row.post}
+              platform={row.platform}
+              threaded={row.threaded}
               threadStart={row.threadStart}
               threadEnd={row.threadEnd}
               threadGapBefore={row.threadGapBefore}
               activePostUrl={
-                visible && row.id === activeVideo?.rowId
+                playing && row.id === activeVideo?.rowId
                   ? activeVideo.postUrl
                   : undefined
               }
+              onOpenMedia={setAlbum}
               onActivate={activatePost}
               onVideoView={onVideoView}
-              resolution={
-                row.item.id === visibleRow?.item.id
-                  ? media.resolution
-                  : undefined
-              }
-              onRetry={media.retry}
-              onPlaybackError={media.fail}
             />
-          </FeedImageTransitionContext>
-        )}
-        viewabilityConfig={viewabilityConfig}
-        onViewableItemsChanged={onViewableItemsChanged}
-        maintainVisibleContentPosition={!searching}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator
-        indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
-        refreshControl={
-          onRefresh && (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.accent}
-              colors={[theme.colors.accent]}
-            />
-          )
-        }
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: theme.spacing.xl,
-        }}
-        ListEmptyComponent={
-          <EmptyFeed
-            message={query?.trim() ? "No matching posts" : undefined}
-          />
-        }
-      />
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 70,
-          overflow: "hidden",
-        }}
-      >
-        <Animated.View
-          style={[
-            { alignSelf: "center", marginTop: theme.spacing.sm },
-            pillStyle,
-          ]}
-        >
+          )}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          maintainVisibleContentPosition={!searching}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator
+          indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
+          refreshControl={
+            onRefresh && (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.colors.accent}
+                colors={[theme.colors.accent]}
+              />
+            )
+          }
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: theme.spacing.xl,
+          }}
+          ListEmptyComponent={
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: theme.spacing.xl,
+                paddingBottom: 80,
+              }}
+            >
+              <Typography variant="titleSmall" style={{ textAlign: "center" }}>
+                {t(query?.trim() ? "feedNoMatches" : "feedNoPosts")}
+              </Typography>
+            </View>
+          }
+        />
+        {showBackToTop && (
           <IconButton
-            disabled={!showBackToTop}
             onPress={() =>
-              list.current?.scrollToIndex({ index: 0, animated: true })
+              list.current?.scrollToIndex({ index: 0, animated: false })
             }
             style={{
+              position: "absolute",
+              top: theme.spacing.sm,
+              alignSelf: "center",
               width: "auto",
               paddingHorizontal: theme.spacing.md,
               flexDirection: "row",
               gap: theme.spacing.xs,
             }}
           >
-            <Icon name="arrow-up" size={18} color={theme.colors.text} />
-            <Typography>Back to top</Typography>
+            <Icon
+              name={IconName.ARROW_UP}
+              size={18}
+              color={theme.colors.text}
+            />
+            <Typography>{t("feedBackToTop")}</Typography>
           </IconButton>
-        </Animated.View>
+        )}
       </View>
-    </View>
+      {album && focused && (
+        <FullscreenMedia
+          {...album}
+          onIndexChange={(index) => {
+            album.onIndexChange(index);
+            setAlbum({ ...album, index });
+          }}
+          onClose={() => setAlbum(undefined)}
+        />
+      )}
+    </Fragment>
   );
 };
