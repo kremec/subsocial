@@ -1,11 +1,11 @@
-import { type FC, useState } from "react";
+import { type FC, Fragment, useState } from "react";
 import { View } from "react-native";
 
 import { router } from "expo-router";
 
+import { Header } from "@/components/ui/header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
-import { Typography } from "@/components/ui/typography";
 import { platforms } from "@/platforms/platforms";
 import { FeedMenu } from "@/screens/feed/components/feed-menu";
 import { useTheme } from "@/theme/use-theme";
@@ -39,33 +39,10 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
   );
 
   return (
-    <View
-      style={{
-        minHeight: 64,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.lg,
-      }}
-    >
-      <Typography
-        variant="title"
-        numberOfLines={1}
-        style={{
-          flexShrink: 1,
-        }}
-      >
-        {t("appName")}
-      </Typography>
-      <View
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          justifyContent: "center",
-          overflow: "hidden",
-        }}
-      >
-        {pendingPlatforms.map((platform) => (
+    <Fragment>
+      <Header
+        title={t("appName")}
+        center={pendingPlatforms.map((platform) => (
           <View
             key={platform.id}
             accessible
@@ -82,21 +59,22 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
             <Icon name={platform.icon} color={platform.color} size={18} />
           </View>
         ))}
-      </View>
-      <IconButton
-        size={36}
-        accessibilityLabel={t("feedSearch")}
-        onPress={() => router.push("/search")}
       >
-        <Icon name={IconName.SEARCH} color={theme.colors.text} size={22} />
-      </IconButton>
-      <IconButton
-        size={36}
-        accessibilityLabel={t("feedMenu")}
-        onPress={() => setMenuVisible(true)}
-      >
-        <Icon name={IconName.DOTS} color={theme.colors.text} size={22} />
-      </IconButton>
+        <IconButton
+          size={44}
+          accessibilityLabel={t("feedSearch")}
+          onPress={() => router.push("/search")}
+        >
+          <Icon name={IconName.SEARCH} color={theme.colors.text} size={22} />
+        </IconButton>
+        <IconButton
+          size={44}
+          accessibilityLabel={t("feedMenu")}
+          onPress={() => setMenuVisible(true)}
+        >
+          <Icon name={IconName.DOTS} color={theme.colors.text} size={22} />
+        </IconButton>
+      </Header>
 
       <FeedMenu
         visible={menuVisible}
@@ -108,6 +86,6 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         onExportData={onExportData}
         onTogglePlatform={onTogglePlatform}
       />
-    </View>
+    </Fragment>
   );
 };
