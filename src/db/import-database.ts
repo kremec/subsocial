@@ -11,13 +11,13 @@ import { z } from "zod";
 
 import { showErrorToast } from "@/components/ui/toast";
 import { db } from "@/db/client";
-import { feedItems } from "@/db/schema";
+import { feedItemsTable } from "@/db/schema";
 import { logError, logInfo } from "@/logging/logger";
 import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
 
-const importDatabaseName = "subsocial-import.db";
+const IMPORT_DB_NAME = "subsocial-import.db";
 const importedRowSchema = z
   .object({
     id: z.string().min(1),
@@ -34,36 +34,42 @@ const importedRowSchema = z
       row.threadId.startsWith(`${row.platform}:`),
   );
 
-export function importDatabase(): Promise<void> {
-  return DocumentPicker.getDocumentAsync({
+async function pickDatabaseFile(): Promise<string | null> {
+  const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
-  })
-    .then(async (result) => {
-      if (result.canceled) return;
+  });
+  return result.canceled ? null : result.assets[0].uri;
+}
+
+export function importDatabase(): Promise<void> {
+  return pickDatabaseFile()
+    .then(async (pickedUri) => {
+      if (!pickedUri) return;
 
       logInfo("db.import", "start");
 
-      const importUri = `file://${defaultDatabaseDirectory}/${importDatabaseName}`;
+      const importUri = `file://${defaultDatabaseDirectory}/${IMPORT_DB_NAME}`;
       let imported: SQLiteDatabase | undefined;
       try {
         await FileSystem.copyAsync({
-          from: result.assets[0].uri,
+          from: pickedUri,
           to: importUri,
         });
         imported = await openDatabaseAsync(
-          importDatabaseName,
+          IMPORT_DB_NAME,
           { useNewConnection: true },
           defaultDatabaseDirectory,
         );
         const source = drizzle(imported);
         const items = importedRowSchema
           .array()
-          .parse(source.select().from(feedItems).all());
+          .parse(source.select().from(feedItemsTable).all());
 
         // Replace data atomically, keeping the live schema and migration journal.
         db.transaction(() => {
-          db.delete(feedItems).run();
-          for (const item of items) db.insert(feedItems).values(item).run();
+          db.delete(feedItemsTable).run();
+          for (const item of items)
+            db.insert(feedItemsTable).values(item).run();
         });
         logInfo("db.import", "complete");
       } finally {
