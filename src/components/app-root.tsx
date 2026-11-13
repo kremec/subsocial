@@ -7,7 +7,9 @@ import { AppStack } from "@/components/app-stack";
 export const AppRoot: FC = () => {
   const { ready } = useAppBootstrap();
 
-  if (!ready) return <AppLoadingScreen />;
+  if (!ready) {
+    return <AppLoadingScreen />;
+  }
 
   return <AppStack />;
 };
