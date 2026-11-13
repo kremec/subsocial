@@ -13,29 +13,32 @@ import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
 import { type PlatformId, platformIdSchema } from "@/types/platform-id";
 
-const withMember = (list: PlatformId[], id: PlatformId, member: boolean) => [
-  ...list.filter((item) => item !== id),
-  ...(member ? [id] : []),
-];
+type CollectionStatus = "queued" | "collecting" | "failed" | "attention";
 
 export function useFeedRefresh(focused: boolean) {
   const [items, setItems] = useState(listFeedItems);
+  // Keep the last processed connections so returning from login detects additions.
   const [connected, setConnected] = useState(
     () => useSettingsStore.getState().settings.connectedPlatforms,
   );
-  const [failed, setFailed] = useState<PlatformId[]>([]);
-  const [attention, setAttention] = useState<PlatformId[]>([]);
-  const [collection, setCollection] = useState<PlatformId[]>([]);
+  const [statuses, setStatuses] = useState<
+    Partial<Record<PlatformId, CollectionStatus>>
+  >({});
   const [pass, setPass] = useState(0);
+  const [paused, setPaused] = useState(false);
   const [foreground, setForeground] = useState(
     AppState.currentState === "active",
   );
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
-  const pending = useRef<PlatformId[]>([]);
   const controller = useRef<AbortController>(undefined);
-  const paused = useRef(false);
   const refreshOnForeground = useRef(true);
-  const active = platformIdSchema.options.filter((id) => !hidden.includes(id));
+  const platforms = platformIdSchema.options;
+  const collection =
+    focused && foreground && !paused
+      ? platforms.filter((id) => statuses[id] === "collecting")
+      : [];
+  const setStatus = (id: PlatformId, status?: CollectionStatus) =>
+    setStatuses((current) => ({ ...current, [id]: status }));
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
@@ -48,67 +51,79 @@ export function useFeedRefresh(focused: boolean) {
   }, []);
 
   const collect = useEffectEvent(async (signal: AbortSignal) => {
-    const platforms = await syncPlatformSessions();
-    if (signal.aborted) return;
-    const added = platforms.some((id) => !connected.includes(id));
-    setConnected(platforms);
-    setFailed((current) => current.filter((id) => platforms.includes(id)));
-    setAttention((current) => current.filter((id) => platforms.includes(id)));
-    setItems(listFeedItems());
-    pending.current =
-      added || refreshOnForeground.current
-        ? platforms
-        : pending.current.filter((id) => platforms.includes(id));
-    refreshOnForeground.current = false;
-    const queue = [...pending.current];
-    setCollection(queue);
-    if (!queue.length) return;
-    await Promise.all(
-      queue.map(async (platform) => {
-        try {
-          await collectFeed(getPlatform(platform), signal);
-          if (signal.aborted) return;
-          pending.current = pending.current.filter((id) => id !== platform);
-          setFailed((current) => withMember(current, platform, false));
-          setAttention((current) => withMember(current, platform, false));
-        } catch (error) {
-          if (signal.aborted) return;
-          setFailed((current) => withMember(current, platform, true));
-          if (error instanceof FeedAccessError)
-            setAttention((current) => withMember(current, platform, true));
-          else {
-            pending.current = pending.current.filter((id) => id !== platform);
-            setAttention((current) => withMember(current, platform, false));
-            showErrorToast(
-              t("feedPlatformError", {
-                platform: getPlatform(platform).label,
-                error:
-                  error instanceof FeedError
-                    ? error.message
-                    : t("feedRefreshFailed"),
-              }),
-            );
+    try {
+      const platforms = await syncPlatformSessions();
+      if (signal.aborted) return;
+      const added = platforms.some((id) => !connected.includes(id));
+      const queue = platforms.filter(
+        (id) =>
+          refreshOnForeground.current ||
+          added ||
+          statuses[id] === "queued" ||
+          statuses[id] === "collecting" ||
+          statuses[id] === "attention",
+      );
+      refreshOnForeground.current = false;
+      setConnected(platforms);
+      setItems(listFeedItems());
+      setStatuses(
+        Object.fromEntries(
+          platforms.map((id) => [
+            id,
+            queue.includes(id) ? "collecting" : statuses[id],
+          ]),
+        ),
+      );
+      if (!queue.length) return;
+      await Promise.all(
+        queue.map(async (id) => {
+          try {
+            await collectFeed(getPlatform(id), signal);
+            if (!signal.aborted) setStatus(id);
+          } catch (error) {
+            if (signal.aborted) return;
+            if (error instanceof FeedAccessError) setStatus(id, "attention");
+            else {
+              setStatus(id, "failed");
+              showErrorToast(
+                t("feedPlatformError", {
+                  platform: getPlatform(id).label,
+                  error:
+                    error instanceof FeedError
+                      ? error.message
+                      : t("feedRefreshFailed"),
+                }),
+              );
+            }
           }
-        }
-        setCollection((current) => current.filter((id) => id !== platform));
-      }),
-    );
-    if (signal.aborted) return;
-    pruneFeedItems();
-    setItems(listFeedItems());
+        }),
+      );
+      if (signal.aborted) return;
+      pruneFeedItems();
+      setItems(listFeedItems());
+    } catch {
+      if (signal.aborted) return;
+      setStatuses((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([id, status]) => [
+            id,
+            status === "collecting" ? "queued" : status,
+          ]),
+        ),
+      );
+      showErrorToast(t("connectionsCheckFailed"));
+    }
   });
 
   useEffect(() => {
-    if (!focused || !foreground || paused.current) return;
+    if (!focused || !foreground || paused) return;
     const current = new AbortController();
     controller.current = current;
-    void collect(current.signal).catch(() => {
-      if (current.signal.aborted) return;
-      setCollection([]);
-      showErrorToast(t("connectionsCheckFailed"));
-    });
+    // Starts asynchronous collection; state updates follow the session lookup.
+    // oxlint-disable-next-line react/set-state-in-effect
+    void collect(current.signal);
     return () => current.abort();
-  }, [focused, foreground, pass]);
+  }, [focused, foreground, paused, pass]);
 
   const restart = () => {
     controller.current?.abort();
@@ -119,29 +134,27 @@ export function useFeedRefresh(focused: boolean) {
   return {
     items,
     connected,
-    failed,
-    active,
+    failed: platforms.filter(
+      (id) => statuses[id] === "failed" || statuses[id] === "attention",
+    ),
+    active: platforms.filter((id) => !hidden.includes(id)),
     collection,
-    attention,
+    attention: platforms.filter((id) => statuses[id] === "attention"),
     foreground,
-    toggle: (platform: PlatformId) =>
+    toggle: (id: PlatformId) =>
       useSettingsStore.getState().updateSettings({
-        hiddenPlatforms: withMember(
-          hidden,
-          platform,
-          !hidden.includes(platform),
-        ),
+        hiddenPlatforms: hidden.includes(id)
+          ? hidden.filter((item) => item !== id)
+          : [...hidden, id],
       }),
     pause: () => {
-      paused.current = true;
+      setPaused(true);
       controller.current?.abort();
-      setCollection([]);
     },
     reload: () => {
-      paused.current = false;
+      setPaused(false);
       setItems(listFeedItems());
-      setFailed([]);
-      setAttention([]);
+      setStatuses({});
       restart();
     },
     refresh: () => {
