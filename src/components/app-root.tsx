@@ -32,16 +32,6 @@ export const AppRoot: FC = () => {
         <Stack.Screen name="index" />
         <Stack.Screen name="browser" />
         <Stack.Screen name="search" />
-        <Stack.Screen
-          name="media"
-          options={{
-            presentation: "transparentModal",
-            orientation: "default",
-            animation: "fade",
-            statusBarHidden: true,
-            contentStyle: { backgroundColor: "black" },
-          }}
-        />
       </Stack>
       <Toast />
     </GestureHandlerRootView>

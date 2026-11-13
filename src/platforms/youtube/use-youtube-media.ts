@@ -1,22 +1,16 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   resolveYouTubePlayback,
   type YouTubeResolution,
 } from "@/platforms/youtube/playback";
-import { useMediaStore } from "@/stores/media-store";
 
-const setResolution = (sourceId: string, resolution?: YouTubeResolution) =>
-  useMediaStore.setState({
-    youtube: resolution && { sourceId, resolution },
-  });
+// Keep the current stream when moving between the inline and fullscreen view.
+let cached: { sourceId: string; resolution: YouTubeResolution } | undefined;
 
-// Resolve a YouTube stream while its video is shown.
 export function useYouTubeMedia(sourceId: string | undefined) {
-  const resolution = useMediaStore((state) =>
-    sourceId && state.youtube?.sourceId === sourceId
-      ? state.youtube.resolution
-      : undefined,
+  const [resolution, setResolution] = useState(() =>
+    cached?.sourceId === sourceId ? cached?.resolution : undefined,
   );
 
   useEffect(() => {
@@ -27,7 +21,9 @@ export function useYouTubeMedia(sourceId: string | undefined) {
     void resolveYouTubePlayback(sourceId, controller.signal)
       .catch((): YouTubeResolution => ({ status: "error" }))
       .then((resolution) => {
-        if (!cancelled) setResolution(sourceId, resolution);
+        if (cancelled) return;
+        cached = { sourceId, resolution };
+        setResolution(resolution);
       });
     return () => {
       cancelled = true;
@@ -37,12 +33,18 @@ export function useYouTubeMedia(sourceId: string | undefined) {
   }, [sourceId, resolution]);
 
   const fail = useCallback(() => {
-    if (sourceId) setResolution(sourceId, { status: "error" });
+    if (!sourceId) return;
+    const resolution: YouTubeResolution = { status: "error" };
+    cached = { sourceId, resolution };
+    setResolution(resolution);
   }, [sourceId]);
 
   return {
     resolution,
-    retry: () => useMediaStore.setState({ youtube: undefined }),
+    retry: () => {
+      cached = undefined;
+      setResolution(undefined);
+    },
     fail,
   };
 }

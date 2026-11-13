@@ -1,9 +1,10 @@
 import { type FC, memo } from "react";
 import { View, type ViewInstance } from "react-native";
 
+import { type MediaAlbum } from "@/media/fullscreen-media";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
-import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
+import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
@@ -17,6 +18,7 @@ interface FeedCardProps {
   threadEnd: boolean;
   threadGapBefore: boolean;
   activePostUrl?: string;
+  onOpenMedia: (album: MediaAlbum) => void;
   onActivate: (rowId: string, postUrl: string) => void;
   onVideoView: (
     rowId: string,
@@ -36,16 +38,18 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
     threadGapBefore,
     activePostUrl,
     onActivate,
+    onOpenMedia,
     onVideoView,
   } = props;
   const theme = useTheme();
 
   return (
-    <FeedVideoContext
+    <FeedMediaContext
       value={{
         rowId,
         activePostUrl,
         activate: onActivate,
+        openMedia: onOpenMedia,
         setVideoView: onVideoView,
       }}
     >
@@ -69,6 +73,6 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
           <PostContent post={post} platform={platform} variant="feed" />
         </View>
       )}
-    </FeedVideoContext>
+    </FeedMediaContext>
   );
 });

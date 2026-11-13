@@ -1,5 +1,6 @@
 import {
   type FC,
+  Fragment,
   type RefObject,
   useEffect,
   useEffectEvent,
@@ -23,6 +24,7 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { findPositionIndex, positionFor } from "@/feed/feed-rows";
+import { FullscreenMedia, type MediaAlbum } from "@/media/fullscreen-media";
 import { FeedCard } from "@/screens/feed/components/feed-card";
 import { useFeedVideoVisibility } from "@/screens/feed/use-feed-video-visibility";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -95,9 +97,11 @@ export const FeedList: FC<FeedListProps> = (props) => {
   const rows = filteredItems.flatMap((item) => item.rows);
   const localList = useRef<LegendListRef>(null);
   const list = listRef ?? localList;
+  const [album, setAlbum] = useState<MediaAlbum>();
+  const playing = visible && !album;
   const readingRowId = useRef<string>(undefined);
   const { viewport, activeVideo, updateVideoVisibility, onVideoView } =
-    useFeedVideoVisibility(rows, visible);
+    useFeedVideoVisibility(rows, playing);
   const activatePost = (rowId: string, postUrl: string) =>
     updateVideoVisibility({ rowId, postUrl });
   const [initialScrollIndex] = useState(() => {
@@ -132,7 +136,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     });
     return () => listener.remove();
   }, []);
-  const extraData = [activeVideo, visible];
+  const extraData = [activeVideo, playing];
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
   ) => {
@@ -148,113 +152,130 @@ export const FeedList: FC<FeedListProps> = (props) => {
   };
 
   return (
-    <View
-      ref={viewport}
-      collapsable={false}
-      onLayout={() => updateVideoVisibility()}
-      style={{ flex: 1 }}
-    >
-      <LegendList
-        ref={list}
-        initialScrollIndex={initialScrollIndex}
-        onScroll={() => {
-          updateVideoVisibility();
-          const state = list.current?.getState();
-          if (!state) return;
-          const delta = state.scroll - previousScrollY.current;
-          if (nearTop(state)) setShowBackToTop(false);
-          else if (Math.abs(delta) > 2) setShowBackToTop(delta < 0);
-          if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
-        }}
-        scrollEventThrottle={16}
-        onContentSizeChange={() => updateVideoVisibility()}
-        onScrollEndDrag={() => {
-          savePosition();
-          updateVideoVisibility();
-        }}
-        onMomentumScrollEnd={() => {
-          savePosition();
-          updateVideoVisibility();
-        }}
-        data={rows}
-        recycleItems
-        extraData={extraData}
-        getItemType={getItemType}
-        keyExtractor={(row) => row.id}
-        renderItem={({ item: row }) => (
-          <FeedCard
-            rowId={row.id}
-            post={row.post}
-            platform={row.platform}
-            threaded={row.threaded}
-            threadStart={row.threadStart}
-            threadEnd={row.threadEnd}
-            threadGapBefore={row.threadGapBefore}
-            activePostUrl={
-              visible && row.id === activeVideo?.rowId
-                ? activeVideo.postUrl
-                : undefined
-            }
-            onActivate={activatePost}
-            onVideoView={onVideoView}
-          />
-        )}
-        viewabilityConfig={viewabilityConfig}
-        onViewableItemsChanged={onViewableItemsChanged}
-        maintainVisibleContentPosition={!searching}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator
-        indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
-        refreshControl={
-          onRefresh && (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.accent}
-              colors={[theme.colors.accent]}
+    <Fragment>
+      <View
+        ref={viewport}
+        collapsable={false}
+        onLayout={() => updateVideoVisibility()}
+        style={{ flex: 1 }}
+      >
+        <LegendList
+          ref={list}
+          initialScrollIndex={initialScrollIndex}
+          onScroll={() => {
+            updateVideoVisibility();
+            const state = list.current?.getState();
+            if (!state) return;
+            const delta = state.scroll - previousScrollY.current;
+            if (nearTop(state)) setShowBackToTop(false);
+            else if (Math.abs(delta) > 2) setShowBackToTop(delta < 0);
+            if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
+          }}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => updateVideoVisibility()}
+          onScrollEndDrag={() => {
+            savePosition();
+            updateVideoVisibility();
+          }}
+          onMomentumScrollEnd={() => {
+            savePosition();
+            updateVideoVisibility();
+          }}
+          data={rows}
+          recycleItems
+          extraData={extraData}
+          getItemType={getItemType}
+          keyExtractor={(row) => row.id}
+          renderItem={({ item: row }) => (
+            <FeedCard
+              rowId={row.id}
+              post={row.post}
+              platform={row.platform}
+              threaded={row.threaded}
+              threadStart={row.threadStart}
+              threadEnd={row.threadEnd}
+              threadGapBefore={row.threadGapBefore}
+              activePostUrl={
+                playing && row.id === activeVideo?.rowId
+                  ? activeVideo.postUrl
+                  : undefined
+              }
+              onOpenMedia={setAlbum}
+              onActivate={activatePost}
+              onVideoView={onVideoView}
             />
-          )
-        }
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: theme.spacing.xl,
-        }}
-        ListEmptyComponent={
-          <View
+          )}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          maintainVisibleContentPosition={!searching}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator
+          indicatorStyle={theme.themeName === "dark" ? "white" : "black"}
+          refreshControl={
+            onRefresh && (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.colors.accent}
+                colors={[theme.colors.accent]}
+              />
+            )
+          }
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: theme.spacing.xl,
+          }}
+          ListEmptyComponent={
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: theme.spacing.xl,
+                paddingBottom: 80,
+              }}
+            >
+              <Typography variant="titleSmall" style={{ textAlign: "center" }}>
+                {t(query?.trim() ? "feedNoMatches" : "feedNoPosts")}
+              </Typography>
+            </View>
+          }
+        />
+        {showBackToTop && (
+          <IconButton
+            onPress={() =>
+              list.current?.scrollToIndex({ index: 0, animated: false })
+            }
             style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              paddingHorizontal: theme.spacing.xl,
-              paddingBottom: 80,
+              position: "absolute",
+              top: theme.spacing.sm,
+              alignSelf: "center",
+              width: "auto",
+              paddingHorizontal: theme.spacing.md,
+              flexDirection: "row",
+              gap: theme.spacing.xs,
             }}
           >
-            <Typography variant="titleSmall" style={{ textAlign: "center" }}>
-              {t(query?.trim() ? "feedNoMatches" : "feedNoPosts")}
-            </Typography>
-          </View>
-        }
-      />
-      {showBackToTop && (
-        <IconButton
-          onPress={() =>
-            list.current?.scrollToIndex({ index: 0, animated: false })
-          }
-          style={{
-            position: "absolute",
-            top: theme.spacing.sm,
-            alignSelf: "center",
-            width: "auto",
-            paddingHorizontal: theme.spacing.md,
-            flexDirection: "row",
-            gap: theme.spacing.xs,
+            <Icon
+              name={IconName.ARROW_UP}
+              size={18}
+              color={theme.colors.text}
+            />
+            <Typography>{t("feedBackToTop")}</Typography>
+          </IconButton>
+        )}
+      </View>
+      {album && visible && (
+        <FullscreenMedia
+          {...album}
+          onIndexChange={(index) => {
+            album.onIndexChange(index);
+            setAlbum({ ...album, index });
           }}
-        >
-          <Icon name={IconName.ARROW_UP} size={18} color={theme.colors.text} />
-          <Typography>{t("feedBackToTop")}</Typography>
-        </IconButton>
+          onClose={() => setAlbum(undefined)}
+        />
       )}
-    </View>
+    </Fragment>
   );
 };

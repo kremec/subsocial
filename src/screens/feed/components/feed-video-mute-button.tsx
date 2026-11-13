@@ -1,18 +1,20 @@
+/* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
 import { type FC } from "react";
 import { Pressable } from "react-native";
 
 import { useEvent } from "expo";
+import { type VideoPlayer } from "expo-video";
 
 import { Icon, IconName } from "@/components/ui/icon";
-import { player } from "@/media/video-player";
 import { t } from "@/translation/use-translation";
 
 interface FeedVideoMuteButtonProps {
+  player: VideoPlayer;
   inline?: boolean;
 }
 
 export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
-  const { inline } = props;
+  const { player, inline } = props;
   const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (

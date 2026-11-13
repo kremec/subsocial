@@ -1,21 +1,13 @@
-import {
-  type FC,
-  type ReactNode,
-  useCallback,
-  useLayoutEffect,
-  useState,
-} from "react";
+import { type FC, type ReactNode, useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { type GestureType } from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
-import { showVideo } from "@/media/video-player";
+import { VideoPlayback } from "@/media/video-playback";
 import { openBrowser } from "@/platforms/open-post";
 import { withYouTubeStream } from "@/platforms/youtube/playback";
 import { useYouTubeMedia } from "@/platforms/youtube/use-youtube-media";
-import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
-import { useMediaStore } from "@/stores/media-store";
 import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 import { PlatformId } from "@/types/platform-id";
@@ -44,42 +36,29 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
     navigationGestures,
     counter,
   } = props;
-  // The inline and fullscreen views share a key to resume the same playback.
-  const playbackKey = `${postUrl}:${index}`;
+  const key = `${postUrl}:${index}`;
   const youtube = useYouTubeMedia(
     platform === PlatformId.YOUTUBE ? sourceId : undefined,
   );
-  const { resolution, fail: failYouTube } = youtube;
   const [failed, setFailed] = useState(false);
-  const fail = useCallback(() => {
-    setFailed(true);
-    failYouTube();
-  }, [failYouTube]);
+  const { resolution, fail: failYouTube } = youtube;
   const status =
     platform === PlatformId.YOUTUBE && resolution?.status !== "ready"
       ? resolution?.status || "loading"
       : failed && "error";
   const video = withYouTubeStream(media, resolution);
-  const loaded = useMediaStore(
-    (state) =>
-      state.loaded?.playbackKey === playbackKey &&
-      state.loaded.url === video.url,
-  );
 
-  // Load this video into the shared player while it can play.
-  useLayoutEffect(() => {
-    if (!status)
-      return showVideo({
-        playbackKey,
-        media: withYouTubeStream(media, resolution),
-        onError: fail,
-      });
-  }, [status, playbackKey, media, resolution, fail]);
+  const fail = useCallback(() => {
+    setFailed(true);
+    failYouTube();
+  }, [failYouTube]);
 
   if (!status) {
-    if (!loaded) return counter || null;
     return (
-      <FeedVideoControls
+      <VideoPlayback
+        key={video.url}
+        playbackKey={key}
+        onError={fail}
         media={video}
         platform={platform}
         counter={counter}

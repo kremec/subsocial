@@ -8,6 +8,7 @@ import {
 } from "react";
 import { type ViewInstance } from "react-native";
 
+import { type MediaAlbum } from "@/media/fullscreen-media";
 import { type FeedRow } from "@/types/feed-item";
 
 interface ActiveVideo {
@@ -16,9 +17,10 @@ interface ActiveVideo {
 }
 
 // Lets each card's videos activate themselves and report their layout.
-export const FeedVideoContext = createContext<{
+export const FeedMediaContext = createContext<{
   rowId: string;
   activePostUrl?: string;
+  openMedia: (album: MediaAlbum) => void;
   activate: (rowId: string, postUrl: string) => void;
   setVideoView: (
     rowId: string,

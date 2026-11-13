@@ -7,7 +7,6 @@ import {
 } from "react-native";
 
 import { Image } from "expo-image";
-import { router } from "expo-router";
 
 import { ScrollView } from "react-native-gesture-handler";
 
@@ -15,8 +14,7 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
-import { FeedVideoContext } from "@/screens/feed/use-feed-video-visibility";
-import { useMediaStore } from "@/stores/media-store";
+import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
@@ -37,37 +35,24 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const [mediaIndex, setMediaIndex] = useState(0);
   const view = useRef<ViewInstance>(null);
   const carousel = useRef<ScrollViewInstance>(null);
-  const { rowId, activePostUrl, activate, setVideoView } =
-    useContext(FeedVideoContext)!;
+  const { rowId, activePostUrl, activate, setVideoView, openMedia } =
+    useContext(FeedMediaContext)!;
   const active = activePostUrl === postUrl;
-  const selection = useMediaStore((state) =>
-    state.album?.postUrl === postUrl ? state.album.index : undefined,
-  );
-  useLayoutEffect(() => {
-    if (selection === undefined || !mediaWidth) return;
-    // Fullscreen and inline views keep the same album position.
-    // oxlint-disable-next-line react/set-state-in-effect
-    setMediaIndex(selection);
-    carousel.current?.scrollTo({
-      x: selection * mediaWidth,
-      animated: false,
-    });
-    useMediaStore.setState({ album: undefined });
-  }, [selection, postUrl, mediaWidth]);
   const openAlbum = (index: number) => {
-    useMediaStore.setState({ album: { postUrl, index } });
-    router.push({
-      pathname: "/media",
-      params: {
-        media: encodeURIComponent(JSON.stringify(media)),
-        postUrl: encodeURIComponent(postUrl),
-        index: String(index),
-        platform,
-        androidUrl: androidUrl && encodeURIComponent(androidUrl),
-        sourceId,
-      },
+    setMediaIndex(index);
+    openMedia({
+      media,
+      postUrl,
+      platform,
+      androidUrl,
+      sourceId,
+      index,
+      onIndexChange: setMediaIndex,
     });
   };
+  useLayoutEffect(() => {
+    carousel.current?.scrollTo({ x: mediaIndex * mediaWidth, animated: false });
+  }, [mediaIndex, mediaWidth]);
   const selectedMedia = media[mediaIndex];
   const playable =
     selectedMedia?.type === FeedMediaType.VIDEO && selectedMedia.playable;
