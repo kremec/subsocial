@@ -5,7 +5,7 @@ import { router, useFocusEffect, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
-import { ModalHeader } from "@/components/modal-header";
+import { ScreenHeader } from "@/components/screen-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
@@ -30,7 +30,7 @@ export const SearchScreen: FC = () => {
 
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
-      <ModalHeader closeLabel={t("searchClose")} onClose={() => router.back()}>
+      <ScreenHeader onBack={() => router.back()}>
         <View
           style={{
             flex: 1,
@@ -55,13 +55,14 @@ export const SearchScreen: FC = () => {
               flex: 1,
               color: theme.colors.text,
               fontSize: theme.typography.body.fontSize,
+              minHeight: 44,
               paddingVertical: theme.spacing.sm,
             }}
           />
           {!!query && (
             <IconButton
               plain
-              size={36}
+              size={44}
               accessibilityLabel={t("searchClear")}
               onPress={() => changeQuery("")}
             >
@@ -73,7 +74,7 @@ export const SearchScreen: FC = () => {
             </IconButton>
           )}
         </View>
-      </ModalHeader>
+      </ScreenHeader>
       <FeedList items={items} visible={focused} query={query} listRef={list} />
     </Screen>
   );

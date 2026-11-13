@@ -11,7 +11,7 @@
   "continue": "Continue",
   "appName": "subsocial",
   "close": "Close",
-  "searchClose": "Close search",
+  "back": "Back",
   "searchClear": "Clear search",
   "logoutFailed": "Could not log out",
   "logoutPlatform": "Log out of %{platform}",

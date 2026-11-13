@@ -5,7 +5,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
-import { ModalHeader } from "@/components/modal-header";
+import { ScreenHeader } from "@/components/screen-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
@@ -74,14 +74,14 @@ export const BrowserScreen: FC = () => {
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
       <Stack.Screen options={{ gestureEnabled: !resetting }} />
-      <ModalHeader
+      <ScreenHeader
         title={platform.label}
-        closeDisabled={resetting}
-        onClose={() => router.back()}
+        backDisabled={resetting}
+        onBack={() => router.back()}
       >
         {connected && (
           <IconButton
-            plain
+            size={44}
             accessibilityLabel={t("logoutPlatform", {
               platform: platform.label,
             })}
@@ -93,7 +93,7 @@ export const BrowserScreen: FC = () => {
           </IconButton>
         )}
         <IconButton
-          plain
+          size={44}
           accessibilityLabel={t("openPlatformApp", {
             platform: platform.label,
           })}
@@ -114,7 +114,7 @@ export const BrowserScreen: FC = () => {
             size={22}
           />
         </IconButton>
-      </ModalHeader>
+      </ScreenHeader>
       {resetting && (
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
