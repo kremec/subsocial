@@ -1,26 +1,21 @@
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { feedItems } from "@/db/schema";
-import { feedItemLimit } from "@/feed/collection";
+import { feedItemsTable } from "@/db/schema";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { type ExtractedPost } from "@/types/extracted-post";
 import { FeedMediaType } from "@/types/feed-media";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 
-type FeedItemRow = typeof feedItems.$inferSelect;
+export const feedItemLimit = 500;
+
+type FeedItemRow = typeof feedItemsTable.$inferSelect;
 
 export interface ExtractionBatch {
   items: ExtractedItem[];
   excludedSourceIds: string[];
 }
-
-const postFromRow = (row: FeedItemRow): ExtractedPost => ({
-  ...row.post,
-  sourceId: row.sourceId,
-  publishedAt: row.publishedAt ?? undefined,
-});
 
 // Partial refreshes can omit media or quoted content that was already loaded.
 function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
@@ -52,9 +47,10 @@ function mergePost<T extends FeedPost>(post: T, previous?: FeedPost): T {
   };
 }
 
-function saveThread(
+function mergeThread(
   platform: PlatformId,
   item: ExtractedItem,
+  saved: Map<string, FeedItemRow>,
   excluded: Set<string>,
 ): void {
   const { thread, ...root } = item;
@@ -62,55 +58,50 @@ function saveThread(
   for (const post of [root, ...(thread ?? [])])
     if (!excluded.has(post.sourceId))
       posts.set(post.sourceId, mergePost(post, posts.get(post.sourceId)));
-  const ids = [...posts.keys()];
-  const related = [...posts.values()]
-    .flatMap((post) => [post.replyToSourceId, post.threadContextSourceId])
-    .filter((id) => id !== undefined);
-  const linkedIds = [...ids, ...related].map((id) => `${platform}:${id}`);
-  const sourceIds = sql`SELECT value FROM json_each(${JSON.stringify(ids)})`;
-  // Saved copies, parents, and replies that were saved before this post.
-  const previous = db
-    .select()
-    .from(feedItems)
-    .where(sql`
-      id IN (SELECT value FROM json_each(${JSON.stringify(linkedIds)}))
-      OR (platform = ${platform} AND (
-        json_extract(item_json, '$.replyToSourceId') IN (${sourceIds})
-        OR json_extract(item_json, '$.threadContextSourceId') IN (${sourceIds})
-      ))
-    `)
-    .all();
-  // Join connected threads under one stable ID.
-  const threads = [...new Set(previous.map((row) => row.threadId))].sort();
-  const threadId = threads[0] ?? `${platform}:${item.sourceId}`;
-  if (threads.length > 1)
-    db.update(feedItems)
-      .set({ threadId })
-      .where(inArray(feedItems.threadId, threads))
-      .run();
-  const saved = new Map(previous.map((row) => [row.sourceId, row]));
+
+  // Include saved parents and replies, even when a parent arrives later.
+  const parents = new Set(
+    [...posts.values()].flatMap((post) => [
+      post.replyToSourceId,
+      post.threadContextSourceId,
+    ]),
+  );
+  const threads = new Set(
+    [...saved.values()]
+      .filter(
+        (row) =>
+          posts.has(row.sourceId) ||
+          parents.has(row.sourceId) ||
+          posts.has(row.post.replyToSourceId ?? "") ||
+          posts.has(row.post.threadContextSourceId ?? ""),
+      )
+      .map((row) => row.threadId),
+  );
+  const threadId = [...threads].sort()[0] ?? `${platform}:${item.sourceId}`;
+  for (const row of saved.values()) {
+    if (row.threadId === threadId || !threads.has(row.threadId)) continue;
+    saved.set(row.sourceId, { ...row, threadId });
+  }
+
   for (const post of posts.values()) {
-    const old = saved.get(post.sourceId);
+    const previous = saved.get(post.sourceId);
     const { sourceId, publishedAt, ...content } = mergePost(
       post,
-      old && postFromRow(old),
+      previous && {
+        ...previous.post,
+        publishedAt: previous.publishedAt ?? undefined,
+      },
     );
     if (!publishedAt) continue;
-    db.insert(feedItems)
-      .values({
-        id: `${platform}:${sourceId}`,
-        platform,
-        sourceId,
-        publishedAt,
-        fetchedAt: Date.now(),
-        post: content,
-        threadId,
-      })
-      .onConflictDoUpdate({
-        target: feedItems.id,
-        set: { publishedAt, post: content, threadId },
-      })
-      .run();
+    saved.set(sourceId, {
+      id: `${platform}:${sourceId}`,
+      platform,
+      sourceId,
+      publishedAt,
+      fetchedAt: previous?.fetchedAt ?? Date.now(),
+      post: content,
+      threadId,
+    });
   }
 }
 
@@ -119,15 +110,37 @@ export function saveExtraction(
   batches: ExtractionBatch[],
 ): void {
   db.transaction(() => {
+    const existing = new Map(
+      db
+        .select()
+        .from(feedItemsTable)
+        .where(eq(feedItemsTable.platform, platform))
+        .all()
+        .map((row) => [row.sourceId, row]),
+    );
+    const saved = new Map(existing);
+
     for (const { items, excludedSourceIds } of batches) {
       const excluded = new Set(excludedSourceIds);
-      for (const sourceId of excluded)
-        db.delete(feedItems)
-          .where(eq(feedItems.id, `${platform}:${sourceId}`))
-          .run();
-      for (const item of items)
-        if (!excluded.has(item.sourceId)) saveThread(platform, item, excluded);
+      for (const id of excluded) saved.delete(id);
+      for (const item of items) {
+        if (!excluded.has(item.sourceId))
+          mergeThread(platform, item, saved, excluded);
+      }
     }
+    // Write each changed post once, preserving every other platform's data.
+    for (const [sourceId, row] of existing)
+      if (!saved.has(sourceId))
+        db.delete(feedItemsTable).where(eq(feedItemsTable.id, row.id)).run();
+    for (const [sourceId, row] of saved)
+      if (row !== existing.get(sourceId))
+        db.insert(feedItemsTable)
+          .values(row)
+          .onConflictDoUpdate({
+            target: feedItemsTable.id,
+            set: row,
+          })
+          .run();
   });
 }
 
@@ -135,9 +148,8 @@ export function listFeedPosts(): FeedItemRow[] {
   // Keep undated saved posts without placing them in the chronological feed.
   return db
     .select()
-    .from(feedItems)
-    .where(isNotNull(feedItems.publishedAt))
-    .orderBy(desc(feedItems.publishedAt), desc(feedItems.id))
+    .from(feedItemsTable)
+    .where(isNotNull(feedItemsTable.publishedAt))
     .all();
 }
 
@@ -157,17 +169,20 @@ export function pruneFeedItems(): void {
 export function listPublicationDates(platform: PlatformId): [string, number][] {
   return db
     .select({
-      sourceId: feedItems.sourceId,
-      publishedAt: feedItems.publishedAt,
+      sourceId: feedItemsTable.sourceId,
+      publishedAt: feedItemsTable.publishedAt,
     })
-    .from(feedItems)
+    .from(feedItemsTable)
     .where(
-      and(eq(feedItems.platform, platform), isNotNull(feedItems.publishedAt)),
+      and(
+        eq(feedItemsTable.platform, platform),
+        isNotNull(feedItemsTable.publishedAt),
+      ),
     )
     .all()
     .map((row) => [row.sourceId, row.publishedAt!]);
 }
 
 export function deletePlatformPosts(platform: PlatformId): void {
-  db.delete(feedItems).where(eq(feedItems.platform, platform)).run();
+  db.delete(feedItemsTable).where(eq(feedItemsTable.platform, platform)).run();
 }
