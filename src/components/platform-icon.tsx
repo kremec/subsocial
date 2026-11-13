@@ -14,25 +14,25 @@ interface PlatformIconProps {
 
 export const PlatformIcon: FC<PlatformIconProps> = (props) => {
   const { platform, connected, active = true, failed = false } = props;
-  const theme = useTheme();
-  const connectedColor = active ? theme.colors.success : theme.colors.warning;
-  const borderColor = failed
-    ? theme.colors.danger
-    : connected
-      ? connectedColor
-      : theme.colors.border;
+  const { colors, radius } = useTheme();
 
   return (
     <View
-      style={{
-        width: 38,
-        height: 38,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 2,
-        borderColor,
-        borderRadius: theme.radius.sm,
-      }}
+      style={[
+        {
+          width: 38,
+          height: 38,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 2,
+          borderColor: colors.border,
+          borderRadius: radius.sm,
+        },
+        connected && {
+          borderColor: active ? colors.success : colors.warning,
+        },
+        failed && { borderColor: colors.danger },
+      ]}
     >
       <Icon name={platform.icon} color={platform.color} size={22} />
     </View>
