@@ -12,6 +12,7 @@ import { z } from "zod";
 import { showErrorToast } from "@/components/ui/toast";
 import { db } from "@/db/client";
 import { feedItems } from "@/db/schema";
+import { logError, logInfo } from "@/logging/logger";
 import { t } from "@/translation/use-translation";
 import { feedPostSchema } from "@/types/feed-post";
 import { platformIdSchema } from "@/types/platform-id";
@@ -40,6 +41,8 @@ export function importDatabase(): Promise<void> {
     .then(async (result) => {
       if (result.canceled) return;
 
+      logInfo("db.import", "start");
+
       const importUri = `file://${defaultDatabaseDirectory}/${importDatabaseName}`;
       let imported: SQLiteDatabase | undefined;
       try {
@@ -62,12 +65,20 @@ export function importDatabase(): Promise<void> {
           db.delete(feedItems).run();
           for (const item of items) db.insert(feedItems).values(item).run();
         });
+        logInfo("db.import", "complete");
       } finally {
-        await imported?.closeAsync().catch(console.warn);
+        await imported?.closeAsync().catch((error) => {
+          logError("db.import", "close-failed", error);
+        });
         await FileSystem.deleteAsync(importUri, { idempotent: true }).catch(
-          console.warn,
+          (error) => {
+            logError("db.import", "cleanup-failed", error);
+          },
         );
       }
     })
-    .catch(() => showErrorToast(t("feedImportError")));
+    .catch((error) => {
+      logError("db.import", "failed", error);
+      showErrorToast(t("feedImportError"));
+    });
 }
