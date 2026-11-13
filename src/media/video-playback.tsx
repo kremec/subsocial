@@ -23,10 +23,8 @@ interface VideoPlaybackProps {
 }
 
 // Native players belong to mounted videos; only their position survives a handoff.
-const playback = new Map<
-  string,
-  { time: number; playing: boolean; rate: number }
->();
+const playback = new Map<string, { time: number; playing: boolean }>();
+let playbackRate = 1;
 
 export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
   const {
@@ -72,7 +70,7 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
         ready = true;
         selectAudio();
         if (saved) player.currentTime = saved.time;
-        player.playbackRate = saved?.rate ?? 1;
+        player.playbackRate = playbackRate;
         setLoaded(true);
         if (saved?.playing !== false) {
           if (AppState.currentState === "active") player.play();
@@ -99,15 +97,16 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
     });
     finish();
     return () => {
-      if (ready)
+      if (ready) {
+        playbackRate = player.playbackRate;
         playback.set(playbackKey, {
           time: player.currentTime,
           playing:
             player.status === "error" ||
             player.playing ||
             (AppState.currentState !== "active" && resume),
-          rate: player.playbackRate,
         });
+      }
       player.pause();
       statusListener.remove();
       audioListener.remove();

@@ -128,8 +128,6 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           });
         return Gesture.Exclusive(double, single);
       }),
-    // Native currentTime is read when the gesture fires, not during render.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [seekTo, playPauseTap, player],
   );
   const scrubGesture = useMemo(() => {
