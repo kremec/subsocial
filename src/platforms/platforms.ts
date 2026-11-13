@@ -12,18 +12,19 @@ import { youtubePlatform } from "@/platforms/youtube/config";
 import { youtubeFeed } from "@/platforms/youtube/service";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
-import { type PlatformId } from "@/types/platform-id";
+import { PlatformId } from "@/types/platform-id";
 
-export const platforms: PlatformDefinition[] = [
-  { ...instagramPlatform, feed: instagramFeed },
-  { ...facebookPlatform, feed: facebookFeed },
-  { ...redditPlatform, feed: redditFeed },
-  { ...xPlatform, feed: xFeed },
-  { ...youtubePlatform, feed: youtubeFeed },
-];
+const definitions: Record<PlatformId, PlatformDefinition> = {
+  [PlatformId.INSTAGRAM]: { ...instagramPlatform, feed: instagramFeed },
+  [PlatformId.FACEBOOK]: { ...facebookPlatform, feed: facebookFeed },
+  [PlatformId.REDDIT]: { ...redditPlatform, feed: redditFeed },
+  [PlatformId.X]: { ...xPlatform, feed: xFeed },
+  [PlatformId.YOUTUBE]: { ...youtubePlatform, feed: youtubeFeed },
+};
 
+export const platforms = Object.values(definitions);
 export function getPlatform(id: PlatformId): PlatformDefinition {
-  const platform = platforms.find((item) => item.id === id);
+  const platform = definitions[id];
   if (!platform) throw new Error(t("unknownPlatform", { platform: id }));
   return platform;
 }

@@ -42,19 +42,17 @@ async function syncCookies(platform: PlatformDefinition, fromWebKit: boolean) {
     readStore(!fromWebKit),
   ]);
   for (const [id, cookie] of previous)
-    if (!incoming.has(id))
-      await CookieManager.set(
-        `https://${cookieHost(cookie)}`,
-        { ...cookie, maxAge: 0 },
-        !fromWebKit,
-      );
-  for (const [id, cookie] of incoming)
-    if (JSON.stringify(previous.get(id)) !== JSON.stringify(cookie))
-      await CookieManager.set(
-        `https://${cookieHost(cookie)}`,
-        cookie,
-        !fromWebKit,
-      );
+    if (!incoming.has(id)) incoming.set(id, { ...cookie, maxAge: 0 });
+  await Promise.all(
+    [...incoming]
+      .filter(
+        ([id, cookie]) =>
+          JSON.stringify(previous.get(id)) !== JSON.stringify(cookie),
+      )
+      .map(([, cookie]) =>
+        CookieManager.set(`https://${cookieHost(cookie)}`, cookie, !fromWebKit),
+      ),
+  );
 }
 
 export async function* platformFeed(

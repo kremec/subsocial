@@ -8,26 +8,21 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { type PlatformDefinition } from "@/types/platform-definition";
 import { type PlatformId } from "@/types/platform-id";
 
-export async function syncPlatformSession(
-  platform: PlatformDefinition,
-): Promise<boolean | undefined> {
+export async function syncPlatformSession(platform: PlatformDefinition) {
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
     const { settings, updateSettings } = useSettingsStore.getState();
-    const connected = settings.connectedPlatforms.includes(platform.id);
     // Keep configured accounts until explicit logout, even if login expires.
-    if (!connected && hasSession(platform, cookies)) {
-      updateSettings({
-        connectedPlatforms: [
-          ...settings.connectedPlatforms,
-          platform.id,
-        ].sort(),
-      });
-      return true;
-    }
-    return connected;
+    if (
+      settings.connectedPlatforms.includes(platform.id) ||
+      !hasSession(platform, cookies)
+    )
+      return;
+    updateSettings({
+      connectedPlatforms: [...settings.connectedPlatforms, platform.id].sort(),
+    });
   } catch {
-    return undefined;
+    // Session discovery can retry when the browser or feed gains focus.
   }
 }
 

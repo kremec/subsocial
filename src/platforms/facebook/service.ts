@@ -85,7 +85,9 @@ function attachmentFor(attachments: unknown) {
     const media = asObject(entry.media);
     const event = asObject(entry.target);
     const link = asObject(
-      asObject(entry.story_attachment_link_renderer).attachment,
+      entry,
+      "story_attachment_link_renderer",
+      "attachment",
     );
     const rawUrl =
       asString(media.external_url) ||
@@ -226,7 +228,7 @@ function parseFacebookFeed(response: string) {
     if (part.data !== undefined)
       data = applyPatch(data, part.path || [], part.data);
   }
-  const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
+  const feed = feedSchema.safeParse(asObject(data, "viewer").news_feed);
   if (!feed.success) throw new FeedError(t("facebookFeedIncomplete"));
   const items: ExtractedItem[] = [];
   for (const rawEdge of feed.data.edges || []) {

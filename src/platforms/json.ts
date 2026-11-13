@@ -1,8 +1,13 @@
 // Read only the fields a platform parser needs from untrusted JSON.
-export const asObject = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" && !Array.isArray(value)
+export function asObject(
+  value: unknown,
+  ...path: string[]
+): Record<string, unknown> {
+  for (const key of path) value = asObject(value)[key];
+  return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
 export const asString = (value: unknown) =>
   typeof value === "string" ? value : "";
 
