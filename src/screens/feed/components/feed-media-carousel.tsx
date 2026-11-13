@@ -91,7 +91,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: "rgba(0, 0, 0, 0.62)",
       }}
     >
-      <Typography variant="captionSemibold" color="#FFFFFF">
+      <Typography variant="caption" color="#FFFFFF">
         {mediaIndex + 1}/{media.length}
       </Typography>
     </View>

@@ -37,7 +37,7 @@ export const Toast: FC<ToastProps> = (props) => {
             padding: 14,
           }}
         >
-          <Typography variant="bodySmallRelaxed" accessibilityRole="alert">
+          <Typography variant="bodySmall" accessibilityRole="alert">
             {text1}
           </Typography>
         </Pressable>

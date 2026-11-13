@@ -83,9 +83,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginBottom: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography
-            variant={quote ? "bodySmallRelaxed" : "titleSmallRegular"}
-          >
+          <Typography variant={quote ? "bodySmall" : "titleSmallRegular"}>
             {post.title}
           </Typography>
         </View>
@@ -98,9 +96,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             marginTop: feed && post.media?.length ? theme.spacing.md : 0,
           }}
         >
-          <Typography variant={quote ? "bodySmallRelaxed" : "bodyRegular"}>
-            {text}
-          </Typography>
+          <Typography variant={quote ? "bodySmall" : "body"}>{text}</Typography>
           {longText && (
             <Typography
               variant={quote ? "bodySmall" : "body"}

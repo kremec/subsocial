@@ -26,43 +26,22 @@ export const typography = {
     lineHeight: 22,
     fontWeight: "600",
   },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: "500" },
-  bodySemibold: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "600",
-  },
-  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  body: { fontSize: 16, lineHeight: 22, fontWeight: "400" },
+  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
   bodySmall: {
     fontSize: 14,
-    lineHeight: 18,
-    fontWeight: "500",
-  },
-  bodySmallRegular: {
-    fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 20,
     fontWeight: "400",
   },
   bodySmallSemibold: {
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 20,
     fontWeight: "600",
   },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
-  captionSemibold: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-  },
   titleSmallRegular: {
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: "400",
-  },
-  bodyRegular: { fontSize: 16, lineHeight: 23, fontWeight: "400" },
-  bodySmallRelaxed: {
-    fontSize: 14,
-    lineHeight: 20,
     fontWeight: "400",
   },
   mono: {

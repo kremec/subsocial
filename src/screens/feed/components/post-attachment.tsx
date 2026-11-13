@@ -32,13 +32,7 @@ export const PostAttachment: FC<PostAttachmentProps> = (props) => {
         </Typography>
       )}
       <Typography
-        variant={
-          compact
-            ? "bodySmallRelaxed"
-            : event
-              ? "bodyRegular"
-              : "titleSmallRegular"
-        }
+        variant={compact ? "bodySmall" : event ? "body" : "titleSmallRegular"}
       >
         {attachment.title}
       </Typography>

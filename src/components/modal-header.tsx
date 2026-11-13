@@ -37,7 +37,7 @@ export const ModalHeader: FC<PropsWithChildren<ModalHeaderProps>> = (props) => {
       }}
     >
       {!!title && (
-        <Typography variant="bodySemibold" style={{ flex: 1 }}>
+        <Typography variant="bodyStrong" style={{ flex: 1 }}>
           {title}
         </Typography>
       )}
