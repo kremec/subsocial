@@ -7,10 +7,10 @@ import {
 } from "i18n-js";
 import * as plurals from "make-plural";
 
-import type en from "@/translation/locales/en.json";
+import type { TranslationKeys } from "@/translation/translation-keys";
 
 type Catalog = Partial<
-  Record<keyof typeof en, string | Record<string, string> | null>
+  Record<TranslationKeys, string | Record<string, string> | null>
 >;
 const pluralizers: Partial<
   Record<string, Parameters<typeof createPluralizer>[0]["pluralizer"]>
@@ -31,7 +31,7 @@ const preferredLocales = getLocales().flatMap((device) => {
     parts.slice(0, parts.length - index).join("-"),
   );
 });
-const locale =
+export const locale =
   preferredLocales.find((name) => Object.hasOwn(translations, name)) ?? "en";
 
 const i18n = new I18n(translations, { locale, enableFallback: true });
@@ -44,7 +44,7 @@ for (const name of Object.keys(translations)) {
   i18n.pluralization.register(name, createPluralizer({ pluralizer }));
 }
 
-export function t(key: keyof typeof en, options?: TranslateOptions): string {
+export function t(key: TranslationKeys, options?: TranslateOptions): string {
   const sourceLocale = i18n.locales
     .get(options?.locale ?? locale)
     .find((name) => {

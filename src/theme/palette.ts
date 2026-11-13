@@ -30,3 +30,6 @@ export const themePalettes = {
     warning: "#EDBD59",
   },
 } as const;
+
+export type Palette = (typeof themePalettes)[keyof typeof themePalettes];
+export type PaletteColor = Palette[keyof Palette];
