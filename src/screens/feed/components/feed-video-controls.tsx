@@ -124,11 +124,13 @@ export const FeedVideoControls: FC<FeedVideoControlsProps> = (props) => {
           .runOnJS(true)
           .onEnd((_event, success) => {
             if (!success) return;
-            player.seekBy(direction * 5);
+            seekTo(player.currentTime + direction * 5);
           });
         return Gesture.Exclusive(double, single);
       }),
-    [playPauseTap, player],
+    // Native currentTime is read when the gesture fires, not during render.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [seekTo, playPauseTap, player],
   );
   const scrubGesture = useMemo(() => {
     const seekAt = (x: number) => seekTo((x / trackWidth) * duration);

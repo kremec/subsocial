@@ -1,8 +1,7 @@
 /* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
-import { type FC, type ReactNode, useLayoutEffect } from "react";
+import { type FC, type ReactNode, useLayoutEffect, useState } from "react";
 import { AppState } from "react-native";
 
-import { useEvent } from "expo";
 import { useVideoPlayer } from "expo-video";
 
 import { type GestureType } from "react-native-gesture-handler";
@@ -52,9 +51,7 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
       };
     },
   );
-  const { status: playerStatus } = useEvent(player, "statusChange", {
-    status: player.status,
-  });
+  const [loaded, setLoaded] = useState(false);
 
   useLayoutEffect(() => {
     const saved = playback.get(playbackKey);
@@ -74,8 +71,9 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
       } else if (player.status === "readyToPlay" && !ready) {
         ready = true;
         selectAudio();
-        player.currentTime = saved?.time ?? 0;
+        if (saved) player.currentTime = saved.time;
         player.playbackRate = saved?.rate ?? 1;
+        setLoaded(true);
         if (saved?.playing !== false) {
           if (AppState.currentState === "active") player.play();
           else resume = true;
@@ -118,7 +116,7 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
     };
   }, [playbackKey, player, media.preferredAudioTrack, onError]);
 
-  if (playerStatus !== "readyToPlay") return counter || null;
+  if (!loaded) return counter || null;
   return (
     <FeedVideoControls
       player={player}

@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StatusBar,
   View,
   type ScrollViewInstance,
 } from "react-native";
@@ -57,11 +58,10 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
   } = props;
   const navigation = useNavigation();
   useEffect(() => {
-    navigation.setOptions({ orientation: "default", statusBarHidden: true });
+    navigation.setOptions({ orientation: "default" });
     return () =>
       navigation.setOptions({
         orientation: "portrait",
-        statusBarHidden: false,
       });
   }, [navigation]);
   const selectedMedia = media[mediaIndex]!;
@@ -92,6 +92,7 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
         "landscape-right",
       ]}
     >
+      <StatusBar hidden />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <GestureDetector gesture={closeGesture}>
           <View

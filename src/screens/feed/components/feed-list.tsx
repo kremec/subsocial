@@ -14,6 +14,8 @@ import {
   type ViewInstance,
 } from "react-native";
 
+import { useIsFocused } from "expo-router";
+
 import {
   LegendList,
   type LegendListRef,
@@ -80,6 +82,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
     listRef,
   } = props;
   const theme = useTheme();
+  const focused = useIsFocused();
   const searching = query !== undefined;
   const terms = normalize(query ?? "")
     .split(/\s+/)
@@ -266,7 +269,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
           </IconButton>
         )}
       </View>
-      {album && visible && (
+      {album && focused && (
         <FullscreenMedia
           {...album}
           onIndexChange={(index) => {
