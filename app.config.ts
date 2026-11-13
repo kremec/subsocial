@@ -4,7 +4,6 @@ import { supportedLocales } from "./plugins/localization.js";
 import withPlatformAppQueries from "./plugins/platform-app-queries.js";
 
 const IS_DEV = process.env.APP_VARIANT === "development";
-
 const appId = IS_DEV ? "com.subbyte.subsocial.dev" : "com.subbyte.subsocial";
 const projectId = "2236c731-2281-4d29-b10b-1338e1099ef7";
 

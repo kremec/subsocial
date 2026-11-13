@@ -8,6 +8,7 @@ export function useAppBootstrap() {
 
   useEffect(() => {
     let active = true;
+
     void migrateDatabase()
       .then(() => {
         if (!active) return;
