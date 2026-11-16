@@ -13,9 +13,7 @@ export function useAppBootstrap() {
     void migrateDatabase()
       .then(() => {
         if (!active) return;
-        void syncPlatformSessions().catch((error) => {
-          logError("platform.sessions", "failed", error);
-        });
+        void syncPlatformSessions();
         setReady(true);
       })
       .catch((error) => {

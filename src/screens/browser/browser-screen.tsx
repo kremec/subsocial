@@ -1,7 +1,7 @@
 import { type FC, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
+import { ActivityIndicator, Alert, View } from "react-native";
 
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 
 import { WebView } from "react-native-webview";
 
@@ -22,14 +22,18 @@ export const BrowserScreen: FC = () => {
   const params = useLocalSearchParams<{ platform: PlatformId; url?: string }>();
   const platform = getPlatform(params.platform);
   const webView = useRef<WebView<object>>(null);
-  const [resetting, setResetting] = useState(false);
+  const [url, setUrl] = useState<string | null>(
+    params.url || platform.loginUrl,
+  );
+  const resetting = url === null;
+  usePreventRemove(resetting);
   const connected = useSettingsStore((state) =>
     state.settings.connectedPlatforms.includes(platform.id),
   );
 
   // Clear the session only after the WebView unmounts, so it can't restore cookies.
   useEffect(() => {
-    if (!resetting) {
+    if (url) {
       return () => {
         if (
           !useSettingsStore
@@ -39,19 +43,14 @@ export const BrowserScreen: FC = () => {
           void syncPlatformSession(platform);
       };
     }
-    const listener = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => true,
-    );
     void resetPlatformSession(platform).then(
-      () => router.back(),
+      () => setUrl(platform.loginUrl),
       () => {
-        setResetting(false);
+        setUrl(params.url || platform.loginUrl);
         Alert.alert(t("logoutFailed"), t("logoutRetry"));
       },
     );
-    return () => listener.remove();
-  }, [platform, resetting]);
+  }, [platform, params.url, url]);
 
   const logOut = () =>
     Alert.alert(
@@ -64,7 +63,7 @@ export const BrowserScreen: FC = () => {
           style: "destructive",
           onPress: () => {
             webView.current?.stopLoading();
-            setResetting(true);
+            setUrl(null);
           },
         },
       ],
@@ -72,12 +71,7 @@ export const BrowserScreen: FC = () => {
 
   return (
     <Screen style={{ paddingHorizontal: 0, paddingTop: 0, gap: 0 }}>
-      <Stack.Screen options={{ gestureEnabled: !resetting }} />
-      <ScreenHeader
-        title={platform.label}
-        backDisabled={resetting}
-        onBack={() => router.back()}
-      >
+      <ScreenHeader title={platform.label} onBack={() => router.back()}>
         {connected && (
           <IconButton
             size={44}
@@ -121,10 +115,10 @@ export const BrowserScreen: FC = () => {
           <ActivityIndicator color={theme.colors.accent} />
         </View>
       )}
-      {!resetting && (
+      {!!url && (
         <WebView<object>
           ref={webView}
-          source={{ uri: params.url || platform.loginUrl }}
+          source={{ uri: url }}
           // Handle every scheme here so WebView cannot launch an external browser.
           originWhitelist={["*"]}
           javaScriptEnabled
