@@ -1,47 +1,36 @@
 /* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
-import { type FC, type ReactNode, useLayoutEffect, useState } from "react";
-import { AppState } from "react-native";
+import { type FC, type ReactNode, useEffect } from "react";
+import { AppState, View } from "react-native";
 
-import { useVideoPlayer } from "expo-video";
+import { useVideoPlayer, VideoView } from "expo-video";
 
-import { type GestureType } from "react-native-gesture-handler";
-
-import { FeedVideoControls } from "@/screens/feed/components/feed-video-controls";
+import { Icon, IconName } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
+import { VideoMuteButton } from "@/components/video-mute-button";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTheme } from "@/theme/use-theme";
+import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
-import { type PlatformId } from "@/types/platform-id";
 
-interface VideoPlaybackProps {
+interface VideoPlayerProps {
   playbackKey: string;
   media: FeedMedia;
-  platform: PlatformId;
-  fullscreen: boolean;
-  onFullscreen: () => void;
+  onFullscreen?: () => void;
   onError: () => void;
-  navigationGestures?: GestureType[];
-  counter?: ReactNode;
+  children?: ReactNode;
 }
 
 // Native players belong to mounted videos; only their position survives a handoff.
 const playback = new Map<string, { time: number; playing: boolean }>();
 let playbackRate = 1;
 
-export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
-  const {
-    playbackKey,
-    media,
-    platform,
-    fullscreen,
-    onFullscreen,
-    onError,
-    navigationGestures,
-    counter,
-  } = props;
+export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
+  const { playbackKey, media, onFullscreen, onError, children } = props;
+  const { colors, radius } = useTheme();
   const player = useVideoPlayer(
     { uri: media.url, contentType: media.contentType },
     (player) => {
       player.loop = true;
-      player.timeUpdateEventInterval = 0.25;
       player.muted = useSettingsStore.getState().settings.videosMuted;
       player.bufferOptions = {
         minBufferForPlayback: 0.5,
@@ -49,9 +38,8 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
       };
     },
   );
-  const [loaded, setLoaded] = useState(false);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const saved = playback.get(playbackKey);
     let ready = false;
     let resume = false;
@@ -71,7 +59,6 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
         selectAudio();
         if (saved) player.currentTime = saved.time;
         player.playbackRate = playbackRate;
-        setLoaded(true);
         if (saved?.playing !== false) {
           if (AppState.currentState === "active") player.play();
           else resume = true;
@@ -115,16 +102,44 @@ export const VideoPlayback: FC<VideoPlaybackProps> = (props) => {
     };
   }, [playbackKey, player, media.preferredAudioTrack, onError]);
 
-  if (!loaded) return counter || null;
   return (
-    <FeedVideoControls
-      player={player}
-      media={media}
-      platform={platform}
-      fullscreen={fullscreen}
-      onFullscreen={onFullscreen}
-      navigationGestures={navigationGestures}
-      counter={counter}
-    />
+    <View style={{ flex: 1, backgroundColor: colors.mediaBackground }}>
+      <VideoView
+        player={player}
+        nativeControls
+        fullscreenOptions={{ enable: false }}
+        style={{ position: "absolute", inset: 0 }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          padding: 8,
+          borderRadius: radius.full,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        {children}
+        <VideoMuteButton player={player} />
+        {!!onFullscreen && (
+          <IconButton
+            plain
+            size={28}
+            accessibilityLabel={t("mediaEnterFullscreen")}
+            onPress={onFullscreen}
+          >
+            <Icon
+              name={IconName.FULLSCREEN}
+              color={colors.mediaForeground}
+              size={20}
+            />
+          </IconButton>
+        )}
+      </View>
+    </View>
   );
 };

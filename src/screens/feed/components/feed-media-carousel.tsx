@@ -1,22 +1,13 @@
-import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
-import {
-  Pressable,
-  View,
-  type ViewInstance,
-  type ScrollViewInstance,
-} from "react-native";
-
-import { Image } from "expo-image";
+import { type FC, useContext, useRef, useState } from "react";
+import { View, type ScrollViewInstance } from "react-native";
 
 import { ScrollView } from "react-native-gesture-handler";
 
-import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
-import { FeedImage } from "@/screens/feed/components/feed-image";
-import { FeedVideo } from "@/screens/feed/components/feed-video";
-import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
+import { FeedMediaItem } from "@/screens/feed/components/feed-media-item";
+import { FeedMediaContext } from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
+import { type FeedMedia } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
 
 interface FeedMediaCarouselProps {
@@ -33,11 +24,8 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
-  const view = useRef<ViewInstance>(null);
   const carousel = useRef<ScrollViewInstance>(null);
-  const { rowId, activePostUrl, activate, setVideoView, openMedia } =
-    useContext(FeedMediaContext)!;
-  const active = activePostUrl === postUrl;
+  const { openMedia } = useContext(FeedMediaContext)!;
   const openAlbum = (index: number) => {
     setMediaIndex(index);
     openMedia({
@@ -50,109 +38,12 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       onIndexChange: setMediaIndex,
     });
   };
-  useLayoutEffect(() => {
-    carousel.current?.scrollTo({ x: mediaIndex * mediaWidth, animated: false });
-  }, [mediaIndex, mediaWidth]);
-  const selectedMedia = media[mediaIndex];
-  const playable =
-    selectedMedia?.type === FeedMediaType.VIDEO && selectedMedia.playable;
-  useLayoutEffect(() => {
-    if (!playable || !view.current) return;
-    setVideoView(rowId, postUrl, view.current);
-    return () => setVideoView(rowId, postUrl, null);
-  }, [setVideoView, rowId, postUrl, playable, mediaWidth, mediaIndex]);
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
-
-  const counter = media.length > 1 && (
-    <View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        top: theme.spacing.sm,
-        right: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.full,
-        backgroundColor: "rgba(0, 0, 0, 0.62)",
-      }}
-    >
-      <Typography variant="caption" color="#FFFFFF">
-        {mediaIndex + 1}/{media.length}
-      </Typography>
-    </View>
-  );
-
-  const renderMedia = (media: FeedMedia, index: number) => {
-    if (media.type === FeedMediaType.IMAGE)
-      return <FeedImage media={media} onPress={() => openAlbum(index)} />;
-    const playing = media.playable && active && index === mediaIndex;
-    return (
-      <View style={{ flex: 1 }}>
-        <Pressable
-          onPress={(event) => {
-            event.stopPropagation();
-            if (media.playable) activate(rowId, postUrl);
-            else onPress();
-          }}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
-          {!!media.posterUrl && (
-            <Image
-              source={{ uri: media.posterUrl }}
-              recyclingKey={media.posterUrl}
-              cachePolicy="memory-disk"
-              contentFit="cover"
-              style={{ position: "absolute", inset: 0 }}
-            />
-          )}
-          {!playing && (
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: theme.radius.full,
-                backgroundColor: "rgba(0, 0, 0, 0.62)",
-              }}
-            >
-              <Icon
-                name={IconName.PLAYER_PLAY}
-                color="#FFFFFF"
-                size={25}
-                filled
-              />
-            </View>
-          )}
-        </Pressable>
-        {playing && (
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <FeedVideo
-              key={media.url}
-              index={index}
-              media={media}
-              platform={platform}
-              postUrl={postUrl}
-              sourceId={sourceId}
-              counter={counter}
-              onFullscreen={() => openAlbum(index)}
-            />
-          </Pressable>
-        )}
-      </View>
-    );
-  };
 
   return (
     <View
-      ref={view}
-      collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView(rowId, postUrl, view.current);
       }}
       style={{
         width: "100%",
@@ -161,12 +52,24 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: theme.colors.backgroundElement,
       }}
     >
-      {media.length === 1 && renderMedia(media[0], 0)}
+      {media.length === 1 && (
+        <FeedMediaItem
+          media={media[0]}
+          index={0}
+          selected
+          platform={platform}
+          postUrl={postUrl}
+          sourceId={sourceId}
+          onOpen={() => openAlbum(0)}
+          onPress={onPress}
+        />
+      )}
       {media.length !== 1 && mediaWidth > 0 && (
         <ScrollView
           ref={carousel}
           horizontal
           pagingEnabled
+          contentOffset={{ x: mediaIndex * mediaWidth, y: 0 }}
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           onContentSizeChange={(width) =>
@@ -186,13 +89,41 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               key={`${media.url}:${index}`}
               style={{ width: mediaWidth, height: "100%" }}
             >
-              {Math.abs(index - mediaIndex) <= 1 && renderMedia(media, index)}
+              {Math.abs(index - mediaIndex) <= 1 && (
+                <FeedMediaItem
+                  media={media}
+                  index={index}
+                  selected={index === mediaIndex}
+                  platform={platform}
+                  postUrl={postUrl}
+                  sourceId={sourceId}
+                  onOpen={() => openAlbum(index)}
+                  onPress={onPress}
+                />
+              )}
             </View>
           ))}
         </ScrollView>
       )}
 
-      {!(active && playable) && counter}
+      {media.length > 1 && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: theme.spacing.sm,
+            right: theme.spacing.sm,
+            paddingHorizontal: theme.spacing.sm,
+            paddingVertical: theme.spacing.xs,
+            borderRadius: theme.radius.full,
+            backgroundColor: "rgba(0, 0, 0, 0.62)",
+          }}
+        >
+          <Typography variant="caption" color={theme.colors.mediaForeground}>
+            {mediaIndex + 1}/{media.length}
+          </Typography>
+        </View>
+      )}
     </View>
   );
 };

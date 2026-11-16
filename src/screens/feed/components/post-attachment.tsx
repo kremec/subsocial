@@ -19,7 +19,7 @@ export const PostAttachment: FC<PostAttachmentProps> = (props) => {
   const event = attachment.type === FeedAttachmentType.EVENT;
   const detail = event
     ? attachment.startsAtText
-    : new URL(attachment.url).hostname.replace(/^www\./, "");
+    : new URL(attachment.url).hostname;
 
   return (
     <View style={{ gap: theme.spacing.xs }}>

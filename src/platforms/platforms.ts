@@ -9,6 +9,7 @@ import { redditFeed } from "@/platforms/reddit/service";
 import { xPlatform } from "@/platforms/x/config";
 import { xFeed } from "@/platforms/x/service";
 import { youtubePlatform } from "@/platforms/youtube/config";
+import { resolveYouTubePlayback } from "@/platforms/youtube/playback";
 import { youtubeFeed } from "@/platforms/youtube/service";
 import { t } from "@/translation/use-translation";
 import { type PlatformDefinition } from "@/types/platform-definition";
@@ -19,7 +20,11 @@ const definitions: Record<PlatformId, PlatformDefinition> = {
   [PlatformId.FACEBOOK]: { ...facebookPlatform, feed: facebookFeed },
   [PlatformId.REDDIT]: { ...redditPlatform, feed: redditFeed },
   [PlatformId.X]: { ...xPlatform, feed: xFeed },
-  [PlatformId.YOUTUBE]: { ...youtubePlatform, feed: youtubeFeed },
+  [PlatformId.YOUTUBE]: {
+    ...youtubePlatform,
+    feed: youtubeFeed,
+    resolveVideo: resolveYouTubePlayback,
+  },
 };
 
 export const platforms = Object.values(definitions);

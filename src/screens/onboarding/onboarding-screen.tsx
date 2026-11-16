@@ -109,7 +109,7 @@ export const OnboardingScreen: FC = () => {
                     {platform.label}
                   </Typography>
                   <Typography variant="bodySmall" color={statusColor}>
-                    {t(isConnected ? "connected" : "connect")}
+                    {isConnected ? t("connected") : t("connect")}
                   </Typography>
                   <Icon
                     name={isConnected ? IconName.CHECK : IconName.CHEVRON_RIGHT}

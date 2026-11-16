@@ -8,9 +8,12 @@ import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
+import { PostVariant } from "@/types/post-variant";
 
 const formatAge = (publishedAt: number) => {
-  const minutes = Math.max(0, Math.floor((Date.now() - publishedAt) / 60_000));
+  const seconds = Math.max(0, Math.floor((Date.now() - publishedAt) / 1000));
+  if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return t("feedAgeHours", { count: hours });
@@ -24,7 +27,7 @@ const formatAge = (publishedAt: number) => {
 interface PostHeaderProps {
   platform: PlatformId;
   post: FeedPost;
-  variant: "feed" | "thread" | "quote";
+  variant: PostVariant;
 }
 
 export const PostHeader: FC<PostHeaderProps> = (props) => {
@@ -41,11 +44,11 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         gap: theme.spacing.sm,
       }}
     >
-      {variant !== "thread" && (
+      {variant !== PostVariant.THREAD && (
         <Icon
           name={definition.icon}
           color={definition.color}
-          size={variant === "quote" ? 16 : 19}
+          size={variant === PostVariant.QUOTE ? 16 : 19}
         />
       )}
       <View
@@ -64,7 +67,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
         >
           {author}
         </Typography>
-        {variant !== "quote" && !!post.context && (
+        {variant !== PostVariant.QUOTE && !!post.context && (
           <View
             style={{
               minWidth: 0,

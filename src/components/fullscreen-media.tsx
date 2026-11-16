@@ -21,13 +21,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
+import { canDownloadMedia } from "@/hooks/use-media-download";
 import { openPost } from "@/platforms/open-post";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
 import { FullscreenImage } from "@/screens/feed/components/fullscreen-image";
-import {
-  canDownloadMedia,
-  MediaDownloadButton,
-} from "@/screens/feed/components/media-download-button";
+import { MediaDownloadButton } from "@/screens/feed/components/media-download-button";
+import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
@@ -57,6 +56,7 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
     onClose,
   } = props;
   const navigation = useNavigation();
+  const { colors } = useTheme();
   useEffect(() => {
     navigation.setOptions({ orientation: "default" });
     return () =>
@@ -79,7 +79,6 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
     .onEnd((event) => {
       if (event.translationY > 80) onClose();
     });
-  const navigationGestures = [pagingGesture, closeGesture];
 
   return (
     <Modal
@@ -97,7 +96,7 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
         <GestureDetector gesture={closeGesture}>
           <View
             onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-            style={{ flex: 1, backgroundColor: "black" }}
+            style={{ flex: 1, backgroundColor: colors.mediaBackground }}
           >
             {width > 0 && (
               <GestureDetector gesture={pagingGesture}>
@@ -157,9 +156,6 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
                                     platform={platform}
                                     postUrl={postUrl}
                                     sourceId={sourceId}
-                                    fullscreen
-                                    onFullscreen={onClose}
-                                    navigationGestures={navigationGestures}
                                   />
                                 )}
                                 {!item.playable && (
@@ -179,7 +175,7 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
                                     }}
                                   >
                                     <Typography
-                                      color="white"
+                                      color={colors.mediaForeground}
                                       style={{
                                         backgroundColor: "rgba(0, 0, 0, 0.5)",
                                         padding: 16,
@@ -200,30 +196,33 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
             )}
             <SafeAreaView
               pointerEvents="box-none"
-              style={{ position: "absolute", inset: 0, padding: 16 }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                padding: 16,
+                flexDirection: "row",
+                alignItems: "flex-start",
+              }}
             >
-              <View
+              {selectedMedia.type === FeedMediaType.IMAGE &&
+                canDownloadMedia(selectedMedia, platform) && (
+                  <MediaDownloadButton media={selectedMedia} />
+                )}
+              <IconButton
+                accessibilityLabel={t("mediaCloseFullscreen")}
+                onPress={onClose}
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
+                  marginLeft: "auto",
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  borderColor: "rgba(255, 255, 255, 0.3)",
                 }}
               >
-                <View>
-                  {canDownloadMedia(selectedMedia, platform) && (
-                    <MediaDownloadButton media={selectedMedia} />
-                  )}
-                </View>
-                <IconButton
-                  accessibilityLabel={t("mediaCloseFullscreen")}
-                  onPress={onClose}
-                  style={{
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                  }}
-                >
-                  <Icon name={IconName.X} color="white" size={24} />
-                </IconButton>
-              </View>
+                <Icon
+                  name={IconName.X}
+                  color={colors.mediaForeground}
+                  size={24}
+                />
+              </IconButton>
             </SafeAreaView>
             {media.length > 1 && (
               <SafeAreaView
@@ -232,7 +231,7 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
               >
                 <Typography
                   variant="caption"
-                  color="white"
+                  color={colors.mediaForeground}
                   style={{
                     paddingHorizontal: 8,
                     paddingVertical: 4,

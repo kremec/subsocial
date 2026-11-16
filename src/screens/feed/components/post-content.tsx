@@ -12,19 +12,20 @@ import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
+import { PostVariant } from "@/types/post-variant";
 
 interface PostContentProps {
   post: FeedPost;
   platform: PlatformId;
-  variant: "feed" | "thread" | "quote";
+  variant: PostVariant;
 }
 
 export const PostContent: FC<PostContentProps> = (props) => {
   const { post, platform, variant } = props;
   const theme = useTheme();
   const [expanded, setExpanded] = useRecyclingState(false);
-  const feed = variant === "feed";
-  const quote = variant === "quote";
+  const feed = variant === PostVariant.FEED;
+  const quote = variant === PostVariant.QUOTE;
   const paddingHorizontal = feed ? theme.spacing.lg : 0;
   const openPostUrl = () => void openPost(platform, post.url, post.androidUrl);
   const characters = Array.from(post.text || "");
@@ -33,22 +34,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
     longText && !expanded
       ? `${characters.slice(0, 280).join("").trimEnd()}…`
       : post.text;
-  const media = !!post.media?.length && (
-    <Pressable
-      onPress={(event) => event.stopPropagation()}
-      style={{ marginTop: feed ? 0 : theme.spacing.sm }}
-    >
-      <FeedMediaCarousel
-        key={post.url}
-        postUrl={post.url}
-        platform={platform}
-        androidUrl={post.androidUrl}
-        sourceId={post.sourceId}
-        media={post.media}
-        onPress={openPostUrl}
-      />
-    </Pressable>
-  );
 
   return (
     <Pressable
@@ -76,7 +61,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
       >
         <PostHeader platform={platform} post={post} variant={variant} />
       </View>
-      {!!post.title && variant !== "thread" && (
+      {!!post.title && variant !== PostVariant.THREAD && (
         <View
           style={{
             paddingHorizontal,
@@ -88,31 +73,49 @@ export const PostContent: FC<PostContentProps> = (props) => {
           </Typography>
         </View>
       )}
-      {feed && media}
-      {!!post.text && (
-        <View
-          style={{
-            paddingHorizontal,
-            marginTop: feed && post.media?.length ? theme.spacing.md : 0,
-          }}
-        >
-          <Typography variant={quote ? "bodySmall" : "body"}>{text}</Typography>
-          {longText && (
-            <Typography
-              variant={quote ? "bodySmall" : "body"}
-              color={theme.colors.textSecondary}
-              onPress={(event) => {
-                event.stopPropagation();
-                setExpanded(!expanded);
-              }}
-              style={{ paddingVertical: theme.spacing.xs }}
-            >
-              {t(expanded ? "feedShowLess" : "feedShowMore")}
+      <View style={{ flexDirection: feed ? "column-reverse" : "column" }}>
+        {!!post.text && (
+          <View
+            style={{
+              paddingHorizontal,
+              marginTop: feed && post.media?.length ? theme.spacing.md : 0,
+            }}
+          >
+            <Typography variant={quote ? "bodySmall" : "body"}>
+              {text}
             </Typography>
-          )}
-        </View>
-      )}
-      {!feed && media}
+            {longText && (
+              <Typography
+                variant={quote ? "bodySmall" : "body"}
+                color={theme.colors.textSecondary}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                style={{ paddingVertical: theme.spacing.xs }}
+              >
+                {expanded ? t("feedShowLess") : t("feedShowMore")}
+              </Typography>
+            )}
+          </View>
+        )}
+        {!!post.media?.length && (
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={{ marginTop: feed ? 0 : theme.spacing.sm }}
+          >
+            <FeedMediaCarousel
+              key={post.url}
+              postUrl={post.url}
+              platform={platform}
+              androidUrl={post.androidUrl}
+              sourceId={post.sourceId}
+              media={post.media}
+              onPress={openPostUrl}
+            />
+          </Pressable>
+        )}
+      </View>
       {!!post.attachment && (
         <View
           style={{
@@ -129,7 +132,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             key={post.quote.url}
             post={post.quote}
             platform={platform}
-            variant="quote"
+            variant={PostVariant.QUOTE}
           />
         </View>
       )}

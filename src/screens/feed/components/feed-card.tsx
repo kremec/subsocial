@@ -1,68 +1,46 @@
 import { type FC, memo } from "react";
-import { View, type ViewInstance } from "react-native";
+import { View } from "react-native";
 
-import { type MediaAlbum } from "@/media/fullscreen-media";
 import { PostContent } from "@/screens/feed/components/post-content";
 import { ThreadCard } from "@/screens/feed/components/thread-card";
-import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
+import {
+  FeedMediaContext,
+  type FeedMediaContextValue,
+} from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
-import { type FeedPost } from "@/types/feed-post";
-import { type PlatformId } from "@/types/platform-id";
+import { type FeedRow } from "@/types/feed-item";
+import { PostVariant } from "@/types/post-variant";
 
 interface FeedCardProps {
-  rowId: string;
-  post: FeedPost;
-  platform: PlatformId;
-  threaded: boolean;
-  threadStart: boolean;
-  threadEnd: boolean;
-  threadGapBefore: boolean;
-  activePostUrl?: string;
-  onOpenMedia: (album: MediaAlbum) => void;
-  onActivate: (rowId: string, postUrl: string) => void;
-  onVideoView: (
-    rowId: string,
-    postUrl: string,
-    view: ViewInstance | null,
-  ) => void;
+  row: FeedRow;
+  media: FeedMediaContextValue;
 }
 
 export const FeedCard: FC<FeedCardProps> = memo((props) => {
-  const {
-    rowId,
-    post,
-    platform,
-    threaded,
-    threadStart,
-    threadEnd,
-    threadGapBefore,
-    activePostUrl,
-    onActivate,
-    onOpenMedia,
-    onVideoView,
-  } = props;
+  const { row, media } = props;
+  const { activePostUrl, openMedia, activate, setVideoView } = media;
   const theme = useTheme();
 
   return (
     <FeedMediaContext
       value={{
-        rowId,
+        rowId: row.id,
         activePostUrl,
-        activate: onActivate,
-        openMedia: onOpenMedia,
-        setVideoView: onVideoView,
+        openMedia,
+        activate,
+        setVideoView,
       }}
     >
-      {threaded && (
+      {row.threaded && (
         <ThreadCard
-          post={post}
-          platform={platform}
-          start={threadStart}
-          end={threadEnd}
-          gapBefore={threadGapBefore}
+          post={row.post}
+          platform={row.platform}
+          start={row.threadStart}
+          end={row.threadEnd}
+          gapBefore={row.threadGapBefore}
         />
       )}
-      {!threaded && (
+      {!row.threaded && (
         <View
           style={{
             paddingVertical: theme.spacing.lg,
@@ -70,7 +48,11 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
             borderBottomColor: theme.colors.border,
           }}
         >
-          <PostContent post={post} platform={platform} variant="feed" />
+          <PostContent
+            post={row.post}
+            platform={row.platform}
+            variant={PostVariant.FEED}
+          />
         </View>
       )}
     </FeedMediaContext>
