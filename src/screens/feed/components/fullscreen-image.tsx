@@ -2,7 +2,6 @@ import { type FC, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { Image } from "expo-image";
-import { router } from "expo-router";
 
 import { useSharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -50,14 +49,6 @@ export const FullscreenImage: FC<FullscreenImageProps> = (props) => {
         }}
         onPinchStart={() => onZoomChange?.(true)}
         onPinchEnd={() => onZoomChange?.(zoom.current?.getState().scale !== 1)}
-        onPanEnd={(event) => {
-          if (
-            event.translationY > 80 &&
-            event.translationY > Math.abs(event.translationX) &&
-            zoom.current?.getState().scale === 1
-          )
-            router.back();
-        }}
       >
         <Image
           source={{ uri }}
