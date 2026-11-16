@@ -1,5 +1,7 @@
-export const palette = {
+export const themePalettes = {
   light: {
+    mediaBackground: "#000000",
+    mediaForeground: "#FFFFFF",
     background: "#F7F7F5",
     backgroundElement: "#EFEFEC",
     backgroundSelected: "#E4E4DF",
@@ -15,6 +17,8 @@ export const palette = {
     warning: "#C58B16",
   },
   dark: {
+    mediaBackground: "#000000",
+    mediaForeground: "#FFFFFF",
     background: "#111110",
     backgroundElement: "#20201E",
     backgroundSelected: "#292926",
@@ -31,5 +35,5 @@ export const palette = {
   },
 } as const;
 
-export type ThemeName = keyof typeof palette;
-export type ThemeColors = (typeof palette)[ThemeName];
+export type Palette = (typeof themePalettes)[keyof typeof themePalettes];
+export type PaletteColor = Palette[keyof Palette];

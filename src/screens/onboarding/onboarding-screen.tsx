@@ -60,9 +60,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
           alignSelf: "center",
         }}
       >
-        <Typography variant="title" style={{ fontFamily: theme.fonts.rounded }}>
-          subsocial
-        </Typography>
+        <Typography variant="title">subsocial</Typography>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -80,7 +78,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = (props) => {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
-              style={{ fontFamily: theme.fonts.rounded, letterSpacing: -0.5 }}
+              style={{ letterSpacing: -0.5 }}
             >
               Your feeds, together.
             </Typography>
