@@ -4,7 +4,6 @@ import { AppState } from "react-native";
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
-import { listFeedItems } from "@/feed/feed-rows";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -21,7 +20,6 @@ type CollectionStatus =
   | "attention";
 
 export function useFeedRefresh(focused: boolean) {
-  const [items, setItems] = useState(listFeedItems);
   // Keep the last processed connections so returning from login detects additions.
   const [connected, setConnected] = useState(
     () => useSettingsStore.getState().settings.connectedPlatforms,
@@ -73,7 +71,6 @@ export function useFeedRefresh(focused: boolean) {
       );
       refreshOnForeground.current = false;
       setConnected(platforms);
-      setItems(listFeedItems());
       setStatuses(
         Object.fromEntries(
           platforms.map((id) => [
@@ -112,7 +109,6 @@ export function useFeedRefresh(focused: boolean) {
       );
       if (signal.aborted) return;
       pruneFeedItems();
-      setItems(listFeedItems());
     } catch {
       if (signal.aborted) return;
       setStatuses((current) =>
@@ -148,7 +144,6 @@ export function useFeedRefresh(focused: boolean) {
   };
 
   return {
-    items,
     connected,
     failed: platforms.filter(
       (id) => statuses[id] === "failed" || statuses[id] === "attention",
@@ -171,7 +166,6 @@ export function useFeedRefresh(focused: boolean) {
     },
     reload: () => {
       setPaused(false);
-      setItems(listFeedItems());
       setStatuses({});
       restart();
     },

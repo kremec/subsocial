@@ -20,10 +20,10 @@ export function exportDatabase(): Promise<void> {
     { useNewConnection: true },
     defaultDatabaseDirectory,
   )
-    .then((exported) =>
+    .then((exportDb) =>
       backupDatabaseAsync({
         sourceDatabase: expoDb,
-        destDatabase: exported,
+        destDatabase: exportDb,
       })
         .then(async () => {
           const exportPath = `file://${defaultDatabaseDirectory}/${EXPORT_DB_NAME}`;
@@ -33,7 +33,7 @@ export function exportDatabase(): Promise<void> {
           logInfo("db.export", "share-opened");
         })
         .finally(() =>
-          exported.closeAsync().catch((error) => {
+          exportDb.closeAsync().catch((error) => {
             logError("db.export", "close-failed", error);
           }),
         ),

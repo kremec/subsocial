@@ -49,21 +49,21 @@ export function importDatabase(): Promise<void> {
       logInfo("db.import", "start");
 
       const importUri = `file://${defaultDatabaseDirectory}/${IMPORT_DB_NAME}`;
-      let imported: SQLiteDatabase | undefined;
+      let importDb: SQLiteDatabase | undefined;
       try {
         await FileSystem.copyAsync({
           from: pickedUri,
           to: importUri,
         });
-        imported = await openDatabaseAsync(
+        importDb = await openDatabaseAsync(
           IMPORT_DB_NAME,
           { useNewConnection: true },
           defaultDatabaseDirectory,
         );
-        const source = drizzle(imported);
+        const sourceDb = drizzle(importDb);
         const items = importedRowSchema
           .array()
-          .parse(source.select().from(feedItemsTable).all());
+          .parse(sourceDb.select().from(feedItemsTable).all());
 
         // Replace data atomically, keeping the live schema and migration journal.
         db.transaction(() => {
@@ -73,7 +73,7 @@ export function importDatabase(): Promise<void> {
         });
         logInfo("db.import", "complete");
       } finally {
-        await imported?.closeAsync().catch((error) => {
+        await importDb?.closeAsync().catch((error) => {
           logError("db.import", "close-failed", error);
         });
         await FileSystem.deleteAsync(importUri, { idempotent: true }).catch(

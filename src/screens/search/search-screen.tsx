@@ -1,7 +1,7 @@
 import { type FC, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 
-import { router, useFocusEffect, useIsFocused } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 
 import { type LegendListRef } from "@legendapp/list/react-native";
 
@@ -9,7 +9,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
-import { listFeedItems } from "@/feed/feed-rows";
+import { useFeedItems } from "@/feed/use-feed-items";
 import { FeedList } from "@/screens/feed/components/feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
@@ -17,14 +17,11 @@ import { t } from "@/translation/use-translation";
 export const SearchScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const [items, setItems] = useState(listFeedItems);
-  // Logging out from a browser opened here deletes posts.
-  useFocusEffect(() => setItems(listFeedItems()));
+  const items = useFeedItems();
   const [query, setQuery] = useState("");
   const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {
-    if (list.current && list.current.getState().scroll !== 0)
-      void list.current.scrollToOffset({ offset: 0, animated: false });
+    void list.current?.scrollToOffset({ offset: 0, animated: false });
     setQuery(text);
   };
 
