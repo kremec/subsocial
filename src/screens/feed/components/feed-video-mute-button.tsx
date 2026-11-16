@@ -1,37 +1,30 @@
-import { type FC, useContext, useEffect, useState } from "react";
+/* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
+import { type FC } from "react";
 import { Pressable } from "react-native";
 
-import { Icon } from "@/components/ui/icon";
-import { FeedVideoPlayerContext } from "@/screens/feed/feed-video-player";
+import { useEvent } from "expo";
+import { type VideoPlayer } from "expo-video";
+
+import { Icon, IconName } from "@/components/ui/icon";
+import { t } from "@/translation/use-translation";
 
 interface FeedVideoMuteButtonProps {
+  player: VideoPlayer;
   inline?: boolean;
 }
 
 export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
-  const { inline } = props;
-  const player = useContext(FeedVideoPlayerContext);
-  const [muted, setMuted] = useState(player?.muted ?? true);
-  useEffect(() => {
-    if (!player) return;
-    const listener = player.addListener("mutedChange", (event) =>
-      setMuted(event.muted),
-    );
-    return () => listener.remove();
-  }, [player]);
+  const { player, inline } = props;
+  const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={muted ? "Unmute all videos" : "Mute all videos"}
+      accessibilityLabel={t(muted ? "mediaUnmute" : "mediaMute")}
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
-        if (player) {
-          // VideoPlayer is a mutable native object; this setter emits mutedChange.
-          // oxlint-disable-next-line react/immutability
-          player.muted = !player.muted;
-        }
+        player.muted = !player.muted;
       }}
       style={({ pressed }) => ({
         ...(!inline && { position: "absolute", bottom: 8, right: 8 }),
@@ -44,7 +37,11 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      <Icon name={muted ? "volume-off" : "volume"} color="#FFFFFF" size={16} />
+      <Icon
+        name={muted ? IconName.VOLUME_OFF : IconName.VOLUME}
+        color="#FFFFFF"
+        size={16}
+      />
     </Pressable>
   );
 };

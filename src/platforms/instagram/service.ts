@@ -10,7 +10,7 @@ import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
 import { FeedError } from "@/types/feed-error";
-import { type FeedMedia } from "@/types/feed-media";
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 
@@ -33,7 +33,7 @@ const mediaFor = (record: Media): FeedMedia[] => {
   const isVideo = record.media_type === 2 || !!video;
   return [
     {
-      type: isVideo ? "video" : "image",
+      type: isVideo ? FeedMediaType.VIDEO : FeedMediaType.IMAGE,
       url,
       posterUrl: video ? image?.url : undefined,
       playable: isVideo ? !!video : undefined,

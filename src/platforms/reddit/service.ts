@@ -7,6 +7,7 @@ import { elements, postFor } from "@/platforms/reddit/post-extraction";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedError } from "@/types/feed-error";
+import { FeedMediaType } from "@/types/feed-media";
 import { type FeedRequest } from "@/types/feed-request";
 
 const origin = "https://www.reddit.com";
@@ -67,7 +68,7 @@ async function postWithDetails(
   }
   for (const media of item.media) {
     if (
-      media.type !== "video" ||
+      media.type !== FeedMediaType.VIDEO ||
       media.aspectRatio ||
       !media.url.startsWith("https://v.redd.it/")
     )

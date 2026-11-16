@@ -13,9 +13,16 @@ import { readBootstrap } from "@/platforms/read-bootstrap";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedAccessError } from "@/types/feed-access-error";
-import { feedAttachmentSchema } from "@/types/feed-attachment";
+import {
+  feedAttachmentSchema,
+  FeedAttachmentType,
+} from "@/types/feed-attachment";
 import { FeedError } from "@/types/feed-error";
-import { type FeedMedia, feedMediaSchema } from "@/types/feed-media";
+import {
+  type FeedMedia,
+  feedMediaSchema,
+  FeedMediaType,
+} from "@/types/feed-media";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedPost } from "@/types/feed-post";
 import { type FeedRequest } from "@/types/feed-request";
@@ -55,7 +62,7 @@ function mediaFor(attachments: unknown): FeedMedia[] {
       : candidateUrl || previous?.url;
     if (!url) continue;
     media.set(id, {
-      type: video ? "video" : "image",
+      type: video ? FeedMediaType.VIDEO : FeedMediaType.IMAGE,
       url,
       aspectRatio:
         (video &&
@@ -78,7 +85,9 @@ function attachmentFor(attachments: unknown) {
     const media = asObject(entry.media);
     const event = asObject(entry.target);
     const link = asObject(
-      asObject(entry.story_attachment_link_renderer).attachment,
+      entry,
+      "story_attachment_link_renderer",
+      "attachment",
     );
     const rawUrl =
       asString(media.external_url) ||
@@ -107,7 +116,7 @@ function attachmentFor(attachments: unknown) {
     if (!isEvent && media.__typename !== "ExternalUrl" && isFacebook(url))
       continue;
     const parsed = feedAttachmentSchema.safeParse({
-      type: isEvent ? "event" : "link",
+      type: isEvent ? FeedAttachmentType.EVENT : FeedAttachmentType.LINK,
       title,
       url: url.href,
       description: asString(asObject(entry.description).text) || undefined,
@@ -122,7 +131,7 @@ function attachmentFor(attachments: unknown) {
         media.image,
     );
     const preview = feedMediaSchema.safeParse({
-      type: "image",
+      type: FeedMediaType.IMAGE,
       url: image.uri,
       aspectRatio: aspectRatio(Number(image.width), Number(image.height)),
     });
@@ -219,7 +228,7 @@ function parseFacebookFeed(response: string) {
     if (part.data !== undefined)
       data = applyPatch(data, part.path || [], part.data);
   }
-  const feed = feedSchema.safeParse(asObject(asObject(data).viewer).news_feed);
+  const feed = feedSchema.safeParse(asObject(data, "viewer").news_feed);
   if (!feed.success) throw new FeedError(t("facebookFeedIncomplete"));
   const items: ExtractedItem[] = [];
   for (const rawEdge of feed.data.edges || []) {

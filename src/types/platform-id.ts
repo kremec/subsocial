@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-export const platformIdSchema = z.enum([
-  "instagram",
-  "facebook",
-  "reddit",
-  "x",
-  "youtube",
-]);
+export enum PlatformId {
+  INSTAGRAM = "instagram",
+  FACEBOOK = "facebook",
+  REDDIT = "reddit",
+  X = "x",
+  YOUTUBE = "youtube",
+}
 
-export type PlatformId = z.infer<typeof platformIdSchema>;
+export const platformIdSchema = z.enum(PlatformId);

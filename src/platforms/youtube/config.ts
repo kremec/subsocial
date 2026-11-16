@@ -1,8 +1,10 @@
+import { IconName } from "@/components/ui/icon";
 import { t } from "@/translation/use-translation";
-import { type PlatformDefinition } from "@/types/platform-definition";
+import { PlatformId } from "@/types/platform-id";
 
-export const youtubePlatform: PlatformDefinition = {
-  id: "youtube",
+export const youtubePlatform = {
+  id: PlatformId.YOUTUBE,
+  icon: IconName.BRAND_YOUTUBE,
   androidAppUrl: "vnd.youtube://",
   androidPackage: null,
   appScheme: "youtube",

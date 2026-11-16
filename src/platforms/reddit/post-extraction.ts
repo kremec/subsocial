@@ -6,7 +6,11 @@ import { videoSchema } from "@/platforms/reddit/schemas/video-schema";
 import { t } from "@/translation/use-translation";
 import { type ExtractedItem } from "@/types/extracted-item";
 import { FeedError } from "@/types/feed-error";
-import { type FeedMedia } from "@/types/feed-media";
+import {
+  type FeedMedia,
+  FeedMediaType,
+  FeedMediaContentType,
+} from "@/types/feed-media";
 
 export function elements(node: AnyNode): Element[] {
   const children = "children" in node ? node.children.flatMap(elements) : [];
@@ -45,7 +49,7 @@ function imageFor(image: Element, size = image): FeedMedia[] {
   );
   return [
     {
-      type: "image",
+      type: FeedMediaType.IMAGE,
       url,
       aspectRatio:
         aspectRatio(Number(size.attribs.width), Number(size.attribs.height)) ||
@@ -83,11 +87,11 @@ function mediaFor(post: Element): FeedMedia[] {
     }
     return [
       {
-        type: "video",
+        type: FeedMediaType.VIDEO,
         url: player.attribs.src,
         posterUrl: player.attribs.poster,
         playable: true,
-        contentType: "hls",
+        contentType: FeedMediaContentType.HLS,
         aspectRatio: ratio,
       },
     ];
