@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from "react";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
@@ -29,10 +29,7 @@ export const Header: FC<HeaderProps> = (props) => {
         numberOfLines={1}
         adjustsFontSizeToFit
         maxFontSizeMultiplier={1.5}
-        style={{
-          flexShrink: 1,
-          fontFamily: Platform.select({ ios: "ui-rounded", default: "normal" }),
-        }}
+        style={{ flexShrink: 1 }}
       >
         {title}
       </Typography>
