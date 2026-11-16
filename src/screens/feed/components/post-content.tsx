@@ -33,22 +33,6 @@ export const PostContent: FC<PostContentProps> = (props) => {
     longText && !expanded
       ? `${characters.slice(0, 280).join("").trimEnd()}…`
       : post.text;
-  const media = !!post.media?.length && (
-    <Pressable
-      onPress={(event) => event.stopPropagation()}
-      style={{ marginTop: feed ? 0 : theme.spacing.sm }}
-    >
-      <FeedMediaCarousel
-        key={post.url}
-        postUrl={post.url}
-        platform={platform}
-        androidUrl={post.androidUrl}
-        sourceId={post.sourceId}
-        media={post.media}
-        onPress={openPostUrl}
-      />
-    </Pressable>
-  );
 
   return (
     <Pressable
@@ -88,31 +72,49 @@ export const PostContent: FC<PostContentProps> = (props) => {
           </Typography>
         </View>
       )}
-      {feed && media}
-      {!!post.text && (
-        <View
-          style={{
-            paddingHorizontal,
-            marginTop: feed && post.media?.length ? theme.spacing.md : 0,
-          }}
-        >
-          <Typography variant={quote ? "bodySmall" : "body"}>{text}</Typography>
-          {longText && (
-            <Typography
-              variant={quote ? "bodySmall" : "body"}
-              color={theme.colors.textSecondary}
-              onPress={(event) => {
-                event.stopPropagation();
-                setExpanded(!expanded);
-              }}
-              style={{ paddingVertical: theme.spacing.xs }}
-            >
-              {t(expanded ? "feedShowLess" : "feedShowMore")}
+      <View style={{ flexDirection: feed ? "column-reverse" : "column" }}>
+        {!!post.text && (
+          <View
+            style={{
+              paddingHorizontal,
+              marginTop: feed && post.media?.length ? theme.spacing.md : 0,
+            }}
+          >
+            <Typography variant={quote ? "bodySmall" : "body"}>
+              {text}
             </Typography>
-          )}
-        </View>
-      )}
-      {!feed && media}
+            {longText && (
+              <Typography
+                variant={quote ? "bodySmall" : "body"}
+                color={theme.colors.textSecondary}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                style={{ paddingVertical: theme.spacing.xs }}
+              >
+                {t(expanded ? "feedShowLess" : "feedShowMore")}
+              </Typography>
+            )}
+          </View>
+        )}
+        {!!post.media?.length && (
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={{ marginTop: feed ? 0 : theme.spacing.sm }}
+          >
+            <FeedMediaCarousel
+              key={post.url}
+              postUrl={post.url}
+              platform={platform}
+              androidUrl={post.androidUrl}
+              sourceId={post.sourceId}
+              media={post.media}
+              onPress={openPostUrl}
+            />
+          </Pressable>
+        )}
+      </View>
       {!!post.attachment && (
         <View
           style={{

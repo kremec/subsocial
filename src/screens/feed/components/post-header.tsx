@@ -10,7 +10,9 @@ import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 
 const formatAge = (publishedAt: number) => {
-  const minutes = Math.max(0, Math.floor((Date.now() - publishedAt) / 60_000));
+  const seconds = Math.max(0, Math.floor((Date.now() - publishedAt) / 1000));
+  if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return t("feedAgeHours", { count: hours });
