@@ -10,6 +10,7 @@ import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
+import { PostVariant } from "@/types/post-variant";
 
 interface ThreadCardProps {
   post: FeedPost;
@@ -102,7 +103,11 @@ export const ThreadCard: FC<ThreadCardProps> = (props) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <PostContent post={post} platform={platform} variant="thread" />
+          <PostContent
+            post={post}
+            platform={platform}
+            variant={PostVariant.THREAD}
+          />
         </View>
       </View>
     </View>

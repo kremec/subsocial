@@ -12,19 +12,20 @@ import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
+import { PostVariant } from "@/types/post-variant";
 
 interface PostContentProps {
   post: FeedPost;
   platform: PlatformId;
-  variant: "feed" | "thread" | "quote";
+  variant: PostVariant;
 }
 
 export const PostContent: FC<PostContentProps> = (props) => {
   const { post, platform, variant } = props;
   const theme = useTheme();
   const [expanded, setExpanded] = useRecyclingState(false);
-  const feed = variant === "feed";
-  const quote = variant === "quote";
+  const feed = variant === PostVariant.FEED;
+  const quote = variant === PostVariant.QUOTE;
   const paddingHorizontal = feed ? theme.spacing.lg : 0;
   const openPostUrl = () => void openPost(platform, post.url, post.androidUrl);
   const characters = Array.from(post.text || "");
@@ -60,7 +61,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
       >
         <PostHeader platform={platform} post={post} variant={variant} />
       </View>
-      {!!post.title && variant !== "thread" && (
+      {!!post.title && variant !== PostVariant.THREAD && (
         <View
           style={{
             paddingHorizontal,
@@ -93,7 +94,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
                 }}
                 style={{ paddingVertical: theme.spacing.xs }}
               >
-                {t(expanded ? "feedShowLess" : "feedShowMore")}
+                {expanded ? t("feedShowLess") : t("feedShowMore")}
               </Typography>
             )}
           </View>
@@ -131,7 +132,7 @@ export const PostContent: FC<PostContentProps> = (props) => {
             key={post.quote.url}
             post={post.quote}
             platform={platform}
-            variant="quote"
+            variant={PostVariant.QUOTE}
           />
         </View>
       )}

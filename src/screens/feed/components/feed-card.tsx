@@ -9,6 +9,7 @@ import {
 } from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedRow } from "@/types/feed-item";
+import { PostVariant } from "@/types/post-variant";
 
 interface FeedCardProps {
   row: FeedRow;
@@ -47,7 +48,11 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
             borderBottomColor: theme.colors.border,
           }}
         >
-          <PostContent post={row.post} platform={row.platform} variant="feed" />
+          <PostContent
+            post={row.post}
+            platform={row.platform}
+            variant={PostVariant.FEED}
+          />
         </View>
       )}
     </FeedMediaContext>
