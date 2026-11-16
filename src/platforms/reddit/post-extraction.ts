@@ -1,4 +1,5 @@
 import { type AnyNode, type Element, isTag, isText } from "domhandler";
+import { DomUtils } from "htmlparser2";
 
 import { aspectRatio } from "@/platforms/aspect-ratio";
 import { redditPostSchema } from "@/platforms/reddit/schemas/reddit-post-schema";
@@ -13,8 +14,7 @@ import {
 } from "@/types/feed-media";
 
 export function elements(node: AnyNode): Element[] {
-  const children = "children" in node ? node.children.flatMap(elements) : [];
-  return isTag(node) ? [node, ...children] : children;
+  return DomUtils.findAll(() => true, [node]);
 }
 
 function hasClass(node: Element, name: string): boolean {
@@ -26,7 +26,14 @@ function textFor(node: AnyNode): string {
   if (!isTag(node) || ["figure", "script", "style"].includes(node.name))
     return "";
   if (node.name === "br") return "\n";
-  const text = node.children.map(textFor).join("");
+  const children = ["table", "thead", "tbody", "tfoot", "tr"].includes(
+    node.name,
+  )
+    ? node.children.filter(isTag)
+    : node.children;
+  if (node.name === "tr")
+    return `${children.map((cell) => textFor(cell).trim()).join("\t")}\n`;
+  const text = children.map(textFor).join("");
   if (node.name === "ul" || node.name === "ol") return `\n${text}\n`;
   if (node.name === "li") {
     const list = node.parent;
@@ -36,7 +43,9 @@ function textFor(node: AnyNode): string {
       : "-";
     return `${marker} ${text.trim()}\n`;
   }
-  return ["p", "div", "blockquote", "pre", "h1", "h2", "h3"].includes(node.name)
+  return ["p", "div", "blockquote", "pre", "h1", "h2", "h3", "table"].includes(
+    node.name,
+  )
     ? `${text}\n\n`
     : text;
 }
