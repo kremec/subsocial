@@ -11,12 +11,11 @@ import { t } from "@/translation/use-translation";
 interface ScreenHeaderProps {
   title?: string;
   children?: ReactNode;
-  backDisabled?: boolean;
   onBack: () => void;
 }
 
 export const ScreenHeader: FC<ScreenHeaderProps> = (props) => {
-  const { children, title, backDisabled, onBack } = props;
+  const { children, title, onBack } = props;
   const theme = useTheme();
 
   return (
@@ -31,13 +30,7 @@ export const ScreenHeader: FC<ScreenHeaderProps> = (props) => {
         borderBottomColor: theme.colors.border,
       }}
     >
-      <IconButton
-        size={44}
-        accessibilityLabel={t("back")}
-        disabled={backDisabled}
-        onPress={onBack}
-        style={backDisabled && { opacity: 0.45 }}
-      >
+      <IconButton size={44} accessibilityLabel={t("back")} onPress={onBack}>
         <IconChevronLeft
           color={theme.colors.text}
           size={22}
