@@ -9,6 +9,8 @@ import { type PlatformDefinition } from "@/types/platform-definition";
 import { type PlatformId } from "@/types/platform-id";
 
 export async function syncPlatformSession(platform: PlatformDefinition) {
+  const connected = useSettingsStore.getState().settings.connectedPlatforms;
+  if (connected.includes(platform.id)) return;
   try {
     const cookies = await CookieManager.get(platform.startUrl, true);
     const { settings, updateSettings } = useSettingsStore.getState();

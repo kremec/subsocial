@@ -35,12 +35,7 @@ export const BrowserScreen: FC = () => {
   useEffect(() => {
     if (url) {
       return () => {
-        if (
-          !useSettingsStore
-            .getState()
-            .settings.connectedPlatforms.includes(platform.id)
-        )
-          void syncPlatformSession(platform);
+        void syncPlatformSession(platform);
       };
     }
     void resetPlatformSession(platform).then(
