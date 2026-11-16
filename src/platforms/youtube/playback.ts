@@ -6,16 +6,8 @@ import {
 } from "@/platforms/youtube/schemas/playback-response-schema";
 import { playbackVisitorSchema } from "@/platforms/youtube/schemas/playback-visitor-schema";
 import { t } from "@/translation/use-translation";
-import { type FeedMedia, FeedMediaContentType } from "@/types/feed-media";
-
-export type YouTubeResolution =
-  | {
-      status: "ready";
-      url: string;
-      contentType: FeedMediaContentType.HLS;
-      preferredAudioTrack?: string;
-    }
-  | { status: "error" | "verification" };
+import { FeedMediaContentType } from "@/types/feed-media";
+import { type VideoResolution } from "@/types/video-resolution";
 
 function youtubeStream(url: string) {
   const source = new URL(url);
@@ -30,17 +22,7 @@ function youtubeStream(url: string) {
     status: "ready",
     url,
     contentType: FeedMediaContentType.HLS,
-  } satisfies YouTubeResolution;
-}
-
-// Streams expire, so they replace the saved poster only while playing.
-export function withYouTubeStream(
-  media: FeedMedia,
-  resolution: YouTubeResolution | undefined,
-): FeedMedia {
-  if (resolution?.status !== "ready") return media;
-  const { url, contentType, preferredAudioTrack } = resolution;
-  return { ...media, url, contentType, preferredAudioTrack };
+  } satisfies VideoResolution;
 }
 
 // Keep this client aligned with NewPipeExtractor's ClientsConstants.
@@ -90,7 +72,7 @@ function selectYouTubePlaylist(
   url: string,
   playlist: string,
   streamingData: PlaybackResponse["streamingData"],
-): YouTubeResolution {
+): VideoResolution {
   const master = youtubeStream(url);
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
   if (lines[0] !== "#EXTM3U") throw new Error(t("youtubeInvalidPlaylist"));
@@ -171,7 +153,7 @@ export async function resolveYouTubePlayback(
   videoId: string,
   signal: AbortSignal,
   request: (url: string, options?: RequestInit) => Promise<Response> = fetch,
-): Promise<YouTubeResolution> {
+): Promise<VideoResolution> {
   const checkAborted = () => {
     if (signal.aborted)
       throw new DOMException(t("youtubePlaybackAborted"), "AbortError");

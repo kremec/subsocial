@@ -6,15 +6,16 @@ import { useEvent } from "expo";
 import { type VideoPlayer } from "expo-video";
 
 import { Icon, IconName } from "@/components/ui/icon";
+import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
-interface FeedVideoMuteButtonProps {
+interface VideoMuteButtonProps {
   player: VideoPlayer;
-  inline?: boolean;
 }
 
-export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
-  const { player, inline } = props;
+export const VideoMuteButton: FC<VideoMuteButtonProps> = (props) => {
+  const { player } = props;
+  const { colors } = useTheme();
   const { muted } = useEvent(player, "mutedChange", { muted: player.muted });
 
   return (
@@ -27,19 +28,18 @@ export const FeedVideoMuteButton: FC<FeedVideoMuteButtonProps> = (props) => {
         player.muted = !player.muted;
       }}
       style={({ pressed }) => ({
-        ...(!inline && { position: "absolute", bottom: 8, right: 8 }),
         width: 28,
         height: 28,
         borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: inline ? "transparent" : "rgba(0, 0, 0, 0.62)",
+        backgroundColor: "transparent",
         opacity: pressed ? 0.65 : 1,
       })}
     >
       <Icon
         name={muted ? IconName.VOLUME_OFF : IconName.VOLUME}
-        color="#FFFFFF"
+        color={colors.mediaForeground}
         size={16}
       />
     </Pressable>

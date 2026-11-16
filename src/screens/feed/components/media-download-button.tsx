@@ -1,59 +1,11 @@
-import { type FC, useState } from "react";
-import { ActivityIndicator, Alert, Pressable } from "react-native";
-
-import { Directory, File, Paths } from "expo-file-system";
+import { type FC } from "react";
+import { ActivityIndicator, Pressable } from "react-native";
 
 import { Icon, IconName } from "@/components/ui/icon";
+import { useMediaDownload } from "@/hooks/use-media-download";
+import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
-import {
-  type FeedMedia,
-  FeedMediaType,
-  FeedMediaContentType,
-} from "@/types/feed-media";
-import { PlatformId } from "@/types/platform-id";
-
-// Streams are playlists rather than files, and YouTube only plays streams.
-export const canDownloadMedia = (media: FeedMedia, platform: PlatformId) =>
-  media.type === FeedMediaType.IMAGE ||
-  (!!media.playable &&
-    platform !== PlatformId.YOUTUBE &&
-    media.contentType !== FeedMediaContentType.HLS &&
-    !/\.m3u8(?:$|\/)|\/manifest\/hls/i.test(new URL(media.url).pathname));
-
-async function downloadMedia(media: FeedMedia) {
-  let target: Directory;
-  try {
-    target = await Directory.pickDirectoryAsync();
-  } catch (error) {
-    const code = error instanceof Error && "code" in error && error.code;
-    if (
-      code === "ERR_PICKER_CANCELLED" ||
-      code === "ERR_FILE_PICKING_CANCELLED"
-    )
-      return;
-    throw error;
-  }
-  const url = new URL(media.url);
-  const format = (
-    url.searchParams.get("format") ||
-    url.pathname.match(/\.([a-z]+)$/i)?.[1] ||
-    ""
-  ).toLowerCase();
-  const extension =
-    media.type === FeedMediaType.VIDEO
-      ? "mp4"
-      : /^(jpe?g|png|gif|webp|avif|heic)$/.test(format)
-        ? format
-        : "jpg";
-  // Download into the cache first; picked folders may not accept direct downloads.
-  const file = new File(Paths.cache, `subsocial-${Date.now()}.${extension}`);
-  try {
-    await File.downloadFileAsync(media.url, file);
-    await file.copy(target);
-  } finally {
-    if (file.exists) file.delete();
-  }
-}
+import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 
 interface MediaDownloadButtonProps {
   media: FeedMedia;
@@ -61,7 +13,8 @@ interface MediaDownloadButtonProps {
 
 export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
   const { media } = props;
-  const [busy, setBusy] = useState(false);
+  const theme = useTheme();
+  const { busy, download } = useMediaDownload(media);
 
   return (
     <Pressable
@@ -76,12 +29,7 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();
-        setBusy(true);
-        void downloadMedia(media)
-          .catch(() =>
-            Alert.alert(t("mediaDownloadFailed"), t("mediaDownloadError")),
-          )
-          .finally(() => setBusy(false));
+        download();
       }}
       style={({ pressed }) => ({
         width: 28,
@@ -91,8 +39,14 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      {busy && <ActivityIndicator color="#FFFFFF" />}
-      {!busy && <Icon name={IconName.DOWNLOAD} color="#FFFFFF" size={20} />}
+      {busy && <ActivityIndicator color={theme.colors.mediaForeground} />}
+      {!busy && (
+        <Icon
+          name={IconName.DOWNLOAD}
+          color={theme.colors.mediaForeground}
+          size={20}
+        />
+      )}
     </Pressable>
   );
 };

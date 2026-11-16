@@ -1,5 +1,7 @@
 export const themePalettes = {
   light: {
+    mediaBackground: "#000000",
+    mediaForeground: "#FFFFFF",
     background: "#F7F7F5",
     backgroundElement: "#EFEFEC",
     backgroundSelected: "#E4E4DF",
@@ -15,6 +17,8 @@ export const themePalettes = {
     warning: "#C58B16",
   },
   dark: {
+    mediaBackground: "#000000",
+    mediaForeground: "#FFFFFF",
     background: "#111110",
     backgroundElement: "#20201E",
     backgroundSelected: "#292926",

@@ -2,9 +2,14 @@ import { type IconName } from "@/components/ui/icon";
 import { type FeedPage } from "@/types/feed-page";
 import { type FeedRequest } from "@/types/feed-request";
 import { type PlatformId } from "@/types/platform-id";
+import { type VideoResolution } from "@/types/video-resolution";
 
 export interface PlatformDefinition {
   id: PlatformId;
+  resolveVideo?: (
+    sourceId: string,
+    signal: AbortSignal,
+  ) => Promise<VideoResolution>;
   feed: (request: FeedRequest) => AsyncGenerator<FeedPage>;
   icon: IconName;
   label: string;

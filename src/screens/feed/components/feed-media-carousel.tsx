@@ -1,4 +1,4 @@
-import { type FC, useContext, useLayoutEffect, useRef, useState } from "react";
+import { type FC, useCallback, useContext, useRef, useState } from "react";
 import {
   Pressable,
   View,
@@ -14,7 +14,7 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { FeedImage } from "@/screens/feed/components/feed-image";
 import { FeedVideo } from "@/screens/feed/components/feed-video";
-import { FeedMediaContext } from "@/screens/feed/use-feed-video-visibility";
+import { FeedMediaContext } from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { type FeedMedia, FeedMediaType } from "@/types/feed-media";
 import { type PlatformId } from "@/types/platform-id";
@@ -33,11 +33,14 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const theme = useTheme();
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
-  const view = useRef<ViewInstance>(null);
   const carousel = useRef<ScrollViewInstance>(null);
   const { rowId, activePostUrl, activate, setVideoView, openMedia } =
     useContext(FeedMediaContext)!;
   const active = activePostUrl === postUrl;
+  const selectIndex = (index: number) => {
+    setMediaIndex(index);
+    carousel.current?.scrollTo({ x: index * mediaWidth, animated: false });
+  };
   const openAlbum = (index: number) => {
     setMediaIndex(index);
     openMedia({
@@ -47,20 +50,20 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       androidUrl,
       sourceId,
       index,
-      onIndexChange: setMediaIndex,
+      onIndexChange: selectIndex,
     });
   };
-  useLayoutEffect(() => {
-    carousel.current?.scrollTo({ x: mediaIndex * mediaWidth, animated: false });
-  }, [mediaIndex, mediaWidth]);
   const selectedMedia = media[mediaIndex];
   const playable =
     selectedMedia?.type === FeedMediaType.VIDEO && selectedMedia.playable;
-  useLayoutEffect(() => {
-    if (!playable || !view.current) return;
-    setVideoView(rowId, postUrl, view.current);
-    return () => setVideoView(rowId, postUrl, null);
-  }, [setVideoView, rowId, postUrl, playable, mediaWidth, mediaIndex]);
+  const registerVideo = useCallback(
+    (view: ViewInstance | null) => {
+      if (!view || !playable) return;
+      setVideoView(rowId, postUrl, view);
+      return () => setVideoView(rowId, postUrl, null);
+    },
+    [playable, rowId, postUrl, setVideoView],
+  );
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
   const counter = media.length > 1 && (
@@ -76,7 +79,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         backgroundColor: "rgba(0, 0, 0, 0.62)",
       }}
     >
-      <Typography variant="caption" color="#FFFFFF">
+      <Typography variant="caption" color={theme.colors.mediaForeground}>
         {mediaIndex + 1}/{media.length}
       </Typography>
     </View>
@@ -118,7 +121,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
             >
               <Icon
                 name={IconName.PLAYER_PLAY}
-                color="#FFFFFF"
+                color={theme.colors.mediaForeground}
                 size={25}
                 filled
               />
@@ -137,7 +140,6 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
               platform={platform}
               postUrl={postUrl}
               sourceId={sourceId}
-              counter={counter}
               onFullscreen={() => openAlbum(index)}
             />
           </Pressable>
@@ -148,11 +150,10 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
 
   return (
     <View
-      ref={view}
+      ref={registerVideo}
       collapsable={false}
       onLayout={(event) => {
         setMediaWidth(event.nativeEvent.layout.width);
-        if (playable) setVideoView(rowId, postUrl, view.current);
       }}
       style={{
         width: "100%",
@@ -192,7 +193,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         </ScrollView>
       )}
 
-      {!(active && playable) && counter}
+      {counter}
     </View>
   );
 };
