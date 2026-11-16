@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type View } from "react-native";
+import { type ViewInstance } from "react-native";
 
 import { type FeedItem } from "@/feed/types";
 
@@ -12,8 +12,10 @@ export function useFeedVideoVisibility(
   rows: readonly Pick<FeedItem, "id">[],
   enabled: boolean,
 ) {
-  const viewport = useRef<View>(null);
-  const videoViews = useRef(new Map<string, ActiveVideo & { view: View }>());
+  const viewport = useRef<ViewInstance>(null);
+  const videoViews = useRef(
+    new Map<string, ActiveVideo & { view: ViewInstance }>(),
+  );
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const updateVideoVisibility = useCallback(
     (preferred?: ActiveVideo) => {
@@ -55,7 +57,7 @@ export function useFeedVideoVisibility(
     [enabled],
   );
   const onVideoView = useCallback(
-    (rowId: string, postUrl: string, view: View | null) => {
+    (rowId: string, postUrl: string, view: ViewInstance | null) => {
       const key = `${rowId}:${postUrl}`;
       if (view) videoViews.current.set(key, { rowId, postUrl, view });
       else videoViews.current.delete(key);

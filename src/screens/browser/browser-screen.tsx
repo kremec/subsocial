@@ -18,7 +18,7 @@ import { useTheme } from "@/theme/use-theme";
 
 export const BrowserScreen: FC = () => {
   const theme = useTheme();
-  const webView = useRef<WebView>(null);
+  const webView = useRef<WebView<object>>(null);
   const [resetting, setResetting] = useState(false);
   const params = useLocalSearchParams<{ platform: PlatformId; url?: string }>();
   const platform = getPlatform(params.platform);
@@ -172,7 +172,7 @@ export const BrowserScreen: FC = () => {
         </View>
       )}
       {!resetting && (
-        <WebView
+        <WebView<object>
           ref={webView}
           source={{ uri: url }}
           // Handle every scheme here so WebView cannot launch an external browser.

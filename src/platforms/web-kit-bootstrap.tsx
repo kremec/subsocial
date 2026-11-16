@@ -11,7 +11,7 @@ export const WebKitBootstrap: FC<WebKitBootstrapProps> = (props) => {
 
   // Mount WebKit before reading cookies saved by a previous app session.
   return (
-    <WebView
+    <WebView<object>
       pointerEvents="none"
       source={{ html: "" }}
       onLoadEnd={onReady}

@@ -1,5 +1,5 @@
 import { type FC, memo, useCallback } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 
 import { type FeedItem, type FeedPost } from "@/feed/types";
 import { openBrowser } from "@/platforms/open-post";
@@ -23,7 +23,11 @@ interface FeedCardProps {
   activePostUrl?: string;
   resolution?: YouTubeResolution;
   onActivate: (rowId: string, postUrl: string) => void;
-  onVideoView: (rowId: string, postUrl: string, view: View | null) => void;
+  onVideoView: (
+    rowId: string,
+    postUrl: string,
+    view: ViewInstance | null,
+  ) => void;
   onRetry: () => void;
   onPlaybackError: (id: string) => void;
 }
@@ -49,7 +53,8 @@ export const FeedCard: FC<FeedCardProps> = memo((props) => {
   );
   const playableItem = withYouTubeStream(item, resolution);
   const setVideoView = useCallback(
-    (postUrl: string, view: View | null) => onVideoView(rowId, postUrl, view),
+    (postUrl: string, view: ViewInstance | null) =>
+      onVideoView(rowId, postUrl, view),
     [rowId, onVideoView],
   );
   const theme = useTheme();

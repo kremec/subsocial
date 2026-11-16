@@ -1,0 +1,74 @@
+diff --git a/expo-sqlite/session.js b/expo-sqlite/session.js
+--- a/expo-sqlite/session.js
++++ b/expo-sqlite/session.js
+@@ -27,6 +27,33 @@
+       isResponseInArrayMode,
+       customResultMapper
+     );
++  }
++  prepareOneTimeQuery(query, fields, executeMethod, isResponseInArrayMode, customResultMapper) {
++    const stmt = this.client.prepareSync(query.sql);
++    const prepared = new ExpoSQLitePreparedQuery(
++      stmt,
++      query,
++      this.logger,
++      fields,
++      executeMethod,
++      isResponseInArrayMode,
++      customResultMapper
++    );
++    let finalized = false;
++    for (const method of ["run", "all", "get", "values"]) {
++      const execute = prepared[method].bind(prepared);
++      prepared[method] = (placeholderValues) => {
++        try {
++          return execute(placeholderValues);
++        } finally {
++          if (!finalized) {
++            finalized = true;
++            stmt.finalizeSync();
++          }
++        }
++      };
++    }
++    return prepared;
+   }
+   transaction(transaction, config = {}) {
+     const tx = new ExpoSQLiteTransaction("sync", this.dialect, this, this.schema);
+diff --git a/expo-sqlite/session.cjs b/expo-sqlite/session.cjs
+--- a/expo-sqlite/session.cjs
++++ b/expo-sqlite/session.cjs
+@@ -49,6 +49,33 @@
+       isResponseInArrayMode,
+       customResultMapper
+     );
++  }
++  prepareOneTimeQuery(query, fields, executeMethod, isResponseInArrayMode, customResultMapper) {
++    const stmt = this.client.prepareSync(query.sql);
++    const prepared = new ExpoSQLitePreparedQuery(
++      stmt,
++      query,
++      this.logger,
++      fields,
++      executeMethod,
++      isResponseInArrayMode,
++      customResultMapper
++    );
++    let finalized = false;
++    for (const method of ["run", "all", "get", "values"]) {
++      const execute = prepared[method].bind(prepared);
++      prepared[method] = (placeholderValues) => {
++        try {
++          return execute(placeholderValues);
++        } finally {
++          if (!finalized) {
++            finalized = true;
++            stmt.finalizeSync();
++          }
++        }
++      };
++    }
++    return prepared;
+   }
+   transaction(transaction, config = {}) {
+     const tx = new ExpoSQLiteTransaction("sync", this.dialect, this, this.schema);

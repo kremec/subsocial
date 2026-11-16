@@ -1,5 +1,5 @@
 import { createContext, useEffect } from "react";
-import { type View } from "react-native";
+import { type ViewInstance } from "react-native";
 
 import Storage from "expo-sqlite/kv-store";
 import { type VideoPlayer, useVideoPlayer } from "expo-video";
@@ -15,7 +15,7 @@ export function playbackPositionsFor(player: VideoPlayer) {
 
 export const FeedVideoPlayerContext = createContext<VideoPlayer | null>(null);
 export const FeedVideoLayoutContext = createContext<
-  ((postUrl: string, view: View | null) => void) | null
+  ((postUrl: string, view: ViewInstance | null) => void) | null
 >(null);
 
 export function useFeedVideoPlayer() {

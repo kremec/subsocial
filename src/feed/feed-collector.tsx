@@ -203,7 +203,7 @@ export const FeedCollector: FC<FeedCollectorProps> = (props) => {
           />
         </IconButton>
       </View>
-      <WebView
+      <WebView<object>
         source={{ uri: platform.startUrl }}
         originWhitelist={["*"]}
         javaScriptEnabled

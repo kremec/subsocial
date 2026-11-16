@@ -6,7 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  View,
+  type ScrollViewInstance,
+} from "react-native";
 
 import { Image } from "expo-image";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
@@ -64,7 +69,7 @@ export const MediaScreen: FC = () => {
   const selectedMedia = media[mediaIndex]!;
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
-  const carousel = useRef<ScrollView>(null);
+  const carousel = useRef<ScrollViewInstance>(null);
   const album = useContext(MediaAlbumContext);
   const setSelection = album?.setSelection;
   useEffect(() => () => setSelection?.(undefined), [setSelection]);
