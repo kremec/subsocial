@@ -17,7 +17,7 @@ export interface FeedPage {
   end: boolean;
 }
 
-export class FeedAccessError extends Error {}
+export { FeedAccessError } from "@/types/feed-access-error";
 
 export interface PlatformDefinition {
   id: PlatformId;

@@ -5,5 +5,5 @@ export const configSchema = z.object({
   USER_SESSION_ID: z.string().optional(),
   DELEGATED_SESSION_ID: z.string().optional(),
   LOGGED_IN: z.boolean().optional(),
-  INNERTUBE_CONTEXT: z.record(z.string(), z.json()).optional(),
+  INNERTUBE_CONTEXT: z.record(z.string(), z.unknown()).optional(),
 });
