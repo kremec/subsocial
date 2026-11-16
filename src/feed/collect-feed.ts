@@ -1,5 +1,6 @@
+import Storage from "expo-sqlite/kv-store";
+
 import {
-  type ExtractionBatch,
   feedItemLimit,
   listPublicationDates,
   saveExtraction,
@@ -17,13 +18,21 @@ export async function collectFeed(
 ): Promise<void> {
   signal.throwIfAborted();
   const dates = new Map(listPublicationDates(platform.id));
+  const boundaryKey = `collection-known:${platform.id}`;
+  const savedBoundary = Storage.getItemSync(boundaryKey);
+  // Retain the original boundary while retrying partially saved collections.
+  const known = new Set(
+    (savedBoundary
+      ? (JSON.parse(savedBoundary) as string[])
+      : [...dates.keys()]
+    ).filter((sourceId) => dates.has(sourceId)),
+  );
+  Storage.setItemSync(boundaryKey, JSON.stringify([...known]));
   const stalled = new AbortController();
   const combined = AbortSignal.any([signal, stalled.signal]);
   let timer = setTimeout(() => stalled.abort(), 120_000);
-  const known = new Set(dates.keys());
   const seen = new Map<string, string>();
   const failures = new Set<string>();
-  const batches: ExtractionBatch[] = [];
 
   // Only publication dates can place posts in the chronological feed.
   const withDate = (post: ExtractedPost) => {
@@ -78,7 +87,10 @@ export async function collectFeed(
         if (!root) return [];
         return [{ ...root, media: root.media ?? [], thread: members }];
       });
-      batches.push({ items: dated, excludedSourceIds: [...excluded] });
+      if (dated.length || excluded.size)
+        saveExtraction(platform.id, [
+          { items: dated, excludedSourceIds: [...excluded] },
+        ]);
       if (seen.size > size) {
         clearTimeout(timer);
         timer = setTimeout(() => stalled.abort(), 120_000);
@@ -91,9 +103,9 @@ export async function collectFeed(
         break;
     }
     combined.throwIfAborted();
-    saveExtraction(platform.id, batches);
     if (failures.size)
       throw new FeedError(t("feedMissingDates", { count: failures.size }));
+    Storage.removeItemSync(boundaryKey);
   } catch (error) {
     signal.throwIfAborted();
     if (stalled.signal.aborted) throw new FeedError(t("feedTimeout"));
