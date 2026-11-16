@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { feedItemsTable } from "@/db/schema";
@@ -6,7 +6,7 @@ import { type ExtractedItem } from "@/types/extracted-item";
 import { type ExtractedPost } from "@/types/extracted-post";
 import { FeedMediaType } from "@/types/feed-media";
 import { type FeedPost } from "@/types/feed-post";
-import { type PlatformId } from "@/types/platform-id";
+import { PlatformId } from "@/types/platform-id";
 
 export const feedItemLimit = 500;
 
@@ -164,6 +164,24 @@ export function pruneFeedItems(): void {
       ) WHERE position > ${feedItemLimit}
     )
   `);
+}
+
+export function listPendingYouTubeItems(): ExtractedItem[] {
+  return db
+    .select()
+    .from(feedItemsTable)
+    .where(
+      and(
+        eq(feedItemsTable.platform, PlatformId.YOUTUBE),
+        isNull(feedItemsTable.publishedAt),
+      ),
+    )
+    .all()
+    .map((row) => ({
+      ...row.post,
+      sourceId: row.sourceId,
+      media: row.post.media ?? [],
+    }));
 }
 
 export function listPublicationDates(platform: PlatformId): [string, number][] {

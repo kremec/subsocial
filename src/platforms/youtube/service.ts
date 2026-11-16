@@ -152,10 +152,28 @@ export async function* youtubeFeed(
     if (data.error) throw new FeedError(t("youtubeApiFailed"));
     return data;
   };
+  let pending = request.pendingItems ?? [];
   const seen = new Set<string>();
   const cursors = new Set<string>();
   while (!request.signal.aborted) {
     const page = videos(data);
+    if (pending.length) {
+      page.found = new Map([
+        ...pending.map(
+          (item) =>
+            [
+              item.sourceId,
+              {
+                videoId: item.sourceId,
+                title: { simpleText: item.text || "" },
+                shortBylineText: { simpleText: item.authorName || "" },
+              },
+            ] as const,
+        ),
+        ...page.found,
+      ]);
+      pending = [];
+    }
     for (const [sourceId, video] of page.found) {
       if (seen.has(sourceId)) continue;
       seen.add(sourceId);

@@ -7,6 +7,7 @@ import CookieManager, {
   type Cookies,
 } from "@preeternal/react-native-cookie-manager";
 
+import { listPendingYouTubeItems } from "@/db/repositories/feed-items-repository";
 import { hasSession, ownsHost } from "@/platforms/platforms";
 import { t } from "@/translation/use-translation";
 import { FeedAccessError } from "@/types/feed-access-error";
@@ -75,6 +76,8 @@ export async function* platformFeed(
     cookies: cookieValues(session),
     signal,
     dates,
+    pendingItems:
+      platform.id === PlatformId.YOUTUBE ? listPendingYouTubeItems() : [],
     fetch: async (url, init) => {
       if (signal.aborted) throw new FeedError(t("feedCancelled"));
       const { protocol, hostname } = new URL(url);
