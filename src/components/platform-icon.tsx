@@ -28,9 +28,8 @@ export const PlatformIcon: FC<PlatformIconProps> = (props) => {
           borderColor: colors.border,
           borderRadius: radius.sm,
         },
-        connected && {
-          borderColor: active ? colors.success : colors.warning,
-        },
+        connected && active && { borderColor: colors.success },
+        connected && !active && { borderColor: colors.warning },
         failed && { borderColor: colors.danger },
       ]}
     >
