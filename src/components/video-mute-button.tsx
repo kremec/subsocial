@@ -21,7 +21,7 @@ export const VideoMuteButton: FC<VideoMuteButtonProps> = (props) => {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(muted ? "mediaUnmute" : "mediaMute")}
+      accessibilityLabel={muted ? t("mediaUnmute") : t("mediaMute")}
       hitSlop={8}
       onPress={(event) => {
         event.stopPropagation();

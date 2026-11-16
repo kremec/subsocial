@@ -78,7 +78,7 @@ export const FeedList: FC<FeedListProps> = (props) => {
               }}
             >
               <Typography variant="titleSmall" style={{ textAlign: "center" }}>
-                {t(query?.trim() ? "feedNoMatches" : "feedNoPosts")}
+                {query?.trim() ? t("feedNoMatches") : t("feedNoPosts")}
               </Typography>
             </View>
           }

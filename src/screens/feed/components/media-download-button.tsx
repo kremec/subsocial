@@ -19,11 +19,11 @@ export const MediaDownloadButton: FC<MediaDownloadButtonProps> = (props) => {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(
+      accessibilityLabel={
         media.type === FeedMediaType.IMAGE
-          ? "mediaDownloadImage"
-          : "mediaDownloadVideo",
-      )}
+          ? t("mediaDownloadImage")
+          : t("mediaDownloadVideo")
+      }
       accessibilityState={{ busy }}
       disabled={busy}
       hitSlop={8}

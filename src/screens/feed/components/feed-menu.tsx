@@ -119,10 +119,11 @@ export const FeedMenu: FC<FeedMenuProps> = (props) => {
 
               <IconButton
                 size={36}
-                accessibilityLabel={t(
-                  active ? "feedHidePlatform" : "feedShowPlatform",
-                  { platform: platform.label },
-                )}
+                accessibilityLabel={
+                  active
+                    ? t("feedHidePlatform", { platform: platform.label })
+                    : t("feedShowPlatform", { platform: platform.label })
+                }
                 onPress={() => onTogglePlatform(platform.id)}
               >
                 <Icon
