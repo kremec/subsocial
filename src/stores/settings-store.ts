@@ -15,15 +15,6 @@ export const useSettingsStore = create(
       name: "subsocial.settings",
       storage: createJSONStorage(() => localStorage),
       version: 1,
-      migrate: (saved, version) => {
-        if (version < 1) {
-          return {
-            settings: { ...settingsSchema.parse({}), ...(saved as Settings) },
-          };
-        }
-
-        return saved as { settings: Settings };
-      },
     },
   ),
 );
