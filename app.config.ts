@@ -1,3 +1,7 @@
+/// <reference types="node" />
+
+import { supportedLocales } from "./plugins/localization.js";
+
 const IS_DEV = process.env.APP_VARIANT === "development";
 
 export default {
@@ -38,6 +42,7 @@ export default {
     "expo-video",
     "expo-image",
     "expo-sqlite",
+    ["expo-localization", { supportedLocales }],
     "./plugins/with-platform-app-queries",
     [
       "expo-splash-screen",
