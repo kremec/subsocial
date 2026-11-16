@@ -49,6 +49,7 @@ export const Button: FC<ButtonProps> = (props) => {
       onPress={onPress}
       style={(state) => [
         {
+          justifyContent: "center",
           borderRadius: theme.radius.full,
           backgroundColor: colors.background,
           borderColor: colors.border,
