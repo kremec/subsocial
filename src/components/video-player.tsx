@@ -20,7 +20,7 @@ interface VideoPlayerProps {
   children?: ReactNode;
 }
 
-// Native players belong to mounted videos; only their position survives a handoff.
+// Native players belong to mounted videos; position and play intent survive a handoff.
 const playback = new Map<string, { time: number; playing: boolean }>();
 let playbackRate = 1;
 
@@ -59,9 +59,11 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
         selectAudio();
         if (saved) player.currentTime = saved.time;
         player.playbackRate = playbackRate;
-        if (saved?.playing !== false) {
-          if (AppState.currentState === "active") player.play();
-          else resume = true;
+        if (saved?.playing !== false && AppState.currentState === "active") {
+          player.play();
+        } else {
+          resume = saved?.playing !== false;
+          player.pause();
         }
       }
     };
@@ -90,7 +92,7 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
           time: player.currentTime,
           playing:
             player.status === "error" ||
-            player.playing ||
+            (player.playWhenReady ?? player.playing) ||
             (AppState.currentState !== "active" && resume),
         });
       }

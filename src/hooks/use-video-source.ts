@@ -31,8 +31,9 @@ export function useVideoSource(
     const finish = (resolution: VideoResolution) => {
       if (controller.signal.aborted) return;
       clearTimeout(timeout);
-      cached = { key, resolution };
-      setResolved(cached);
+      const next = { key, resolution };
+      cached = resolution.status === "ready" ? next : undefined;
+      setResolved(next);
     };
     const timeout = setTimeout(() => {
       finish({ status: "error" });
@@ -49,9 +50,9 @@ export function useVideoSource(
 
   const fail = useCallback(() => {
     const failed: ResolvedVideo = { key, resolution: { status: "error" } };
-    if (resolveVideo) cached = failed;
+    if (cached?.key === key) cached = undefined;
     setResolved(failed);
-  }, [key, resolveVideo]);
+  }, [key]);
   const status: VideoResolution["status"] | "loading" =
     resolveVideo && !sourceId
       ? "error"

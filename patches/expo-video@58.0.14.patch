@@ -1,0 +1,49 @@
+diff --git a/android/src/main/java/expo/modules/video/VideoModule.kt b/android/src/main/java/expo/modules/video/VideoModule.kt
+--- a/android/src/main/java/expo/modules/video/VideoModule.kt
++++ b/android/src/main/java/expo/modules/video/VideoModule.kt
+@@ -87,6 +87,13 @@
+           ref.playing
+         }
+ 
++      Property("playWhenReady")
++        .get { ref: VideoPlayer ->
++          runBlocking(appContext.mainQueue.coroutineContext) {
++            ref.player.playWhenReady
++          }
++        }
++
+       Property("muted")
+         .get { ref: VideoPlayer ->
+           ref.muted
+diff --git a/src/VideoPlayer.types.ts b/src/VideoPlayer.types.ts
+--- a/src/VideoPlayer.types.ts
++++ b/src/VideoPlayer.types.ts
+@@ -12,6 +12,12 @@
+    * > Use `play` and `pause` methods to control the playback.
+    */
+   readonly playing: boolean;
++  /**
++   * Whether Android playback is requested, including while buffering.
++   * Undefined on other platforms or native builds without this getter.
++   * @platform android
++   */
++  readonly playWhenReady?: boolean;
+ 
+   /**
+    * Determines whether the player should automatically replay after reaching the end of the video.
+diff --git a/build/VideoPlayer.types.d.ts b/build/VideoPlayer.types.d.ts
+--- a/build/VideoPlayer.types.d.ts
++++ b/build/VideoPlayer.types.d.ts
+@@ -10,6 +10,12 @@
+      * > Use `play` and `pause` methods to control the playback.
+      */
+     readonly playing: boolean;
++    /**
++     * Whether Android playback is requested, including while buffering.
++     * Undefined on other platforms or native builds without this getter.
++     * @platform android
++     */
++    readonly playWhenReady?: boolean;
+     /**
+      * Determines whether the player should automatically replay after reaching the end of the video.
+      * @default false

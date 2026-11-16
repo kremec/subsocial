@@ -60,6 +60,7 @@
     },
   },
   "patchedDependencies": {
+    "expo-video@58.0.14": "patches/expo-video@58.0.14.patch",
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
     "drizzle-orm@0.45.4": "patches/drizzle-orm@0.45.4.patch",
     "@expo/ui@58.0.28": "patches/@expo%2Fui@58.0.28.patch",
