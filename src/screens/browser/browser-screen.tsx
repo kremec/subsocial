@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
-import { WebView, type WebViewNavigation } from "react-native-webview";
+import { WebView } from "react-native-webview";
 
 import { ScreenHeader } from "@/components/screen-header";
 import { Icon, IconName } from "@/components/ui/icon";
@@ -29,7 +29,16 @@ export const BrowserScreen: FC = () => {
 
   // Clear the session only after the WebView unmounts, so it can't restore cookies.
   useEffect(() => {
-    if (!resetting) return;
+    if (!resetting) {
+      return () => {
+        if (
+          !useSettingsStore
+            .getState()
+            .settings.connectedPlatforms.includes(platform.id)
+        )
+          void syncPlatformSession(platform);
+      };
+    }
     const listener = BackHandler.addEventListener(
       "hardwareBackPress",
       () => true,
@@ -43,16 +52,6 @@ export const BrowserScreen: FC = () => {
     );
     return () => listener.remove();
   }, [platform, resetting]);
-
-  const stayInWebView = (request: WebViewNavigation) => {
-    const url = request.url.replace(/^x-safari-(https?):/, "$1:");
-    if (url === request.url) return /^(https?:|about:)/.test(url);
-
-    webView.current?.injectJavaScript(
-      `window.location.replace(${JSON.stringify(url)}); true;`,
-    );
-    return false;
-  };
 
   const logOut = () =>
     Alert.alert(
@@ -136,7 +135,14 @@ export const BrowserScreen: FC = () => {
           startInLoadingState
           setSupportMultipleWindows={false}
           webviewDebuggingEnabled={__DEV__}
-          onShouldStartLoadWithRequest={stayInWebView}
+          onShouldStartLoadWithRequest={(request) => {
+            const url = request.url.replace(/^x-safari-(https?):/, "$1:");
+            if (url === request.url) return /^(https?:|about:)/.test(url);
+            webView.current?.injectJavaScript(
+              `window.location.replace(${JSON.stringify(url)}); true;`,
+            );
+            return false;
+          }}
           onLoadEnd={() => {
             void syncPlatformSession(platform);
           }}

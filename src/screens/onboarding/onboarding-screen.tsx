@@ -1,47 +1,22 @@
-import { type FC, useEffect, useState } from "react";
+import { type FC } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-
-import { useIsFocused } from "expo-router";
 
 import { PlatformIcon } from "@/components/platform-icon";
 import { Icon, IconName } from "@/components/ui/icon";
 import { Screen } from "@/components/ui/screen";
-import { showErrorToast } from "@/components/ui/toast";
 import { Typography } from "@/components/ui/typography";
 import { openBrowser } from "@/platforms/open-post";
 import { platforms } from "@/platforms/platforms";
-import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
 export const OnboardingScreen: FC = () => {
   const theme = useTheme();
-  const focused = useIsFocused();
   const connected = useSettingsStore(
     (state) => state.settings.connectedPlatforms,
   );
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    if (!focused) return;
-    let current = true;
-    void syncPlatformSessions()
-      .then(() => {
-        if (!current) return;
-        setChecking(false);
-      })
-      .catch(() => {
-        if (!current) return;
-        setChecking(false);
-        showErrorToast(t("connectionsCheckFailed"));
-      });
-    return () => {
-      current = false;
-    };
-  }, [focused]);
-
-  const canContinue = focused && !checking && connected.length > 0;
+  const canContinue = connected.length > 0;
 
   return (
     <Screen
@@ -110,7 +85,6 @@ export const OnboardingScreen: FC = () => {
                       : t("connectPlatform", { platform: platform.label })
                   }
                   onPress={() => {
-                    setChecking(true);
                     openBrowser(
                       platform.id,
                       isConnected ? platform.startUrl : platform.loginUrl,

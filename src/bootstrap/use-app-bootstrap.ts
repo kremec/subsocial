@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { migrateDatabase } from "@/db/database-migration";
 import { logError } from "@/logging/logger";
+import { syncPlatformSessions } from "@/platforms/session";
 
 export function useAppBootstrap() {
   const [ready, setReady] = useState(false);
@@ -12,6 +13,9 @@ export function useAppBootstrap() {
     void migrateDatabase()
       .then(() => {
         if (!active) return;
+        void syncPlatformSessions().catch((error) => {
+          logError("platform.sessions", "failed", error);
+        });
         setReady(true);
       })
       .catch((error) => {
