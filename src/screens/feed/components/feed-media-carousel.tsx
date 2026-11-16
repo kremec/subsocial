@@ -37,10 +37,6 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   const { rowId, activePostUrl, activate, setVideoView, openMedia } =
     useContext(FeedMediaContext)!;
   const active = activePostUrl === postUrl;
-  const selectIndex = (index: number) => {
-    setMediaIndex(index);
-    carousel.current?.scrollTo({ x: index * mediaWidth, animated: false });
-  };
   const openAlbum = (index: number) => {
     setMediaIndex(index);
     openMedia({
@@ -50,7 +46,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
       androidUrl,
       sourceId,
       index,
-      onIndexChange: selectIndex,
+      onIndexChange: setMediaIndex,
     });
   };
   const selectedMedia = media[mediaIndex];
@@ -168,6 +164,7 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
           ref={carousel}
           horizontal
           pagingEnabled
+          contentOffset={{ x: mediaIndex * mediaWidth, y: 0 }}
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           onContentSizeChange={(width) =>
