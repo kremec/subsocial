@@ -1,5 +1,5 @@
 /* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
-import { type FC, type ReactNode, useLayoutEffect } from "react";
+import { type FC, type ReactNode, useEffect } from "react";
 import { AppState, View } from "react-native";
 
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -39,7 +39,7 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
     },
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const saved = playback.get(playbackKey);
     let ready = false;
     let resume = false;

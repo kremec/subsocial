@@ -62,25 +62,6 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
   );
   const aspectRatio = Math.min(...media.map((media) => media.aspectRatio || 1));
 
-  const counter = media.length > 1 && (
-    <View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        top: theme.spacing.sm,
-        right: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.radius.full,
-        backgroundColor: "rgba(0, 0, 0, 0.62)",
-      }}
-    >
-      <Typography variant="caption" color={theme.colors.mediaForeground}>
-        {mediaIndex + 1}/{media.length}
-      </Typography>
-    </View>
-  );
-
   const renderMedia = (media: FeedMedia, index: number) => {
     if (media.type === FeedMediaType.IMAGE)
       return <FeedImage media={media} onPress={() => openAlbum(index)} />;
@@ -190,7 +171,24 @@ export const FeedMediaCarousel: FC<FeedMediaCarouselProps> = (props) => {
         </ScrollView>
       )}
 
-      {counter}
+      {media.length > 1 && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: theme.spacing.sm,
+            right: theme.spacing.sm,
+            paddingHorizontal: theme.spacing.sm,
+            paddingVertical: theme.spacing.xs,
+            borderRadius: theme.radius.full,
+            backgroundColor: "rgba(0, 0, 0, 0.62)",
+          }}
+        >
+          <Typography variant="caption" color={theme.colors.mediaForeground}>
+            {mediaIndex + 1}/{media.length}
+          </Typography>
+        </View>
+      )}
     </View>
   );
 };
