@@ -6,6 +6,7 @@ import {
   type SQLiteDatabase,
 } from "expo-sqlite";
 
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { z } from "zod";
 
@@ -67,7 +68,10 @@ export function importDatabase(): Promise<void> {
 
         // Replace data atomically, keeping the live schema and migration journal.
         db.transaction(() => {
-          db.delete(feedItemsTable).run();
+          // A predicate prevents SQLite truncation from skipping change listeners.
+          db.delete(feedItemsTable)
+            .where(sql`true`)
+            .run();
           for (const item of items)
             db.insert(feedItemsTable).values(item).run();
         });
