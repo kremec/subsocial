@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
+import { useFeedItems } from "@/feed/use-feed-items";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -20,6 +21,7 @@ type CollectionStatus =
   | "attention";
 
 export function useFeedRefresh(focused: boolean) {
+  const { items, deferUpdates } = useFeedItems();
   // Keep the last processed connections so returning from login detects additions.
   const [connected, setConnected] = useState(
     () => useSettingsStore.getState().settings.connectedPlatforms,
@@ -33,13 +35,6 @@ export function useFeedRefresh(focused: boolean) {
     AppState.currentState === "active",
   );
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
-  const deferItems = useRef(false);
-  const [itemsRevision, setItemsRevision] = useState(0);
-  const publishItems = () => {
-    if (!deferItems.current) return;
-    deferItems.current = false;
-    setItemsRevision((current) => current + 1);
-  };
   const controller = useRef<AbortController>(undefined);
   const refreshAll = useRef(true);
   const platforms = platformIdSchema.options;
@@ -89,10 +84,10 @@ export function useFeedRefresh(focused: boolean) {
         ),
       );
       if (!queue.length) {
-        publishItems();
+        deferUpdates(false);
         return;
       }
-      deferItems.current = true;
+      deferUpdates(true);
       await Promise.all(
         queue.map(async (id) => {
           try {
@@ -134,7 +129,7 @@ export function useFeedRefresh(focused: boolean) {
       );
       showErrorToast(t("connectionsCheckFailed"));
     }
-    publishItems();
+    deferUpdates(false);
   });
 
   useEffect(() => {
@@ -155,8 +150,7 @@ export function useFeedRefresh(focused: boolean) {
 
   return {
     connected,
-    deferItems,
-    itemsRevision,
+    items,
     failed: platforms.filter(
       (id) => statuses[id] === "failed" || statuses[id] === "attention",
     ),
@@ -175,7 +169,7 @@ export function useFeedRefresh(focused: boolean) {
     pause: () => {
       setPaused(true);
       controller.current?.abort();
-      publishItems();
+      deferUpdates(false);
     },
     reload: () => {
       setPaused(false);

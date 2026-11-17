@@ -17,7 +17,7 @@ import { t } from "@/translation/use-translation";
 export const SearchScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
-  const items = useFeedItems();
+  const { items } = useFeedItems();
   const [query, setQuery] = useState("");
   const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {

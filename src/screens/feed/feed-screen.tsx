@@ -8,7 +8,6 @@ import { Screen } from "@/components/ui/screen";
 import { Typography } from "@/components/ui/typography";
 import { exportDatabase } from "@/db/export-database";
 import { importDatabase } from "@/db/import-database";
-import { useFeedItems } from "@/feed/use-feed-items";
 import { useFeedRefresh } from "@/feed/use-feed-refresh";
 import { openBrowser } from "@/platforms/open-post";
 import { getPlatform } from "@/platforms/platforms";
@@ -21,7 +20,6 @@ export const FeedScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
   const feed = useFeedRefresh(focused);
-  const items = useFeedItems(feed.deferItems, feed.itemsRevision);
   const visible = focused && feed.foreground;
 
   return (
@@ -67,7 +65,7 @@ export const FeedScreen: FC = () => {
       })}
 
       <FeedList
-        items={items.filter((item) => feed.active.includes(item.platform))}
+        items={feed.items.filter((item) => feed.active.includes(item.platform))}
         visible={visible}
         rememberPosition
         refreshing={feed.collection.length > 0}
