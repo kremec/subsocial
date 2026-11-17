@@ -34,7 +34,7 @@ export function useFeedRefresh(focused: boolean) {
   );
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
   const controller = useRef<AbortController>(undefined);
-  const refreshOnForeground = useRef(true);
+  const refreshAll = useRef(true);
   const platforms = platformIdSchema.options;
   const collection =
     focused && foreground && !paused
@@ -47,10 +47,8 @@ export function useFeedRefresh(focused: boolean) {
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
-      if (state === "background") {
-        refreshOnForeground.current = true;
-        setForeground(false);
-      } else if (state === "active") setForeground(true);
+      if (state === "background") setForeground(false);
+      else if (state === "active") setForeground(true);
     });
     return () => listener.remove();
   }, []);
@@ -62,14 +60,14 @@ export function useFeedRefresh(focused: boolean) {
       const added = platforms.some((id) => !connected.includes(id));
       const queue = platforms.filter(
         (id) =>
-          refreshOnForeground.current ||
+          refreshAll.current ||
           added ||
           statuses[id] === "queued" ||
           statuses[id] === "collecting" ||
           statuses[id] === "retrying" ||
           statuses[id] === "attention",
       );
-      refreshOnForeground.current = false;
+      refreshAll.current = false;
       setConnected(platforms);
       setStatuses(
         Object.fromEntries(
@@ -139,7 +137,7 @@ export function useFeedRefresh(focused: boolean) {
 
   const restart = () => {
     controller.current?.abort();
-    refreshOnForeground.current = true;
+    refreshAll.current = true;
     setPass((current) => current + 1);
   };
 
