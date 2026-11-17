@@ -35,7 +35,6 @@ export function useFeedRefresh(focused: boolean) {
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
   const controller = useRef<AbortController>(undefined);
   const refreshAll = useRef(true);
-  const returningFromBackground = useRef(false);
   const platforms = platformIdSchema.options;
   const collection =
     focused && foreground && !paused
@@ -49,8 +48,7 @@ export function useFeedRefresh(focused: boolean) {
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "background") {
-        if (Platform.OS === "android") returningFromBackground.current = true;
-        else refreshAll.current = true;
+        if (Platform.OS !== "android") refreshAll.current = true;
         setForeground(false);
       } else if (state === "active") setForeground(true);
     });
@@ -58,19 +56,6 @@ export function useFeedRefresh(focused: boolean) {
   }, []);
 
   const collect = useEffectEvent(async (signal: AbortSignal) => {
-    const returning = returningFromBackground.current;
-    returningFromBackground.current = false;
-    if (
-      returning &&
-      !refreshAll.current &&
-      !Object.values(statuses).some(
-        (status) =>
-          status === "queued" ||
-          status === "collecting" ||
-          status === "retrying",
-      )
-    )
-      return;
     try {
       const platforms = await syncPlatformSessions();
       if (signal.aborted) return;
