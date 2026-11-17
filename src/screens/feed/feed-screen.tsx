@@ -21,7 +21,7 @@ export const FeedScreen: FC = () => {
   const theme = useTheme();
   const focused = useIsFocused();
   const feed = useFeedRefresh(focused);
-  const items = useFeedItems();
+  const items = useFeedItems(feed.deferItems, feed.itemsRevision);
   const visible = focused && feed.foreground;
 
   return (

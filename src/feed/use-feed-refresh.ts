@@ -33,6 +33,13 @@ export function useFeedRefresh(focused: boolean) {
     AppState.currentState === "active",
   );
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
+  const deferItems = useRef(false);
+  const [itemsRevision, setItemsRevision] = useState(0);
+  const publishItems = () => {
+    if (!deferItems.current) return;
+    deferItems.current = false;
+    setItemsRevision((current) => current + 1);
+  };
   const controller = useRef<AbortController>(undefined);
   const refreshAll = useRef(true);
   const platforms = platformIdSchema.options;
@@ -81,7 +88,11 @@ export function useFeedRefresh(focused: boolean) {
           ]),
         ),
       );
-      if (!queue.length) return;
+      if (!queue.length) {
+        publishItems();
+        return;
+      }
+      deferItems.current = true;
       await Promise.all(
         queue.map(async (id) => {
           try {
@@ -123,6 +134,7 @@ export function useFeedRefresh(focused: boolean) {
       );
       showErrorToast(t("connectionsCheckFailed"));
     }
+    publishItems();
   });
 
   useEffect(() => {
@@ -143,6 +155,8 @@ export function useFeedRefresh(focused: boolean) {
 
   return {
     connected,
+    deferItems,
+    itemsRevision,
     failed: platforms.filter(
       (id) => statuses[id] === "failed" || statuses[id] === "attention",
     ),
@@ -161,6 +175,7 @@ export function useFeedRefresh(focused: boolean) {
     pause: () => {
       setPaused(true);
       controller.current?.abort();
+      publishItems();
     },
     reload: () => {
       setPaused(false);

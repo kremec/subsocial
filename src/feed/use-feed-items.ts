@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useState } from "react";
 
 import { addDatabaseChangeListener } from "expo-sqlite";
 
 import { listFeedItems } from "@/feed/feed-rows";
 
-export function useFeedItems() {
+export function useFeedItems(deferred?: RefObject<boolean>, revision = 0) {
   const [items, setItems] = useState(listFeedItems);
 
   useEffect(() => {
@@ -13,7 +13,7 @@ export function useFeedItems() {
       if (frame !== undefined) return;
       frame = requestAnimationFrame(() => {
         frame = undefined;
-        setItems(listFeedItems());
+        if (!deferred?.current) setItems(listFeedItems());
       });
     };
     const listener = addDatabaseChangeListener(({ tableName }) => {
@@ -24,7 +24,7 @@ export function useFeedItems() {
       listener.remove();
       if (frame !== undefined) cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [deferred, revision]);
 
   return items;
 }
