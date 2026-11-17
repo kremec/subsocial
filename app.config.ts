@@ -10,7 +10,7 @@ const projectId = "2236c731-2281-4d29-b10b-1338e1099ef7";
 export default {
   name: IS_DEV ? "subsocial (DEV)" : "subsocial",
   slug: "subsocial",
-  version: "0.1.8",
+  version: "0.1.9",
   runtimeVersion: {
     policy: "fingerprint",
   },
