@@ -13,7 +13,6 @@ import { type FeedMedia } from "@/types/feed-media";
 interface VideoPlayerProps {
   playbackKey: string;
   media: FeedMedia;
-  fullscreen?: boolean;
   navigationGestures?: GestureType[];
   onFullscreen?: () => void;
   onError: () => void;
@@ -28,7 +27,6 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
   const {
     playbackKey,
     media,
-    fullscreen = false,
     navigationGestures,
     onFullscreen,
     onError,
@@ -115,7 +113,6 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
   return (
     <VideoControls
       player={player}
-      fullscreen={fullscreen}
       navigationGestures={navigationGestures}
       onFullscreen={onFullscreen}
     >

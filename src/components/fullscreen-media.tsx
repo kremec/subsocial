@@ -150,7 +150,6 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
                               <SafeAreaView style={{ flex: 1 }}>
                                 {item.playable && (
                                   <FeedVideo
-                                    fullscreen
                                     navigationGestures={[
                                       pagingGesture,
                                       closeGesture,

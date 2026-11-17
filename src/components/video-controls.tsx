@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useEvent, useEventListener } from "expo";
 import { VideoView, type VideoPlayer } from "expo-video";
@@ -29,13 +29,13 @@ import { t } from "@/translation/use-translation";
 interface VideoControlsProps {
   player: VideoPlayer;
   children?: ReactNode;
-  fullscreen: boolean;
   onFullscreen?: () => void;
   navigationGestures?: GestureType[];
 }
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const inset = 8;
+const tap = () => Gesture.Tap().runOnJS(true).maxDistance(10);
 
 const timeText = (seconds: number) => {
   const time = Math.max(0, Math.floor(seconds));
@@ -43,8 +43,7 @@ const timeText = (seconds: number) => {
 };
 
 export const VideoControls: FC<VideoControlsProps> = (props) => {
-  const { player, children, fullscreen, onFullscreen, navigationGestures } =
-    props;
+  const { player, children, onFullscreen, navigationGestures } = props;
   const { colors } = useTheme();
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
@@ -54,10 +53,10 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   });
   const source = useEvent(player, "sourceLoad");
   const duration = Math.max(0, (source?.duration ?? player.duration) || 0);
-  const [visible, setVisible] = useState(fullscreen);
+  // Only the inline player has an expand button.
+  const [visible, setVisible] = useState(!onFullscreen);
   const [width, setWidth] = useState(0);
   const [time, setTime] = useState(player.currentTime);
-  const [scrubbing, setScrubbing] = useState(false);
   const resumeAfterScrub = useRef<boolean>(undefined);
 
   useEventListener(player, "timeUpdate", ({ currentTime }) => {
@@ -65,10 +64,12 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   });
 
   useEffect(() => {
-    if (!visible || !isPlaying || scrubbing) return;
-    const timeout = setTimeout(() => setVisible(false), 3000);
+    if (!visible || !isPlaying) return;
+    const timeout = setTimeout(() => {
+      if (resumeAfterScrub.current === undefined) setVisible(false);
+    }, 3000);
     return () => clearTimeout(timeout);
-  }, [visible, isPlaying, scrubbing]);
+  }, [visible, isPlaying]);
 
   const toggleControls = useCallback(
     () => setVisible((current) => !current),
@@ -87,23 +88,18 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   const taps = useMemo(
     () =>
       Gesture.Exclusive(
-        Gesture.Tap()
+        tap()
           .numberOfTaps(2)
           .maxDelay(250)
-          .maxDistance(10)
-          .runOnJS(true)
-          .onEnd((event, ok) => {
+          .onEnd(({ x }, ok) => {
             if (!ok) return;
-            if (event.x < width / 3) seek(player.currentTime - 5);
-            else if (event.x > (width * 2) / 3) seek(player.currentTime + 5);
+            if (x < width / 3) seek(player.currentTime - 5);
+            else if (x > (width * 2) / 3) seek(player.currentTime + 5);
             else toggleControls();
           }),
-        Gesture.Tap()
-          .maxDistance(10)
-          .runOnJS(true)
-          .onEnd((_event, ok) => {
-            if (ok) toggleControls();
-          }),
+        tap().onEnd((_event, ok) => {
+          if (ok) toggleControls();
+        }),
       ),
     [player, seek, toggleControls, width],
   );
@@ -120,7 +116,6 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
       // oxlint-disable-next-line react/refs
       .onStart(({ x }) => {
         resumeAfterScrub.current = player.playing;
-        setScrubbing(true);
         player.pause();
         seekAt(x);
       })
@@ -130,7 +125,6 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
         if (resumeAfterScrub.current === undefined) return;
         if (resumeAfterScrub.current) player.play();
         resumeAfterScrub.current = undefined;
-        setScrubbing(false);
       });
     const tap = Gesture.Tap()
       .enabled(canSeek)
@@ -286,8 +280,9 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
               </Typography>
             )}
             {visible && (
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
+                plain
+                size={28}
                 accessibilityLabel={t("mediaPlaybackSpeed", {
                   rate: playbackRate,
                 })}
@@ -297,16 +292,12 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
                   player.playbackRate =
                     playbackRates[next % playbackRates.length];
                 }}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 8,
-                  paddingVertical: 5,
-                  opacity: pressed ? 0.65 : 1,
-                })}
+                style={{ width: "auto", paddingHorizontal: 8 }}
               >
                 <Typography variant="bodySmall" color={colors.mediaForeground}>
                   {playbackRate}×
                 </Typography>
-              </Pressable>
+              </IconButton>
             )}
             {visible && !!onFullscreen && (
               <IconButton

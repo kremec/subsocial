@@ -20,7 +20,6 @@ interface FeedVideoProps {
   platform: PlatformId;
   postUrl: string;
   sourceId?: string;
-  fullscreen?: boolean;
   navigationGestures?: GestureType[];
   onFullscreen?: () => void;
 }
@@ -32,7 +31,6 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
     platform,
     postUrl,
     sourceId,
-    fullscreen,
     navigationGestures,
     onFullscreen,
   } = props;
@@ -51,7 +49,6 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         playbackKey={`${postUrl}:${index}`}
         onError={fail}
         media={video}
-        fullscreen={fullscreen}
         navigationGestures={navigationGestures}
         onFullscreen={onFullscreen}
       >
