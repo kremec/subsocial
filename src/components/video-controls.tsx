@@ -220,16 +220,25 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
         </GestureDetector>
       )}
       {!controlsVisible && (
-        <View style={{ position: "absolute", top: 8, right: 8 }}>
+        <View
+          style={{
+            position: "absolute",
+            bottom: 8,
+            right: 8,
+            borderRadius: 14,
+            backgroundColor: "rgba(0, 0, 0, 0.62)",
+          }}
+        >
           <VideoMuteButton player={player} />
         </View>
       )}
-      {controlsVisible && children && (
+      {children && (
         <View
           style={{
             position: "absolute",
             top: 8,
             left: 8,
+            display: controlsVisible ? "flex" : "none",
           }}
         >
           {children}

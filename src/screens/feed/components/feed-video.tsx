@@ -55,7 +55,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         navigationGestures={navigationGestures}
         onFullscreen={onFullscreen}
       >
-        {!fullscreen && canDownloadMedia(video, platform) && (
+        {canDownloadMedia(video, platform) && (
           <MediaDownloadButton media={video} />
         )}
       </VideoPlayer>
