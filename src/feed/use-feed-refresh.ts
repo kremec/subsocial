@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
 
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
@@ -47,10 +47,8 @@ export function useFeedRefresh(focused: boolean) {
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
-      if (state === "background") {
-        if (Platform.OS !== "android") refreshAll.current = true;
-        setForeground(false);
-      } else if (state === "active") setForeground(true);
+      if (state === "background") setForeground(false);
+      else if (state === "active") setForeground(true);
     });
     return () => listener.remove();
   }, []);
