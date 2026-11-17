@@ -1,20 +1,20 @@
 /* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
 import { type FC, type ReactNode, useEffect } from "react";
-import { AppState, View } from "react-native";
+import { AppState } from "react-native";
 
-import { useVideoPlayer, VideoView } from "expo-video";
+import { useVideoPlayer } from "expo-video";
 
-import { Icon, IconName } from "@/components/ui/icon";
-import { IconButton } from "@/components/ui/icon-button";
-import { VideoMuteButton } from "@/components/video-mute-button";
+import { type GestureType } from "react-native-gesture-handler";
+
+import { VideoControls } from "@/components/video-controls";
 import { useSettingsStore } from "@/stores/settings-store";
-import { useTheme } from "@/theme/use-theme";
-import { t } from "@/translation/use-translation";
 import { type FeedMedia } from "@/types/feed-media";
 
 interface VideoPlayerProps {
   playbackKey: string;
   media: FeedMedia;
+  fullscreen?: boolean;
+  navigationGestures?: GestureType[];
   onFullscreen?: () => void;
   onError: () => void;
   children?: ReactNode;
@@ -25,12 +25,20 @@ const playback = new Map<string, { time: number; playing: boolean }>();
 let playbackRate = 1;
 
 export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
-  const { playbackKey, media, onFullscreen, onError, children } = props;
-  const { colors, radius } = useTheme();
+  const {
+    playbackKey,
+    media,
+    fullscreen = false,
+    navigationGestures,
+    onFullscreen,
+    onError,
+    children,
+  } = props;
   const player = useVideoPlayer(
     { uri: media.url, contentType: media.contentType },
     (player) => {
       player.loop = true;
+      player.timeUpdateEventInterval = 0.25;
       player.muted = useSettingsStore.getState().settings.videosMuted;
       player.bufferOptions = {
         minBufferForPlayback: 0.5,
@@ -105,43 +113,13 @@ export const VideoPlayer: FC<VideoPlayerProps> = (props) => {
   }, [playbackKey, player, media.preferredAudioTrack, onError]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.mediaBackground }}>
-      <VideoView
-        player={player}
-        nativeControls
-        fullscreenOptions={{ enable: false }}
-        style={{ position: "absolute", inset: 0 }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          top: 8,
-          left: 8,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          padding: 8,
-          borderRadius: radius.full,
-          backgroundColor: "rgba(0, 0, 0, 0.5)",
-        }}
-      >
-        {children}
-        <VideoMuteButton player={player} />
-        {!!onFullscreen && (
-          <IconButton
-            plain
-            size={28}
-            accessibilityLabel={t("mediaEnterFullscreen")}
-            onPress={onFullscreen}
-          >
-            <Icon
-              name={IconName.FULLSCREEN}
-              color={colors.mediaForeground}
-              size={20}
-            />
-          </IconButton>
-        )}
-      </View>
-    </View>
+    <VideoControls
+      player={player}
+      fullscreen={fullscreen}
+      navigationGestures={navigationGestures}
+      onFullscreen={onFullscreen}
+    >
+      {children}
+    </VideoControls>
   );
 };
