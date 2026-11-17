@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { useEvent, useEventListener } from "expo";
 import { VideoView, type VideoPlayer } from "expo-video";
@@ -43,13 +43,8 @@ const timeText = (seconds: number) => {
 };
 
 export const VideoControls: FC<VideoControlsProps> = (props) => {
-  const {
-    player,
-    children,
-    fullscreen,
-    onFullscreen,
-    navigationGestures = [],
-  } = props;
+  const { player, children, fullscreen, onFullscreen, navigationGestures } =
+    props;
   const { colors } = useTheme();
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
@@ -161,16 +156,26 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
         fullscreenOptions={{ enable: false }}
         style={StyleSheet.absoluteFill}
       />
+      {visible && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: "rgba(0, 0, 0, 0.35)" },
+          ]}
+        />
+      )}
       <GestureDetector gesture={taps}>
         <View
           collapsable={false}
           accessibilityRole="button"
           accessibilityLabel={t("mediaToggleControls")}
           onAccessibilityTap={toggleControls}
-          style={[
-            StyleSheet.absoluteFill,
-            visible && { backgroundColor: "rgba(0, 0, 0, 0.35)" },
-          ]}
+          style={{
+            ...StyleSheet.absoluteFill,
+            top: visible && children ? 44 : 0,
+            bottom: visible ? 52 : 0,
+          }}
         />
       </GestureDetector>
       <View pointerEvents="box-none" style={{ position: "absolute", inset }}>
@@ -223,9 +228,8 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
                   { name: "decrement" },
                 ]}
                 onAccessibilityAction={(event) =>
-                  seek(
-                    player.currentTime +
-                      (event.nativeEvent.actionName === "increment" ? 5 : -5),
+                  player.seekBy(
+                    event.nativeEvent.actionName === "increment" ? 5 : -5,
                   )
                 }
                 style={{ height: 16, justifyContent: "center" }}
@@ -270,22 +274,27 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
               </Typography>
             )}
             {visible && (
-              <Typography
-                variant="bodySmall"
-                color={colors.mediaForeground}
+              <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("mediaPlaybackSpeed", {
                   rate: playbackRate,
                 })}
+                hitSlop={8}
                 onPress={() => {
                   const next = playbackRates.indexOf(playbackRate) + 1;
                   player.playbackRate =
                     playbackRates[next % playbackRates.length];
                 }}
-                style={{ padding: 4 }}
+                style={({ pressed }) => ({
+                  paddingHorizontal: 8,
+                  paddingVertical: 5,
+                  opacity: pressed ? 0.65 : 1,
+                })}
               >
-                {playbackRate}×
-              </Typography>
+                <Typography variant="bodySmall" color={colors.mediaForeground}>
+                  {playbackRate}×
+                </Typography>
+              </Pressable>
             )}
             {visible && !!onFullscreen && (
               <IconButton
