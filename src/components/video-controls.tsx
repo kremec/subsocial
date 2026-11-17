@@ -1,4 +1,3 @@
-/* oxlint-disable react/immutability -- Expo VideoPlayer exposes mutable native properties. */
 import {
   type FC,
   type ReactNode,
@@ -23,6 +22,7 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { VideoMuteButton } from "@/components/video-mute-button";
+import { seekBarHeight, VideoSeekBar } from "@/components/video-seek-bar";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
@@ -35,12 +35,24 @@ interface VideoControlsProps {
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const inset = 8;
+const toolbarHeight = 28;
 const tap = () => Gesture.Tap().runOnJS(true).maxDistance(10);
 
 const timeText = (seconds: number) => {
   const time = Math.max(0, Math.floor(seconds));
   return `${Math.floor(time / 60)}:${String(time % 60).padStart(2, "0")}`;
 };
+
+function seekPlayer(player: VideoPlayer, duration: number, position: number) {
+  const time = Math.max(0, Math.min(duration, position));
+  player.currentTime = time;
+  return time;
+}
+
+function cyclePlaybackRate(player: VideoPlayer, rate: number) {
+  const next = playbackRates.indexOf(rate) + 1;
+  player.playbackRate = playbackRates[next % playbackRates.length];
+}
 
 export const VideoControls: FC<VideoControlsProps> = (props) => {
   const { player, children, onFullscreen, navigationGestures } = props;
@@ -54,38 +66,36 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   const source = useEvent(player, "sourceLoad");
   const duration = Math.max(0, (source?.duration ?? player.duration) || 0);
   // Only the inline player has an expand button.
-  const [visible, setVisible] = useState(!onFullscreen);
-  const [width, setWidth] = useState(0);
-  const [time, setTime] = useState(player.currentTime);
+  const [controlsVisible, setControlsVisible] = useState(!onFullscreen);
+  const [videoWidth, setVideoWidth] = useState(0);
+  const [currentTime, setCurrentTime] = useState(player.currentTime);
   const resumeAfterScrub = useRef<boolean>(undefined);
 
   useEventListener(player, "timeUpdate", ({ currentTime }) => {
-    if (resumeAfterScrub.current === undefined) setTime(currentTime);
+    if (resumeAfterScrub.current === undefined) setCurrentTime(currentTime);
   });
 
   useEffect(() => {
-    if (!visible || !isPlaying) return;
+    if (!controlsVisible || !isPlaying) return;
     const timeout = setTimeout(() => {
-      if (resumeAfterScrub.current === undefined) setVisible(false);
+      if (resumeAfterScrub.current === undefined) setControlsVisible(false);
     }, 3000);
     return () => clearTimeout(timeout);
-  }, [visible, isPlaying]);
+  }, [controlsVisible, isPlaying]);
 
   const toggleControls = useCallback(
-    () => setVisible((current) => !current),
+    () => setControlsVisible((current) => !current),
     [],
   );
   const seek = useCallback(
     (position: number) => {
       if (!duration) return;
-      const next = Math.max(0, Math.min(duration, position));
-      player.currentTime = next;
-      setTime(next);
+      setCurrentTime(seekPlayer(player, duration, position));
     },
     [duration, player],
   );
 
-  const taps = useMemo(
+  const videoTaps = useMemo(
     () =>
       Gesture.Exclusive(
         tap()
@@ -93,55 +103,30 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           .maxDelay(250)
           .onEnd(({ x }, ok) => {
             if (!ok) return;
-            if (x < width / 3) seek(player.currentTime - 5);
-            else if (x > (width * 2) / 3) seek(player.currentTime + 5);
+            if (x < videoWidth / 3) seek(player.currentTime - 5);
+            else if (x > (videoWidth * 2) / 3) seek(player.currentTime + 5);
             else toggleControls();
           }),
         tap().onEnd((_event, ok) => {
           if (ok) toggleControls();
         }),
       ),
-    [player, seek, toggleControls, width],
+    [player, seek, toggleControls, videoWidth],
   );
 
-  const scrub = useMemo(() => {
-    const trackWidth = width - 2 * inset;
-    const seekAt = (x: number) => seek((x / trackWidth) * duration);
-    const canSeek = duration > 0 && trackWidth > 0;
-    const drag = Gesture.Pan()
-      .enabled(canSeek)
-      .minDistance(1)
-      .runOnJS(true)
-      // Gesture callbacks run on touch events, not during render.
-      // oxlint-disable-next-line react/refs
-      .onStart(({ x }) => {
-        resumeAfterScrub.current = player.playing;
-        player.pause();
-        seekAt(x);
-      })
-      .onUpdate(({ x }) => seekAt(x))
-      // oxlint-disable-next-line react/refs
-      .onFinalize(() => {
-        if (resumeAfterScrub.current === undefined) return;
-        if (resumeAfterScrub.current) player.play();
-        resumeAfterScrub.current = undefined;
-      });
-    const tap = Gesture.Tap()
-      .enabled(canSeek)
-      .runOnJS(true)
-      .onEnd(({ x }, ok) => {
-        if (ok) seekAt(x);
-      });
-    if (navigationGestures) {
-      drag.blocksExternalGesture(...navigationGestures);
-      tap.blocksExternalGesture(...navigationGestures);
-    }
-    return Gesture.Race(drag, tap);
-  }, [duration, navigationGestures, player, seek, width]);
+  const startScrub = useCallback(() => {
+    resumeAfterScrub.current = player.playing;
+    player.pause();
+  }, [player]);
+  const endScrub = useCallback(() => {
+    if (resumeAfterScrub.current === undefined) return;
+    if (resumeAfterScrub.current) player.play();
+    resumeAfterScrub.current = undefined;
+  }, [player]);
 
   return (
     <View
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      onLayout={(event) => setVideoWidth(event.nativeEvent.layout.width)}
       style={{ flex: 1, backgroundColor: colors.mediaBackground }}
     >
       <VideoView
@@ -150,7 +135,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
         fullscreenOptions={{ enable: false }}
         style={StyleSheet.absoluteFill}
       />
-      {visible && (
+      {controlsVisible && (
         <View
           pointerEvents="none"
           style={[
@@ -159,7 +144,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           ]}
         />
       )}
-      <GestureDetector gesture={taps}>
+      <GestureDetector gesture={videoTaps}>
         <View
           collapsable={false}
           accessibilityRole="button"
@@ -167,8 +152,8 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           onAccessibilityTap={toggleControls}
           style={{
             ...StyleSheet.absoluteFill,
-            top: visible && children ? 44 : 0,
-            bottom: visible ? 52 : 0,
+            top: controlsVisible && children ? 44 : 0,
+            bottom: controlsVisible ? inset + seekBarHeight + toolbarHeight : 0,
           }}
         />
       </GestureDetector>
@@ -177,13 +162,13 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           <View
             style={{
               alignSelf: "flex-start",
-              display: visible ? "flex" : "none",
+              display: controlsVisible ? "flex" : "none",
             }}
           >
             {children}
           </View>
         )}
-        {visible && (
+        {controlsVisible && (
           <IconButton
             plain
             size={52}
@@ -210,76 +195,37 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           pointerEvents="box-none"
           style={{ position: "absolute", bottom: 0, width: "100%" }}
         >
-          {visible && (
-            <GestureDetector gesture={scrub}>
-              <View
-                collapsable={false}
-                accessibilityRole="adjustable"
-                accessibilityLabel={t("mediaProgress")}
-                accessibilityValue={{ min: 0, max: duration, now: time }}
-                accessibilityActions={[
-                  { name: "increment" },
-                  { name: "decrement" },
-                ]}
-                onAccessibilityAction={(event) =>
-                  player.seekBy(
-                    event.nativeEvent.actionName === "increment" ? 5 : -5,
-                  )
-                }
-                style={{ height: 16, justifyContent: "center" }}
-              >
-                <View
-                  pointerEvents="none"
-                  style={{
-                    height: 3,
-                    borderRadius: 2,
-                    backgroundColor: "rgba(255, 255, 255, 0.3)",
-                  }}
-                >
-                  <View
-                    style={{
-                      height: 3,
-                      borderRadius: 2,
-                      backgroundColor: colors.mediaForeground,
-                      width: `${duration ? Math.min(100, (time / duration) * 100) : 0}%`,
-                    }}
-                  >
-                    <View
-                      style={{
-                        position: "absolute",
-                        right: -5,
-                        top: -3.5,
-                        width: 10,
-                        height: 10,
-                        borderRadius: 5,
-                        backgroundColor: colors.mediaForeground,
-                      }}
-                    />
-                  </View>
-                </View>
-              </View>
-            </GestureDetector>
+          {controlsVisible && (
+            <VideoSeekBar
+              duration={duration}
+              currentTime={currentTime}
+              navigationGestures={navigationGestures}
+              onSeek={seek}
+              onSeekBy={(offset) => player.seekBy(offset)}
+              onScrubStart={startScrub}
+              onScrubEnd={endScrub}
+            />
           )}
           <View
             pointerEvents="box-none"
             style={{
-              height: 28,
+              height: toolbarHeight,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "flex-end",
               gap: 8,
             }}
           >
-            {visible && (
+            {controlsVisible && (
               <Typography
                 variant="caption"
                 color={colors.mediaForeground}
                 style={{ flex: 1 }}
               >
-                {timeText(time)} / {timeText(duration)}
+                {timeText(currentTime)} / {timeText(duration)}
               </Typography>
             )}
-            {visible && (
+            {controlsVisible && (
               <IconButton
                 plain
                 size={28}
@@ -287,11 +233,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
                   rate: playbackRate,
                 })}
                 hitSlop={8}
-                onPress={() => {
-                  const next = playbackRates.indexOf(playbackRate) + 1;
-                  player.playbackRate =
-                    playbackRates[next % playbackRates.length];
-                }}
+                onPress={() => cyclePlaybackRate(player, playbackRate)}
                 style={{ width: "auto", paddingHorizontal: 8 }}
               >
                 <Typography variant="bodySmall" color={colors.mediaForeground}>
@@ -299,7 +241,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
                 </Typography>
               </IconButton>
             )}
-            {visible && !!onFullscreen && (
+            {controlsVisible && !!onFullscreen && (
               <IconButton
                 plain
                 size={28}
@@ -317,7 +259,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
             <View
               style={{
                 borderRadius: 14,
-                backgroundColor: visible
+                backgroundColor: controlsVisible
                   ? "transparent"
                   : "rgba(0, 0, 0, 0.62)",
               }}
