@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
+import { listFeedItems } from "@/feed/feed-rows";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -20,6 +21,7 @@ type CollectionStatus =
   | "attention";
 
 export function useFeedRefresh(focused: boolean) {
+  const [items, setItems] = useState(listFeedItems);
   // Keep the last processed connections so returning from login detects additions.
   const [connected, setConnected] = useState(
     () => useSettingsStore.getState().settings.connectedPlatforms,
@@ -81,7 +83,6 @@ export function useFeedRefresh(focused: boolean) {
           ]),
         ),
       );
-      if (!queue.length) return;
       await Promise.all(
         queue.map(async (id) => {
           try {
@@ -106,7 +107,7 @@ export function useFeedRefresh(focused: boolean) {
         }),
       );
       if (signal.aborted) return;
-      pruneFeedItems();
+      if (queue.length) pruneFeedItems();
     } catch {
       if (signal.aborted) return;
       setStatuses((current) =>
@@ -123,6 +124,7 @@ export function useFeedRefresh(focused: boolean) {
       );
       showErrorToast(t("connectionsCheckFailed"));
     }
+    setItems(listFeedItems());
   });
 
   useEffect(() => {
@@ -143,6 +145,7 @@ export function useFeedRefresh(focused: boolean) {
 
   return {
     connected,
+    items,
     failed: platforms.filter(
       (id) => statuses[id] === "failed" || statuses[id] === "attention",
     ),
@@ -163,6 +166,7 @@ export function useFeedRefresh(focused: boolean) {
       controller.current?.abort();
     },
     reload: () => {
+      setItems(listFeedItems());
       setPaused(false);
       setStatuses({});
       restart();
