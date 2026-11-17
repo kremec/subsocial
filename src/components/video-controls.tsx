@@ -38,7 +38,7 @@ const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const inset = 8;
 
 const timeText = (seconds: number) => {
-  const time = Math.floor(seconds);
+  const time = Math.max(0, Math.floor(seconds));
   return `${Math.floor(time / 60)}:${String(time % 60).padStart(2, "0")}`;
 };
 
@@ -249,7 +249,19 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
                       backgroundColor: colors.mediaForeground,
                       width: `${duration ? Math.min(100, (time / duration) * 100) : 0}%`,
                     }}
-                  />
+                  >
+                    <View
+                      style={{
+                        position: "absolute",
+                        right: -5,
+                        top: -3.5,
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: colors.mediaForeground,
+                      }}
+                    />
+                  </View>
                 </View>
               </View>
             </GestureDetector>
