@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Pressable, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
-import { useEvent } from "expo";
+import { useEvent, useEventListener } from "expo";
 import { VideoView, type VideoPlayer } from "expo-video";
 
 import {
@@ -20,8 +20,10 @@ import {
 } from "react-native-gesture-handler";
 
 import { Icon, IconName } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { VideoMuteButton } from "@/components/video-mute-button";
+import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
 interface VideoControlsProps {
@@ -33,15 +35,22 @@ interface VideoControlsProps {
 }
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const inset = 8;
 
 const timeText = (seconds: number) => {
-  const time = Math.max(0, Math.floor(seconds));
+  const time = Math.floor(seconds);
   return `${Math.floor(time / 60)}:${String(time % 60).padStart(2, "0")}`;
 };
 
 export const VideoControls: FC<VideoControlsProps> = (props) => {
-  const { player, children, fullscreen, onFullscreen, navigationGestures } =
-    props;
+  const {
+    player,
+    children,
+    fullscreen,
+    onFullscreen,
+    navigationGestures = [],
+  } = props;
+  const { colors } = useTheme();
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -49,315 +58,263 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
     playbackRate: player.playbackRate,
   });
   const source = useEvent(player, "sourceLoad");
-  const duration = Math.max(0, source?.duration ?? player.duration);
-  const [controlsVisible, setControlsVisible] = useState(fullscreen);
-  const [interacting, setInteracting] = useState(false);
-  const [trackWidth, setTrackWidth] = useState(0);
-  const [currentTime, setCurrentTime] = useState(player.currentTime);
-  const scrubbing = useRef(false);
-  const resumeAfterScrub = useRef(false);
+  const duration = Math.max(0, (source?.duration ?? player.duration) || 0);
+  const [visible, setVisible] = useState(fullscreen);
+  const [width, setWidth] = useState(0);
+  const [time, setTime] = useState(player.currentTime);
+  const [scrubbing, setScrubbing] = useState(false);
+  const resumeAfterScrub = useRef<boolean>(undefined);
+
+  useEventListener(player, "timeUpdate", ({ currentTime }) => {
+    if (resumeAfterScrub.current === undefined) setTime(currentTime);
+  });
+
   useEffect(() => {
-    const listener = player.addListener("timeUpdate", (event) => {
-      if (!scrubbing.current) setCurrentTime(event.currentTime);
-    });
-    return () => listener.remove();
-  }, [player]);
-  useEffect(() => {
-    if (!controlsVisible || !isPlaying || interacting) return;
-    const timeout = setTimeout(() => setControlsVisible(false), 3000);
+    if (!visible || !isPlaying || scrubbing) return;
+    const timeout = setTimeout(() => setVisible(false), 3000);
     return () => clearTimeout(timeout);
-  }, [controlsVisible, isPlaying, interacting]);
-  const seekTo = useCallback(
+  }, [visible, isPlaying, scrubbing]);
+
+  const toggleControls = useCallback(
+    () => setVisible((current) => !current),
+    [],
+  );
+  const seek = useCallback(
     (position: number) => {
-      const time = Math.max(0, Math.min(duration, position));
-      player.currentTime = time;
-      setCurrentTime(time);
+      if (!duration) return;
+      const next = Math.max(0, Math.min(duration, position));
+      player.currentTime = next;
+      setTime(next);
     },
     [duration, player],
   );
-  const togglePlayback = useCallback(() => {
-    if (player.playing) player.pause();
-    else player.play();
-  }, [player]);
-  const playPauseTap = useMemo(
-    () =>
-      Gesture.Tap()
-        .enabled(controlsVisible)
-        .maxDistance(10)
-        .runOnJS(true)
-        .onEnd((_event, success) => {
-          if (success) togglePlayback();
-        }),
-    [controlsVisible, togglePlayback],
-  );
+
   const taps = useMemo(
     () =>
-      [-1, 0, 1].map((direction) => {
-        const single = Gesture.Tap()
-          .requireExternalGestureToFail(playPauseTap)
-          .maxDistance(10)
-          .runOnJS(true)
-          .onEnd((_event, success) => {
-            if (success) setControlsVisible((visible) => !visible);
-          });
-        if (!direction) return single;
-        const double = Gesture.Tap()
+      Gesture.Exclusive(
+        Gesture.Tap()
           .numberOfTaps(2)
           .maxDelay(250)
           .maxDistance(10)
           .runOnJS(true)
-          .onEnd((_event, success) => {
-            if (!success) return;
-            seekTo(player.currentTime + direction * 5);
-          });
-        return Gesture.Exclusive(double, single);
-      }),
-    [seekTo, playPauseTap, player],
+          .onEnd((event, ok) => {
+            if (!ok) return;
+            if (event.x < width / 3) seek(player.currentTime - 5);
+            else if (event.x > (width * 2) / 3) seek(player.currentTime + 5);
+            else toggleControls();
+          }),
+        Gesture.Tap()
+          .maxDistance(10)
+          .runOnJS(true)
+          .onEnd((_event, ok) => {
+            if (ok) toggleControls();
+          }),
+      ),
+    [player, seek, toggleControls, width],
   );
-  const scrubGesture = useMemo(() => {
-    const seekAt = (x: number) => seekTo((x / trackWidth) * duration);
+
+  const scrub = useMemo(() => {
+    const trackWidth = width - 2 * inset;
+    const seekAt = (x: number) => seek((x / trackWidth) * duration);
+    const canSeek = duration > 0 && trackWidth > 0;
     const drag = Gesture.Pan()
-      .enabled(duration > 0 && trackWidth > 0)
+      .enabled(canSeek)
       .minDistance(1)
       .runOnJS(true)
       // Gesture callbacks run on touch events, not during render.
       // oxlint-disable-next-line react/refs
-      .onStart((event) => {
-        scrubbing.current = true;
+      .onStart(({ x }) => {
         resumeAfterScrub.current = player.playing;
-        setInteracting(true);
+        setScrubbing(true);
         player.pause();
-        seekAt(event.x);
+        seekAt(x);
       })
-      .onUpdate((event) => seekAt(event.x))
+      .onUpdate(({ x }) => seekAt(x))
       // oxlint-disable-next-line react/refs
       .onFinalize(() => {
-        if (!scrubbing.current) return;
-        scrubbing.current = false;
+        if (resumeAfterScrub.current === undefined) return;
         if (resumeAfterScrub.current) player.play();
-        resumeAfterScrub.current = false;
-        setInteracting(false);
+        resumeAfterScrub.current = undefined;
+        setScrubbing(false);
       });
     const tap = Gesture.Tap()
-      .enabled(duration > 0 && trackWidth > 0)
+      .enabled(canSeek)
       .runOnJS(true)
-      .onEnd((event, success) => {
-        if (success) seekAt(event.x);
+      .onEnd(({ x }, ok) => {
+        if (ok) seekAt(x);
       });
     if (navigationGestures) {
       drag.blocksExternalGesture(...navigationGestures);
       tap.blocksExternalGesture(...navigationGestures);
     }
     return Gesture.Race(drag, tap);
-  }, [duration, trackWidth, seekTo, navigationGestures, player]);
+  }, [duration, navigationGestures, player, seek, width]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "black" }}>
+    <View
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={{ flex: 1, backgroundColor: colors.mediaBackground }}
+    >
       <VideoView
         player={player}
         nativeControls={false}
         fullscreenOptions={{ enable: false }}
-        style={{ position: "absolute", inset: 0 }}
+        style={StyleSheet.absoluteFill}
       />
-      {controlsVisible && (
+      <GestureDetector gesture={taps}>
         <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.35)",
-          }}
+          collapsable={false}
+          accessibilityRole="button"
+          accessibilityLabel={t("mediaToggleControls")}
+          onAccessibilityTap={toggleControls}
+          style={[
+            StyleSheet.absoluteFill,
+            visible && { backgroundColor: "rgba(0, 0, 0, 0.35)" },
+          ]}
         />
-      )}
-      <View
-        style={{
-          position: "absolute",
-          top: controlsVisible && children ? 44 : 0,
-          left: 0,
-          right: 0,
-          bottom: controlsVisible ? 52 : 0,
-          flexDirection: "row",
-        }}
-      >
-        {taps.map((gesture, index) => (
-          <GestureDetector key={index} gesture={gesture}>
-            <View
-              collapsable={false}
-              accessibilityRole="button"
-              accessibilityLabel={t("mediaToggleControls")}
-              onAccessibilityTap={() =>
-                setControlsVisible((visible) => !visible)
-              }
-              style={{ flex: 1 }}
-            />
-          </GestureDetector>
-        ))}
-      </View>
-      {controlsVisible && (
-        <GestureDetector gesture={playPauseTap}>
+      </GestureDetector>
+      <View pointerEvents="box-none" style={{ position: "absolute", inset }}>
+        {children && (
           <View
-            collapsable={false}
-            accessibilityRole="button"
+            style={{
+              alignSelf: "flex-start",
+              display: visible ? "flex" : "none",
+            }}
+          >
+            {children}
+          </View>
+        )}
+        {visible && (
+          <IconButton
+            plain
+            size={52}
             accessibilityLabel={t(isPlaying ? "mediaPause" : "mediaPlay")}
-            onAccessibilityTap={togglePlayback}
+            onPress={() => {
+              if (player.playing) player.pause();
+              else player.play();
+            }}
             style={{
               position: "absolute",
-              left: "50%",
+              alignSelf: "center",
               top: "50%",
-              transform: [{ translateX: -26 }, { translateY: -26 }],
-              width: 52,
-              height: 52,
-              alignItems: "center",
-              justifyContent: "center",
+              transform: [{ translateY: -26 }],
             }}
           >
             <Icon
               name={isPlaying ? IconName.PLAYER_PAUSE : IconName.PLAYER_PLAY}
-              color="white"
+              color={colors.mediaForeground}
               size={36}
             />
-          </View>
-        </GestureDetector>
-      )}
-      {!controlsVisible && (
+          </IconButton>
+        )}
         <View
-          style={{
-            position: "absolute",
-            bottom: 8,
-            right: 8,
-            borderRadius: 14,
-            backgroundColor: "rgba(0, 0, 0, 0.62)",
-          }}
+          pointerEvents="box-none"
+          style={{ position: "absolute", bottom: 0, width: "100%" }}
         >
-          <VideoMuteButton player={player} />
-        </View>
-      )}
-      {children && (
-        <View
-          style={{
-            position: "absolute",
-            top: 8,
-            left: 8,
-            display: controlsVisible ? "flex" : "none",
-          }}
-        >
-          {children}
-        </View>
-      )}
-      {controlsVisible && (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            paddingHorizontal: 8,
-            paddingBottom: 8,
-          }}
-        >
-          <GestureDetector gesture={scrubGesture}>
-            <View
-              collapsable={false}
-              onLayout={(event) =>
-                setTrackWidth(event.nativeEvent.layout.width)
-              }
-              accessibilityRole="adjustable"
-              accessibilityLabel={t("mediaProgress")}
-              accessibilityValue={{ min: 0, max: duration, now: currentTime }}
-              accessibilityActions={[
-                { name: "increment" },
-                { name: "decrement" },
-              ]}
-              onAccessibilityAction={(event) => {
-                player.seekBy(
-                  event.nativeEvent.actionName === "increment" ? 5 : -5,
-                );
-              }}
-              style={{ height: 16, justifyContent: "center" }}
-            >
+          {visible && (
+            <GestureDetector gesture={scrub}>
               <View
-                style={{
-                  height: 3,
-                  borderRadius: 2,
-                  backgroundColor: "rgba(255, 255, 255, 0.3)",
-                }}
+                collapsable={false}
+                accessibilityRole="adjustable"
+                accessibilityLabel={t("mediaProgress")}
+                accessibilityValue={{ min: 0, max: duration, now: time }}
+                accessibilityActions={[
+                  { name: "increment" },
+                  { name: "decrement" },
+                ]}
+                onAccessibilityAction={(event) =>
+                  seek(
+                    player.currentTime +
+                      (event.nativeEvent.actionName === "increment" ? 5 : -5),
+                  )
+                }
+                style={{ height: 16, justifyContent: "center" }}
               >
                 <View
+                  pointerEvents="none"
                   style={{
                     height: 3,
                     borderRadius: 2,
-                    backgroundColor: "white",
-                    width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
+                    backgroundColor: "rgba(255, 255, 255, 0.3)",
                   }}
                 >
                   <View
                     style={{
-                      position: "absolute",
-                      right: -5,
-                      top: -3.5,
-                      width: 10,
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: "white",
+                      height: 3,
+                      borderRadius: 2,
+                      backgroundColor: colors.mediaForeground,
+                      width: `${duration ? Math.min(100, (time / duration) * 100) : 0}%`,
                     }}
                   />
                 </View>
               </View>
-            </View>
-          </GestureDetector>
+            </GestureDetector>
+          )}
           <View
+            pointerEvents="box-none"
             style={{
               height: 28,
               flexDirection: "row",
               alignItems: "center",
+              justifyContent: "flex-end",
               gap: 8,
             }}
           >
-            <Typography variant="caption" color="white" style={{ flex: 1 }}>
-              {timeText(currentTime)} / {timeText(duration)}
-            </Typography>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("mediaPlaybackSpeed", {
-                rate: playbackRate,
-              })}
-              hitSlop={8}
-              onPress={() => {
-                const next = playbackRates.indexOf(playbackRate) + 1;
-                player.playbackRate =
-                  playbackRates[next % playbackRates.length];
-              }}
-              style={({ pressed }) => ({
-                paddingHorizontal: 8,
-                paddingVertical: 5,
-                opacity: pressed ? 0.65 : 1,
-              })}
-            >
-              <Typography variant="bodySmall" color="white">
+            {visible && (
+              <Typography
+                variant="caption"
+                color={colors.mediaForeground}
+                style={{ flex: 1 }}
+              >
+                {timeText(time)} / {timeText(duration)}
+              </Typography>
+            )}
+            {visible && (
+              <Typography
+                variant="bodySmall"
+                color={colors.mediaForeground}
+                accessibilityRole="button"
+                accessibilityLabel={t("mediaPlaybackSpeed", {
+                  rate: playbackRate,
+                })}
+                onPress={() => {
+                  const next = playbackRates.indexOf(playbackRate) + 1;
+                  player.playbackRate =
+                    playbackRates[next % playbackRates.length];
+                }}
+                style={{ padding: 4 }}
+              >
                 {playbackRate}×
               </Typography>
-            </Pressable>
-            {!!onFullscreen && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("mediaEnterFullscreen")}
-                hitSlop={8}
-                onPress={onFullscreen}
-                style={({ pressed }) => ({
-                  width: 28,
-                  height: 28,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: pressed ? 0.65 : 1,
-                })}
-              >
-                <Icon name={IconName.FULLSCREEN} color="white" size={20} />
-              </Pressable>
             )}
-            <VideoMuteButton player={player} />
+            {visible && !!onFullscreen && (
+              <IconButton
+                plain
+                size={28}
+                hitSlop={8}
+                accessibilityLabel={t("mediaEnterFullscreen")}
+                onPress={onFullscreen}
+              >
+                <Icon
+                  name={IconName.FULLSCREEN}
+                  color={colors.mediaForeground}
+                  size={20}
+                />
+              </IconButton>
+            )}
+            <View
+              style={{
+                borderRadius: 14,
+                backgroundColor: visible
+                  ? "transparent"
+                  : "rgba(0, 0, 0, 0.62)",
+              }}
+            >
+              <VideoMuteButton player={player} />
+            </View>
           </View>
         </View>
-      )}
+      </View>
     </View>
   );
 };
