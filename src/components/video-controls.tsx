@@ -36,6 +36,8 @@ interface VideoControlsProps {
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const inset = 8;
 const toolbarHeight = 28;
+const downloadAreaHeight = 44;
+const hideControlsDelay = 3000;
 const tap = () => Gesture.Tap().runOnJS(true).maxDistance(10);
 
 const timeText = (seconds: number) => {
@@ -43,16 +45,20 @@ const timeText = (seconds: number) => {
   return `${Math.floor(time / 60)}:${String(time % 60).padStart(2, "0")}`;
 };
 
-function seekPlayer(player: VideoPlayer, duration: number, position: number) {
+const seekPlayer = (
+  player: VideoPlayer,
+  duration: number,
+  position: number,
+) => {
   const time = Math.max(0, Math.min(duration, position));
   player.currentTime = time;
   return time;
-}
+};
 
-function cyclePlaybackRate(player: VideoPlayer, rate: number) {
+const cyclePlaybackRate = (player: VideoPlayer, rate: number) => {
   const next = playbackRates.indexOf(rate) + 1;
   player.playbackRate = playbackRates[next % playbackRates.length];
-}
+};
 
 export const VideoControls: FC<VideoControlsProps> = (props) => {
   const { player, children, onFullscreen, navigationGestures } = props;
@@ -69,17 +75,19 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   const [controlsVisible, setControlsVisible] = useState(!onFullscreen);
   const [videoWidth, setVideoWidth] = useState(0);
   const [currentTime, setCurrentTime] = useState(player.currentTime);
-  const resumeAfterScrub = useRef<boolean>(undefined);
+  const wasPlayingBeforeScrub = useRef<boolean>(undefined);
 
   useEventListener(player, "timeUpdate", ({ currentTime }) => {
-    if (resumeAfterScrub.current === undefined) setCurrentTime(currentTime);
+    if (wasPlayingBeforeScrub.current === undefined)
+      setCurrentTime(currentTime);
   });
 
   useEffect(() => {
     if (!controlsVisible || !isPlaying) return;
     const timeout = setTimeout(() => {
-      if (resumeAfterScrub.current === undefined) setControlsVisible(false);
-    }, 3000);
+      if (wasPlayingBeforeScrub.current === undefined)
+        setControlsVisible(false);
+    }, hideControlsDelay);
     return () => clearTimeout(timeout);
   }, [controlsVisible, isPlaying]);
 
@@ -103,8 +111,9 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           .maxDelay(250)
           .onEnd(({ x }, ok) => {
             if (!ok) return;
-            if (x < videoWidth / 3) seek(player.currentTime - 5);
-            else if (x > (videoWidth * 2) / 3) seek(player.currentTime + 5);
+            const third = videoWidth / 3;
+            if (x < third) seek(player.currentTime - 5);
+            else if (x > third * 2) seek(player.currentTime + 5);
             else toggleControls();
           }),
         tap().onEnd((_event, ok) => {
@@ -115,13 +124,14 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   );
 
   const startScrub = useCallback(() => {
-    resumeAfterScrub.current = player.playing;
+    wasPlayingBeforeScrub.current = player.playing;
     player.pause();
   }, [player]);
   const endScrub = useCallback(() => {
-    if (resumeAfterScrub.current === undefined) return;
-    if (resumeAfterScrub.current) player.play();
-    resumeAfterScrub.current = undefined;
+    // The pan can finalize without starting when a tap wins.
+    if (wasPlayingBeforeScrub.current === undefined) return;
+    if (wasPlayingBeforeScrub.current) player.play();
+    wasPlayingBeforeScrub.current = undefined;
   }, [player]);
 
   return (
@@ -152,7 +162,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           onAccessibilityTap={toggleControls}
           style={{
             ...StyleSheet.absoluteFill,
-            top: controlsVisible && children ? 44 : 0,
+            top: controlsVisible && children ? downloadAreaHeight : 0,
             bottom: controlsVisible ? inset + seekBarHeight + toolbarHeight : 0,
           }}
         />
