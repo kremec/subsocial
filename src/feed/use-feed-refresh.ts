@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
 import { collectFeed } from "@/feed/collect-feed";
-import { useFeedItems } from "@/feed/use-feed-items";
+import { listFeedItems } from "@/feed/feed-rows";
 import { getPlatform } from "@/platforms/platforms";
 import { syncPlatformSessions } from "@/platforms/session";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -21,7 +21,7 @@ type CollectionStatus =
   | "attention";
 
 export function useFeedRefresh(focused: boolean) {
-  const { items, deferUpdates } = useFeedItems();
+  const [items, setItems] = useState(listFeedItems);
   // Keep the last processed connections so returning from login detects additions.
   const [connected, setConnected] = useState(
     () => useSettingsStore.getState().settings.connectedPlatforms,
@@ -83,11 +83,6 @@ export function useFeedRefresh(focused: boolean) {
           ]),
         ),
       );
-      if (!queue.length) {
-        deferUpdates(false);
-        return;
-      }
-      deferUpdates(true);
       await Promise.all(
         queue.map(async (id) => {
           try {
@@ -112,7 +107,7 @@ export function useFeedRefresh(focused: boolean) {
         }),
       );
       if (signal.aborted) return;
-      pruneFeedItems();
+      if (queue.length) pruneFeedItems();
     } catch {
       if (signal.aborted) return;
       setStatuses((current) =>
@@ -129,7 +124,7 @@ export function useFeedRefresh(focused: boolean) {
       );
       showErrorToast(t("connectionsCheckFailed"));
     }
-    deferUpdates(false);
+    setItems(listFeedItems());
   });
 
   useEffect(() => {
@@ -169,9 +164,9 @@ export function useFeedRefresh(focused: boolean) {
     pause: () => {
       setPaused(true);
       controller.current?.abort();
-      deferUpdates(false);
     },
     reload: () => {
+      setItems(listFeedItems());
       setPaused(false);
       setStatuses({});
       restart();
