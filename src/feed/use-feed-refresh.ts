@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import { showErrorToast } from "@/components/ui/toast";
 import { pruneFeedItems } from "@/db/repositories/feed-items-repository";
@@ -34,7 +34,8 @@ export function useFeedRefresh(focused: boolean) {
   );
   const hidden = useSettingsStore((state) => state.settings.hiddenPlatforms);
   const controller = useRef<AbortController>(undefined);
-  const refreshOnForeground = useRef(true);
+  const refreshAll = useRef(true);
+  const returningFromBackground = useRef(false);
   const platforms = platformIdSchema.options;
   const collection =
     focused && foreground && !paused
@@ -48,7 +49,8 @@ export function useFeedRefresh(focused: boolean) {
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "background") {
-        refreshOnForeground.current = true;
+        if (Platform.OS === "android") returningFromBackground.current = true;
+        else refreshAll.current = true;
         setForeground(false);
       } else if (state === "active") setForeground(true);
     });
@@ -56,20 +58,33 @@ export function useFeedRefresh(focused: boolean) {
   }, []);
 
   const collect = useEffectEvent(async (signal: AbortSignal) => {
+    const returning = returningFromBackground.current;
+    returningFromBackground.current = false;
+    if (
+      returning &&
+      !refreshAll.current &&
+      !Object.values(statuses).some(
+        (status) =>
+          status === "queued" ||
+          status === "collecting" ||
+          status === "retrying",
+      )
+    )
+      return;
     try {
       const platforms = await syncPlatformSessions();
       if (signal.aborted) return;
       const added = platforms.some((id) => !connected.includes(id));
       const queue = platforms.filter(
         (id) =>
-          refreshOnForeground.current ||
+          refreshAll.current ||
           added ||
           statuses[id] === "queued" ||
           statuses[id] === "collecting" ||
           statuses[id] === "retrying" ||
           statuses[id] === "attention",
       );
-      refreshOnForeground.current = false;
+      refreshAll.current = false;
       setConnected(platforms);
       setStatuses(
         Object.fromEntries(
@@ -139,7 +154,7 @@ export function useFeedRefresh(focused: boolean) {
 
   const restart = () => {
     controller.current?.abort();
-    refreshOnForeground.current = true;
+    refreshAll.current = true;
     setPass((current) => current + 1);
   };
 
