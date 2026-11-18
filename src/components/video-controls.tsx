@@ -22,7 +22,6 @@ import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Typography } from "@/components/ui/typography";
 import { VideoMuteButton } from "@/components/video-mute-button";
-import { seekBarHeight, VideoSeekBar } from "@/components/video-seek-bar";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
@@ -36,6 +35,7 @@ interface VideoControlsProps {
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const inset = 8;
 const toolbarHeight = 28;
+const seekBarHeight = 16;
 const downloadAreaHeight = 44;
 const hideControlsDelay = 3000;
 const tap = () => Gesture.Tap().runOnJS(true).maxDistance(10);
@@ -269,6 +269,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
             <View
               style={{
                 borderRadius: 14,
+                overflow: "hidden",
                 backgroundColor: controlsVisible
                   ? "transparent"
                   : "rgba(0, 0, 0, 0.62)",
@@ -280,5 +281,109 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
         </View>
       </View>
     </View>
+  );
+};
+
+interface VideoSeekBarProps {
+  currentTime: number;
+  duration: number;
+  navigationGestures?: GestureType[];
+  onSeek: (position: number) => void;
+  onSeekBy: (offset: number) => void;
+  onScrubStart: () => void;
+  onScrubEnd: () => void;
+}
+
+const VideoSeekBar: FC<VideoSeekBarProps> = (props) => {
+  const {
+    currentTime,
+    duration,
+    navigationGestures,
+    onSeek,
+    onSeekBy,
+    onScrubStart,
+    onScrubEnd,
+  } = props;
+  const { colors } = useTheme();
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const scrub = useMemo(() => {
+    const seekAt = (x: number) => onSeek((x / trackWidth) * duration);
+    const canSeek = duration > 0 && trackWidth > 0;
+    const drag = Gesture.Pan()
+      .enabled(canSeek)
+      .minDistance(1)
+      .runOnJS(true)
+      .onStart(({ x }) => {
+        onScrubStart();
+        seekAt(x);
+      })
+      .onUpdate(({ x }) => seekAt(x))
+      .onFinalize(onScrubEnd);
+    const tap = Gesture.Tap()
+      .enabled(canSeek)
+      .runOnJS(true)
+      .onEnd(({ x }, ok) => {
+        if (ok) seekAt(x);
+      });
+    if (navigationGestures) {
+      drag.blocksExternalGesture(...navigationGestures);
+      tap.blocksExternalGesture(...navigationGestures);
+    }
+    return Gesture.Race(drag, tap);
+  }, [
+    duration,
+    navigationGestures,
+    onScrubEnd,
+    onScrubStart,
+    onSeek,
+    trackWidth,
+  ]);
+
+  return (
+    <GestureDetector gesture={scrub}>
+      <View
+        collapsable={false}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        accessibilityRole="adjustable"
+        accessibilityLabel={t("mediaProgress")}
+        accessibilityValue={{ min: 0, max: duration, now: currentTime }}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+        onAccessibilityAction={(event) =>
+          onSeekBy(event.nativeEvent.actionName === "increment" ? 5 : -5)
+        }
+        style={{ height: seekBarHeight, justifyContent: "center" }}
+      >
+        <View
+          pointerEvents="none"
+          style={{
+            height: 3,
+            borderRadius: 2,
+            backgroundColor: "rgba(255, 255, 255, 0.3)",
+          }}
+        >
+          <View
+            style={{
+              height: 3,
+              borderRadius: 2,
+              backgroundColor: colors.mediaForeground,
+              width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
+            }}
+          >
+            <View
+              style={{
+                position: "absolute",
+                right: -5,
+                top: -3.5,
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: colors.mediaForeground,
+              }}
+            />
+          </View>
+        </View>
+      </View>
+    </GestureDetector>
   );
 };
