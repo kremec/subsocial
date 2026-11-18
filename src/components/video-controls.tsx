@@ -116,6 +116,14 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
     wasPlayingBeforeScrub.current = undefined;
   };
 
+  const { seekGesture, setTrackWidth } = useSeekBarGesture({
+    duration,
+    navigationGestures,
+    seek,
+    startScrub,
+    endScrub,
+  });
+
   return (
     <View
       onLayout={(event) => setVideoWidth(event.nativeEvent.layout.width)}
@@ -188,15 +196,57 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
           style={{ position: "absolute", bottom: 0, width: "100%" }}
         >
           {controlsVisible && (
-            <VideoSeekBar
-              duration={duration}
-              currentTime={currentTime}
-              navigationGestures={navigationGestures}
-              onSeek={seek}
-              onSeekBy={(offset) => player.seekBy(offset)}
-              onScrubStart={startScrub}
-              onScrubEnd={endScrub}
-            />
+            <GestureDetector gesture={seekGesture}>
+              <View
+                collapsable={false}
+                onLayout={(event) =>
+                  setTrackWidth(event.nativeEvent.layout.width)
+                }
+                accessibilityRole="adjustable"
+                accessibilityLabel={t("mediaProgress")}
+                accessibilityValue={{ min: 0, max: duration, now: currentTime }}
+                accessibilityActions={[
+                  { name: "increment" },
+                  { name: "decrement" },
+                ]}
+                onAccessibilityAction={(event) =>
+                  player.seekBy(
+                    event.nativeEvent.actionName === "increment" ? 5 : -5,
+                  )
+                }
+                style={{ height: seekBarHeight, justifyContent: "center" }}
+              >
+                <View
+                  pointerEvents="none"
+                  style={{
+                    height: 3,
+                    borderRadius: 2,
+                    backgroundColor: "rgba(255, 255, 255, 0.3)",
+                  }}
+                >
+                  <View
+                    style={{
+                      height: 3,
+                      borderRadius: 2,
+                      backgroundColor: colors.mediaForeground,
+                      width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: "absolute",
+                        right: -5,
+                        top: -3.5,
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: colors.mediaForeground,
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+            </GestureDetector>
           )}
           <View
             pointerEvents="box-none"
@@ -266,42 +316,30 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   );
 };
 
-interface VideoSeekBarProps {
-  currentTime: number;
+interface SeekBarGestureOptions {
   duration: number;
   navigationGestures?: GestureType[];
-  onSeek: (position: number) => void;
-  onSeekBy: (offset: number) => void;
-  onScrubStart: () => void;
-  onScrubEnd: () => void;
+  seek: (position: number) => void;
+  startScrub: () => void;
+  endScrub: () => void;
 }
 
-const VideoSeekBar: FC<VideoSeekBarProps> = (props) => {
-  const {
-    currentTime,
-    duration,
-    navigationGestures,
-    onSeek,
-    onSeekBy,
-    onScrubStart,
-    onScrubEnd,
-  } = props;
-  const { colors } = useTheme();
+const useSeekBarGesture = (options: SeekBarGestureOptions) => {
+  const { duration, navigationGestures, seek, startScrub, endScrub } = options;
   const [trackWidth, setTrackWidth] = useState(0);
-
-  const seekAt = (x: number) => onSeek((x / trackWidth) * duration);
+  const seekAt = (x: number) => seek((x / trackWidth) * duration);
   const canSeek = duration > 0 && trackWidth > 0;
   const drag = Gesture.Pan()
     .enabled(canSeek)
     .minDistance(1)
     .runOnJS(true)
     .onStart(({ x }) => {
-      onScrubStart();
+      startScrub();
       seekAt(x);
     })
     .onUpdate(({ x }) => seekAt(x))
-    .onFinalize(onScrubEnd);
-  const tap = Gesture.Tap()
+    .onFinalize(endScrub);
+  const seekTap = Gesture.Tap()
     .enabled(canSeek)
     .runOnJS(true)
     .onEnd(({ x }, ok) => {
@@ -309,54 +347,8 @@ const VideoSeekBar: FC<VideoSeekBarProps> = (props) => {
     });
   if (navigationGestures) {
     drag.blocksExternalGesture(...navigationGestures);
-    tap.blocksExternalGesture(...navigationGestures);
+    seekTap.blocksExternalGesture(...navigationGestures);
   }
-  const scrub = Gesture.Race(drag, tap);
-
-  return (
-    <GestureDetector gesture={scrub}>
-      <View
-        collapsable={false}
-        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
-        accessibilityRole="adjustable"
-        accessibilityLabel={t("mediaProgress")}
-        accessibilityValue={{ min: 0, max: duration, now: currentTime }}
-        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-        onAccessibilityAction={(event) =>
-          onSeekBy(event.nativeEvent.actionName === "increment" ? 5 : -5)
-        }
-        style={{ height: seekBarHeight, justifyContent: "center" }}
-      >
-        <View
-          pointerEvents="none"
-          style={{
-            height: 3,
-            borderRadius: 2,
-            backgroundColor: "rgba(255, 255, 255, 0.3)",
-          }}
-        >
-          <View
-            style={{
-              height: 3,
-              borderRadius: 2,
-              backgroundColor: colors.mediaForeground,
-              width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
-            }}
-          >
-            <View
-              style={{
-                position: "absolute",
-                right: -5,
-                top: -3.5,
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: colors.mediaForeground,
-              }}
-            />
-          </View>
-        </View>
-      </View>
-    </GestureDetector>
-  );
+  const seekGesture = Gesture.Race(drag, seekTap);
+  return { seekGesture, setTrackWidth };
 };
