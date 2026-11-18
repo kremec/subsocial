@@ -1,12 +1,4 @@
-import {
-  type FC,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type FC, type ReactNode, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { useEvent, useEventListener } from "expo";
@@ -91,48 +83,38 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
     return () => clearTimeout(timeout);
   }, [controlsVisible, isPlaying]);
 
-  const toggleControls = useCallback(
-    () => setControlsVisible((current) => !current),
-    [],
-  );
-  const seek = useCallback(
-    (position: number) => {
-      if (!duration) return;
-      setCurrentTime(seekPlayer(player, duration, position));
-    },
-    [duration, player],
+  const toggleControls = () => setControlsVisible((current) => !current);
+  const seek = (position: number) => {
+    if (!duration) return;
+    setCurrentTime(seekPlayer(player, duration, position));
+  };
+
+  const videoTaps = Gesture.Exclusive(
+    tap()
+      .numberOfTaps(2)
+      .maxDelay(250)
+      .onEnd(({ x }, ok) => {
+        if (!ok) return;
+        const third = videoWidth / 3;
+        if (x < third) seek(player.currentTime - 5);
+        else if (x > third * 2) seek(player.currentTime + 5);
+        else toggleControls();
+      }),
+    tap().onEnd((_event, ok) => {
+      if (ok) toggleControls();
+    }),
   );
 
-  const videoTaps = useMemo(
-    () =>
-      Gesture.Exclusive(
-        tap()
-          .numberOfTaps(2)
-          .maxDelay(250)
-          .onEnd(({ x }, ok) => {
-            if (!ok) return;
-            const third = videoWidth / 3;
-            if (x < third) seek(player.currentTime - 5);
-            else if (x > third * 2) seek(player.currentTime + 5);
-            else toggleControls();
-          }),
-        tap().onEnd((_event, ok) => {
-          if (ok) toggleControls();
-        }),
-      ),
-    [player, seek, toggleControls, videoWidth],
-  );
-
-  const startScrub = useCallback(() => {
+  const startScrub = () => {
     wasPlayingBeforeScrub.current = player.playing;
     player.pause();
-  }, [player]);
-  const endScrub = useCallback(() => {
+  };
+  const endScrub = () => {
     // The pan can finalize without starting when a tap wins.
     if (wasPlayingBeforeScrub.current === undefined) return;
     if (wasPlayingBeforeScrub.current) player.play();
     wasPlayingBeforeScrub.current = undefined;
-  }, [player]);
+  };
 
   return (
     <View
@@ -307,38 +289,29 @@ const VideoSeekBar: FC<VideoSeekBarProps> = (props) => {
   const { colors } = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
 
-  const scrub = useMemo(() => {
-    const seekAt = (x: number) => onSeek((x / trackWidth) * duration);
-    const canSeek = duration > 0 && trackWidth > 0;
-    const drag = Gesture.Pan()
-      .enabled(canSeek)
-      .minDistance(1)
-      .runOnJS(true)
-      .onStart(({ x }) => {
-        onScrubStart();
-        seekAt(x);
-      })
-      .onUpdate(({ x }) => seekAt(x))
-      .onFinalize(onScrubEnd);
-    const tap = Gesture.Tap()
-      .enabled(canSeek)
-      .runOnJS(true)
-      .onEnd(({ x }, ok) => {
-        if (ok) seekAt(x);
-      });
-    if (navigationGestures) {
-      drag.blocksExternalGesture(...navigationGestures);
-      tap.blocksExternalGesture(...navigationGestures);
-    }
-    return Gesture.Race(drag, tap);
-  }, [
-    duration,
-    navigationGestures,
-    onScrubEnd,
-    onScrubStart,
-    onSeek,
-    trackWidth,
-  ]);
+  const seekAt = (x: number) => onSeek((x / trackWidth) * duration);
+  const canSeek = duration > 0 && trackWidth > 0;
+  const drag = Gesture.Pan()
+    .enabled(canSeek)
+    .minDistance(1)
+    .runOnJS(true)
+    .onStart(({ x }) => {
+      onScrubStart();
+      seekAt(x);
+    })
+    .onUpdate(({ x }) => seekAt(x))
+    .onFinalize(onScrubEnd);
+  const tap = Gesture.Tap()
+    .enabled(canSeek)
+    .runOnJS(true)
+    .onEnd(({ x }, ok) => {
+      if (ok) seekAt(x);
+    });
+  if (navigationGestures) {
+    drag.blocksExternalGesture(...navigationGestures);
+    tap.blocksExternalGesture(...navigationGestures);
+  }
+  const scrub = Gesture.Race(drag, tap);
 
   return (
     <GestureDetector gesture={scrub}>
