@@ -5,9 +5,13 @@ import { useEvent, useEventListener } from "expo";
 import { VideoView, type VideoPlayer } from "expo-video";
 
 import {
-  Gesture,
   GestureDetector,
-  type GestureType,
+  type NativeGesture,
+  type PanGesture,
+  useCompetingGestures,
+  useExclusiveGestures,
+  usePanGesture,
+  useTapGesture,
 } from "react-native-gesture-handler";
 
 import { Icon, IconName } from "@/components/ui/icon";
@@ -21,7 +25,7 @@ interface VideoControlsProps {
   player: VideoPlayer;
   children?: ReactNode;
   onFullscreen?: () => void;
-  navigationGestures?: GestureType[];
+  navigationGestures?: (NativeGesture | PanGesture)[];
 }
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -30,7 +34,6 @@ const toolbarHeight = 28;
 const seekBarHeight = 16;
 const downloadAreaHeight = 44;
 const hideControlsDelay = 3000;
-const tap = () => Gesture.Tap().runOnJS(true).maxDistance(10);
 
 const timeText = (seconds: number) => {
   const time = Math.max(0, Math.floor(seconds));
@@ -66,6 +69,7 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
   // Only the inline player has an expand button.
   const [controlsVisible, setControlsVisible] = useState(!onFullscreen);
   const [videoWidth, setVideoWidth] = useState(0);
+  const [trackWidth, setTrackWidth] = useState(0);
   const [currentTime, setCurrentTime] = useState(player.currentTime);
   const wasPlayingBeforeScrub = useRef<boolean>(undefined);
 
@@ -89,40 +93,57 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
     setCurrentTime(seekPlayer(player, duration, position));
   };
 
-  const videoTaps = Gesture.Exclusive(
-    tap()
-      .numberOfTaps(2)
-      .maxDelay(250)
-      .onEnd(({ x }, ok) => {
-        if (!ok) return;
-        const third = videoWidth / 3;
-        if (x < third) seek(player.currentTime - 5);
-        else if (x > third * 2) seek(player.currentTime + 5);
-        else toggleControls();
-      }),
-    tap().onEnd((_event, ok) => {
-      if (ok) toggleControls();
-    }),
-  );
-
-  const startScrub = () => {
-    wasPlayingBeforeScrub.current = player.playing;
-    player.pause();
-  };
-  const endScrub = () => {
-    // The pan can finalize without starting when a tap wins.
-    if (wasPlayingBeforeScrub.current === undefined) return;
-    if (wasPlayingBeforeScrub.current) player.play();
-    wasPlayingBeforeScrub.current = undefined;
-  };
-
-  const { seekGesture, setTrackWidth } = useSeekBarGesture({
-    duration,
-    navigationGestures,
-    seek,
-    startScrub,
-    endScrub,
+  const doubleTap = useTapGesture({
+    runOnJS: true,
+    numberOfTaps: 2,
+    maxDelay: 250,
+    maxDistance: 10,
+    onDeactivate: ({ x, canceled }) => {
+      if (canceled) return;
+      const third = videoWidth / 3;
+      if (x < third) seek(player.currentTime - 5);
+      else if (x > third * 2) seek(player.currentTime + 5);
+      else toggleControls();
+    },
   });
+  const singleTap = useTapGesture({
+    runOnJS: true,
+    maxDistance: 10,
+    onDeactivate: ({ canceled }) => {
+      if (!canceled) toggleControls();
+    },
+  });
+  const videoTaps = useExclusiveGestures(doubleTap, singleTap);
+
+  const canSeek = duration > 0 && trackWidth > 0;
+  const seekAt = (x: number) => seek((x / trackWidth) * duration);
+  const drag = usePanGesture({
+    runOnJS: true,
+    enabled: canSeek,
+    minDistance: 1,
+    block: navigationGestures,
+    onActivate: ({ x }) => {
+      wasPlayingBeforeScrub.current = player.playing;
+      player.pause();
+      seekAt(x);
+    },
+    onUpdate: ({ x }) => seekAt(x),
+    onFinalize: () => {
+      // The pan can finalize without activating when a tap wins.
+      if (wasPlayingBeforeScrub.current === undefined) return;
+      if (wasPlayingBeforeScrub.current) player.play();
+      wasPlayingBeforeScrub.current = undefined;
+    },
+  });
+  const seekTap = useTapGesture({
+    runOnJS: true,
+    enabled: canSeek,
+    block: navigationGestures,
+    onDeactivate: ({ x, canceled }) => {
+      if (!canceled) seekAt(x);
+    },
+  });
+  const seekGesture = useCompetingGestures(drag, seekTap);
 
   return (
     <View
@@ -314,41 +335,4 @@ export const VideoControls: FC<VideoControlsProps> = (props) => {
       </View>
     </View>
   );
-};
-
-interface SeekBarGestureOptions {
-  duration: number;
-  navigationGestures?: GestureType[];
-  seek: (position: number) => void;
-  startScrub: () => void;
-  endScrub: () => void;
-}
-
-const useSeekBarGesture = (options: SeekBarGestureOptions) => {
-  const { duration, navigationGestures, seek, startScrub, endScrub } = options;
-  const [trackWidth, setTrackWidth] = useState(0);
-  const seekAt = (x: number) => seek((x / trackWidth) * duration);
-  const canSeek = duration > 0 && trackWidth > 0;
-  const drag = Gesture.Pan()
-    .enabled(canSeek)
-    .minDistance(1)
-    .runOnJS(true)
-    .onStart(({ x }) => {
-      startScrub();
-      seekAt(x);
-    })
-    .onUpdate(({ x }) => seekAt(x))
-    .onFinalize(endScrub);
-  const seekTap = Gesture.Tap()
-    .enabled(canSeek)
-    .runOnJS(true)
-    .onEnd(({ x }, ok) => {
-      if (ok) seekAt(x);
-    });
-  if (navigationGestures) {
-    drag.blocksExternalGesture(...navigationGestures);
-    seekTap.blocksExternalGesture(...navigationGestures);
-  }
-  const seekGesture = Gesture.Race(drag, seekTap);
-  return { seekGesture, setTrackWidth };
 };

@@ -4,7 +4,10 @@ import { AppState } from "react-native";
 
 import { useVideoPlayer } from "expo-video";
 
-import { type GestureType } from "react-native-gesture-handler";
+import {
+  type NativeGesture,
+  type PanGesture,
+} from "react-native-gesture-handler";
 
 import { VideoControls } from "@/components/video-controls";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -13,7 +16,7 @@ import { type FeedMedia } from "@/types/feed-media";
 interface VideoPlayerProps {
   playbackKey: string;
   media: FeedMedia;
-  navigationGestures?: GestureType[];
+  navigationGestures?: (NativeGesture | PanGesture)[];
   onFullscreen?: () => void;
   onError: () => void;
   children?: ReactNode;

@@ -1,7 +1,10 @@
 import { type FC } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
-import { type GestureType } from "react-native-gesture-handler";
+import {
+  type NativeGesture,
+  type PanGesture,
+} from "react-native-gesture-handler";
 
 import { Typography } from "@/components/ui/typography";
 import { VideoPlayer } from "@/components/video-player";
@@ -20,7 +23,7 @@ interface FeedVideoProps {
   platform: PlatformId;
   postUrl: string;
   sourceId?: string;
-  navigationGestures?: GestureType[];
+  navigationGestures?: (NativeGesture | PanGesture)[];
   onFullscreen?: () => void;
 }
 
