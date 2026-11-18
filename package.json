@@ -17,7 +17,7 @@
     "analyze": "EXPO_ATLAS=true bun expo export --platform android && bunx expo-atlas .expo/atlas.jsonl"
   },
   "dependencies": {
-    "@expo/ui": "58.0.28",
+    "@expo/ui": "58.0.29",
     "@legendapp/list": "3.7.2",
     "@noble/hashes": "^2.4.0",
     "@preeternal/react-native-cookie-manager": "^7.0.0",
@@ -26,20 +26,20 @@
     "base64-js": "1.5.1",
     "domhandler": "^6.0.1",
     "drizzle-orm": "0.45.4",
-    "expo": "~58.0.25",
+    "expo": "~58.0.26",
     "expo-build-properties": "~58.0.12",
     "expo-constants": "~58.0.16",
-    "expo-dev-client": "~58.0.20",
+    "expo-dev-client": "~58.0.21",
     "expo-document-picker": "~58.0.5",
-    "expo-file-system": "~58.0.13",
+    "expo-file-system": "~58.0.14",
     "expo-image": "~58.0.18",
     "expo-linking": "~58.0.17",
     "expo-localization": "~58.0.5",
     "expo-quick-actions": "6.0.2",
-    "expo-router": "~58.0.31",
+    "expo-router": "~58.0.32",
     "expo-sharing": "~58.0.23",
     "expo-splash-screen": "~58.0.14",
-    "expo-sqlite": "~58.0.17",
+    "expo-sqlite": "~58.0.18",
     "expo-system-ui": "~58.0.7",
     "expo-updates": "~58.0.22",
     "expo-video": "~58.0.14",
@@ -78,7 +78,7 @@
   "patchedDependencies": {
     "expo-quick-actions@6.0.2": "patches/expo-quick-actions@6.0.2.patch",
     "@react-native-masked-view/masked-view@0.3.2": "patches/@react-native-masked-view%2Fmasked-view@0.3.2.patch",
-    "@expo/ui@58.0.28": "patches/@expo%2Fui@58.0.28.patch",
+    "@expo/ui@58.0.29": "patches/@expo%2Fui@58.0.29.patch",
     "drizzle-orm@0.45.4": "patches/drizzle-orm@0.45.4.patch",
     "expo-video@58.0.14": "patches/expo-video@58.0.14.patch"
   }
