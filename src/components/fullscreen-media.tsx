@@ -12,9 +12,10 @@ import { Image } from "expo-image";
 import { useNavigation } from "expo-router";
 
 import {
-  Gesture,
   GestureDetector,
   GestureHandlerRootView,
+  useNativeGesture,
+  usePanGesture,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -68,17 +69,18 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
   const [width, setWidth] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const carousel = useRef<ScrollViewInstance>(null);
-  const pagingGesture = Gesture.Native();
-  const closeGesture = Gesture.Pan()
-    .enabled(!zoomed)
-    .maxPointers(1)
-    .activeOffsetY(80)
-    .failOffsetX([-20, 20])
-    .simultaneousWithExternalGesture(pagingGesture)
-    .runOnJS(true)
-    .onEnd((event) => {
+  const pagingGesture = useNativeGesture();
+  const closeGesture = usePanGesture({
+    enabled: !zoomed,
+    maxPointers: 1,
+    activeOffsetY: 80,
+    failOffsetX: [-20, 20],
+    simultaneousWith: pagingGesture,
+    runOnJS: true,
+    onDeactivate: (event) => {
       if (event.translationY > 80) onClose();
-    });
+    },
+  });
 
   return (
     <Modal
@@ -150,6 +152,10 @@ export const FullscreenMedia: FC<FullscreenMediaProps> = (props) => {
                               <SafeAreaView style={{ flex: 1 }}>
                                 {item.playable && (
                                   <FeedVideo
+                                    navigationGestures={[
+                                      pagingGesture,
+                                      closeGesture,
+                                    ]}
                                     key={item.url}
                                     index={itemIndex}
                                     media={item}

@@ -1,6 +1,11 @@
 import { type FC } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
+import {
+  type NativeGesture,
+  type PanGesture,
+} from "react-native-gesture-handler";
+
 import { Typography } from "@/components/ui/typography";
 import { VideoPlayer } from "@/components/video-player";
 import { canDownloadMedia } from "@/hooks/use-media-download";
@@ -18,11 +23,20 @@ interface FeedVideoProps {
   platform: PlatformId;
   postUrl: string;
   sourceId?: string;
+  navigationGestures?: (NativeGesture | PanGesture)[];
   onFullscreen?: () => void;
 }
 
 export const FeedVideo: FC<FeedVideoProps> = (props) => {
-  const { index, media, platform, postUrl, sourceId, onFullscreen } = props;
+  const {
+    index,
+    media,
+    platform,
+    postUrl,
+    sourceId,
+    navigationGestures,
+    onFullscreen,
+  } = props;
   const { colors } = useTheme();
   const {
     media: video,
@@ -38,6 +52,7 @@ export const FeedVideo: FC<FeedVideoProps> = (props) => {
         playbackKey={`${postUrl}:${index}`}
         onError={fail}
         media={video}
+        navigationGestures={navigationGestures}
         onFullscreen={onFullscreen}
       >
         {canDownloadMedia(video, platform) && (
