@@ -63,7 +63,7 @@ export const FeedHeader: FC<FeedHeaderProps> = (props) => {
         <IconButton
           size={44}
           accessibilityLabel={t("feedSearch")}
-          onPress={() => router.push("/search")}
+          onPress={() => router.navigate("/search")}
         >
           <Icon name={IconName.SEARCH} color={theme.colors.text} size={22} />
         </IconButton>
