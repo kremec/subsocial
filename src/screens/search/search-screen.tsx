@@ -3,13 +3,14 @@ import { TextInput, View } from "react-native";
 
 import { router, useIsFocused } from "expo-router";
 
+import { type LegendListRef } from "@legendapp/list/react-native";
+
 import { ScreenHeader } from "@/components/screen-header";
 import { Icon, IconName } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Screen } from "@/components/ui/screen";
 import { useFeedItems } from "@/feed/use-feed-items";
 import { FeedList } from "@/screens/feed/components/feed-list";
-import { type FeedListHandle } from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
@@ -18,9 +19,9 @@ export const SearchScreen: FC = () => {
   const focused = useIsFocused();
   const items = useFeedItems();
   const [query, setQuery] = useState("");
-  const list = useRef<FeedListHandle>(null);
+  const list = useRef<LegendListRef>(null);
   const changeQuery = (text: string) => {
-    list.current?.resetScroll();
+    void list.current?.scrollToOffset({ offset: 0, animated: false });
     setQuery(text);
   };
 

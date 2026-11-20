@@ -4,7 +4,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
-  useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -44,16 +44,12 @@ export const FeedMediaContext = createContext<FeedMediaContextValue | null>(
   null,
 );
 
-export interface FeedListHandle {
-  resetScroll: () => void;
-}
-
 export interface FeedListOptions {
   items: FeedItem[];
   visible: boolean;
   rememberPosition?: boolean;
   query?: string;
-  listRef?: RefObject<FeedListHandle | null>;
+  listRef?: RefObject<LegendListRef | null>;
 }
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
@@ -78,7 +74,8 @@ export function useFeedList(options: FeedListOptions) {
   const { items, visible, rememberPosition = false, query, listRef } = options;
   const focused = useIsFocused();
   const viewport = useRef<ViewInstance>(null);
-  const list = useRef<LegendListRef>(null);
+  const localList = useRef<LegendListRef>(null);
+  const list = listRef ?? localList;
   const terms = normalize(query ?? "")
     .split(/\s+/)
     .filter(Boolean);
@@ -102,6 +99,15 @@ export function useFeedList(options: FeedListOptions) {
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const previousScrollY = useRef(0);
+
+  useLayoutEffect(() => {
+    if (query === undefined) return;
+    previousScrollY.current = 0;
+    // Search resets the scroll offset without a guaranteed native callback.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setShowBackToTop(false);
+  }, [query]);
+
   const readingRowId = useRef<string>(undefined);
   const [initialScrollIndex] = useState(() => {
     const position =
@@ -110,18 +116,6 @@ export function useFeedList(options: FeedListOptions) {
     const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
   });
-
-  useImperativeHandle(
-    listRef,
-    () => ({
-      resetScroll: () => {
-        void list.current?.scrollToOffset({ offset: 0, animated: false });
-        previousScrollY.current = 0;
-        setShowBackToTop(false);
-      },
-    }),
-    [],
-  );
 
   // Use the video's rectangle, not its row: tall posts can contain offscreen media.
   const updateVisibility = useCallback(
