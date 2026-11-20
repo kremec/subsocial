@@ -96,8 +96,11 @@ export function useFeedList(options: FeedListOptions) {
     new Map<string, ActiveVideo & { view: ViewInstance }>(),
   );
   const [activeVideo, setActiveVideo] = useState<ActiveVideo>();
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  const previousScrollY = useRef(0);
+  const [scrollScope, setScrollScope] = useState({ query });
+  // Revisiting a query starts a new scroll history.
+  if (scrollScope.query !== query) setScrollScope({ query });
+  const [backToTopScope, setBackToTopScope] = useState<typeof scrollScope>();
+  const previousScroll = useRef({ scope: scrollScope, y: 0 });
   const readingRowId = useRef<string>(undefined);
   const [initialScrollIndex] = useState(() => {
     const position =
@@ -184,10 +187,14 @@ export function useFeedList(options: FeedListOptions) {
     updateVisibility();
     const state = list.current?.getState();
     if (!state) return;
-    const delta = state.scroll - previousScrollY.current;
-    if (state.scroll <= state.scrollLength * 2) setShowBackToTop(false);
-    else if (Math.abs(delta) > 2) setShowBackToTop(delta < 0);
-    if (Math.abs(delta) > 2) previousScrollY.current = state.scroll;
+    const previous = previousScroll.current;
+    const delta =
+      state.scroll - (previous.scope === scrollScope ? previous.y : 0);
+    if (state.scroll <= state.scrollLength * 2) setBackToTopScope(undefined);
+    else if (Math.abs(delta) > 2)
+      setBackToTopScope(delta < 0 ? scrollScope : undefined);
+    if (Math.abs(delta) > 2)
+      previousScroll.current = { scope: scrollScope, y: state.scroll };
   };
   const onViewableItemsChanged = (
     info: OnViewableItemsChangedInfo<FeedRow>,
@@ -197,8 +204,8 @@ export function useFeedList(options: FeedListOptions) {
     )?.item.id;
     const state = list.current?.getState();
     if (state && state.scroll <= state.scrollLength * 2) {
-      previousScrollY.current = state.scroll;
-      setShowBackToTop(false);
+      previousScroll.current = { scope: scrollScope, y: state.scroll };
+      setBackToTopScope(undefined);
     }
     updateVisibility();
   };
@@ -208,7 +215,7 @@ export function useFeedList(options: FeedListOptions) {
     updateViewport,
     album: focused ? album : undefined,
     setAlbum,
-    showBackToTop,
+    showBackToTop: backToTopScope === scrollScope,
     scrollToTop: () =>
       list.current?.scrollToIndex({ index: 0, animated: false }),
     mediaForRow: (row: FeedRow): FeedMediaContextValue => ({
