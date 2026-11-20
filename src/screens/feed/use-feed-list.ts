@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useImperativeHandle,
   useRef,
   useState,
 } from "react";
@@ -43,12 +44,16 @@ export const FeedMediaContext = createContext<FeedMediaContextValue | null>(
   null,
 );
 
+export interface FeedListHandle {
+  resetScroll: () => void;
+}
+
 export interface FeedListOptions {
   items: FeedItem[];
   visible: boolean;
   rememberPosition?: boolean;
   query?: string;
-  listRef?: RefObject<LegendListRef | null>;
+  listRef?: RefObject<FeedListHandle | null>;
 }
 
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 30 };
@@ -73,8 +78,7 @@ export function useFeedList(options: FeedListOptions) {
   const { items, visible, rememberPosition = false, query, listRef } = options;
   const focused = useIsFocused();
   const viewport = useRef<ViewInstance>(null);
-  const localList = useRef<LegendListRef>(null);
-  const list = listRef ?? localList;
+  const list = useRef<LegendListRef>(null);
   const terms = normalize(query ?? "")
     .split(/\s+/)
     .filter(Boolean);
@@ -106,6 +110,18 @@ export function useFeedList(options: FeedListOptions) {
     const index = findPositionIndex(rows, position);
     return index < 0 ? undefined : { index, viewOffset: position.viewOffset };
   });
+
+  useImperativeHandle(
+    listRef,
+    () => ({
+      resetScroll: () => {
+        void list.current?.scrollToOffset({ offset: 0, animated: false });
+        previousScrollY.current = 0;
+        setShowBackToTop(false);
+      },
+    }),
+    [],
+  );
 
   // Use the video's rectangle, not its row: tall posts can contain offscreen media.
   const updateVisibility = useCallback(
