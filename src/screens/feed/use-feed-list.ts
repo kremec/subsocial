@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -179,22 +178,19 @@ export function useFeedList(options: FeedListOptions) {
   };
   const updateForRows = useEffectEvent(updateViewport);
   const saveOnBackground = useEffectEvent(savePosition);
-  useLayoutEffect(() => {
+  useEffect(() => {
+    updateForRows();
     const previous = ageInputs.current;
     ageInputs.current = { items, focused };
     if (focused && (items !== previous.items || !previous.focused)) {
       setNow(Date.now());
     }
-  }, [items, focused]);
-
-  useEffect(() => {
-    updateForRows();
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") setNow(Date.now());
       else saveOnBackground();
     });
     return () => listener.remove();
-  }, [items, query, playing]);
+  }, [items, query, playing, focused]);
 
   const onScroll = () => {
     updateVisibility();

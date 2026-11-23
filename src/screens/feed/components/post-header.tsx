@@ -11,6 +11,20 @@ import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 import { PostVariant } from "@/types/post-variant";
 
+const formatAge = (publishedAt: number, now: number) => {
+  const seconds = Math.max(0, Math.floor((now - publishedAt) / 1000));
+  if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("feedAgeHours", { count: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return t("feedAgeDays", { count: days });
+  if (days < 30) return t("feedAgeWeeks", { count: Math.floor(days / 7) });
+  if (days < 365) return t("feedAgeMonths", { count: Math.floor(days / 30) });
+  return t("feedAgeYears", { count: Math.floor(days / 365) });
+};
+
 interface PostHeaderProps {
   platform: PlatformId;
   post: FeedPost;
@@ -23,19 +37,6 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
   const theme = useTheme();
   const definition = getPlatform(platform);
   const author = post.authorHandle || post.authorName || definition.label;
-  const formatAge = (publishedAt: number) => {
-    const seconds = Math.max(0, Math.floor((now - publishedAt) / 1000));
-    if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return t("feedAgeHours", { count: hours });
-    const days = Math.floor(hours / 24);
-    if (days < 7) return t("feedAgeDays", { count: days });
-    if (days < 30) return t("feedAgeWeeks", { count: Math.floor(days / 7) });
-    if (days < 365) return t("feedAgeMonths", { count: Math.floor(days / 30) });
-    return t("feedAgeYears", { count: Math.floor(days / 365) });
-  };
 
   return (
     <View
@@ -100,7 +101,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
       </View>
       {!!post.publishedAt && (
         <Typography variant="caption" color={theme.colors.textSecondary}>
-          {formatAge(post.publishedAt)}
+          {formatAge(post.publishedAt, now)}
         </Typography>
       )}
     </View>
