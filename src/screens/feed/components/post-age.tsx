@@ -1,49 +1,48 @@
 import { type FC, useState, useSyncExternalStore } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
 // Share one foreground timer across mounted labels, independent of row renders.
-let now: number | undefined;
-const listeners = new Set<() => void>();
-let stopClock: (() => void) | undefined;
+let clock: ReturnType<typeof startClock> | undefined;
 
 function startClock() {
+  const listeners = new Set<() => void>();
+  let now = Date.now();
   let timer: ReturnType<typeof setInterval> | undefined;
   const tick = () => {
     now = Date.now();
     listeners.forEach((listener) => listener());
   };
-  const updateAppState = (state: AppStateStatus) => {
+  const updateAppState = (state: typeof AppState.currentState) => {
     clearInterval(timer);
-    timer = undefined;
-    if (state !== "active") return;
-    timer = setInterval(tick, 1000);
-    tick();
+    const active = state === "active";
+    timer = active ? setInterval(tick, 1000) : undefined;
+    if (active) tick();
   };
-  now = Date.now();
   const appState = AppState.addEventListener("change", updateAppState);
-  if (AppState.currentState === "active") timer = setInterval(tick, 1000);
-  return () => {
-    clearInterval(timer);
-    appState.remove();
-    now = undefined;
+  updateAppState(AppState.currentState);
+  return {
+    get now() {
+      return now;
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size) return;
+        clearInterval(timer);
+        appState.remove();
+        clock = undefined;
+      };
+    },
   };
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  if (listeners.size === 1) stopClock = startClock();
-  return () => {
-    listeners.delete(listener);
-    if (!listeners.size) {
-      stopClock?.();
-      stopClock = undefined;
-    }
-  };
-}
+const subscribe = (listener: () => void) =>
+  (clock ??= startClock()).subscribe(listener);
 
 const formatAge = (publishedAt: number, currentTime: number) => {
   const seconds = Math.max(0, Math.floor((currentTime - publishedAt) / 1000));
@@ -68,7 +67,7 @@ export const PostAge: FC<PostAgeProps> = (props) => {
   const theme = useTheme();
   const [mountedAt] = useState(Date.now);
   const age = useSyncExternalStore(subscribe, () =>
-    formatAge(publishedAt, now ?? mountedAt),
+    formatAge(publishedAt, clock?.now ?? mountedAt),
   );
 
   return (
