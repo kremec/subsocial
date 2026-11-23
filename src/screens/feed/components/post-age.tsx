@@ -1,7 +1,7 @@
-import { type FC } from "react";
+import { type FC, useContext } from "react";
 
+import { PostAgeClockContext } from "@/components/post-age-clock";
 import { Typography } from "@/components/ui/typography";
-import { usePostAgeStore } from "@/stores/post-age-store";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
@@ -12,8 +12,9 @@ interface PostAgeProps {
 export const PostAge: FC<PostAgeProps> = (props) => {
   const { publishedAt } = props;
   const theme = useTheme();
-  const age = usePostAgeStore((state) => {
-    const seconds = Math.max(0, Math.floor((state.now - publishedAt) / 1000));
+  const now = useContext(PostAgeClockContext)!;
+  const formatAge = () => {
+    const seconds = Math.max(0, Math.floor((now - publishedAt) / 1000));
     if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
@@ -24,11 +25,11 @@ export const PostAge: FC<PostAgeProps> = (props) => {
     if (days < 30) return t("feedAgeWeeks", { count: Math.floor(days / 7) });
     if (days < 365) return t("feedAgeMonths", { count: Math.floor(days / 30) });
     return t("feedAgeYears", { count: Math.floor(days / 365) });
-  });
+  };
 
   return (
     <Typography variant="caption" color={theme.colors.textSecondary}>
-      {age}
+      {formatAge()}
     </Typography>
   );
 };
