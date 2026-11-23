@@ -29,6 +29,7 @@ interface ActiveVideo {
 
 export interface FeedMediaContextValue {
   rowId: string;
+  now: number;
   activePostUrl?: string;
   openMedia: (album: MediaAlbum) => void;
   activate: (rowId: string, postUrl: string) => void;
@@ -92,6 +93,7 @@ export function useFeedList(options: FeedListOptions) {
   ).flatMap((item) => item.rows);
   const [album, setAlbum] = useState<MediaAlbum>();
   const playing = visible && !album;
+  const [now, setNow] = useState(Date.now);
   const videoViews = useRef(
     new Map<string, ActiveVideo & { view: ViewInstance }>(),
   );
@@ -177,11 +179,15 @@ export function useFeedList(options: FeedListOptions) {
   const saveOnBackground = useEffectEvent(savePosition);
   useEffect(() => {
     updateForRows();
+    // Give the new list snapshot one wall-clock time for all age labels.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setNow(Date.now());
     const listener = AppState.addEventListener("change", (state) => {
-      if (state !== "active") saveOnBackground();
+      if (state === "active") setNow(Date.now());
+      else saveOnBackground();
     });
     return () => listener.remove();
-  }, [rows, playing]);
+  }, [items, query, playing]);
 
   const onScroll = () => {
     updateVisibility();
@@ -220,6 +226,7 @@ export function useFeedList(options: FeedListOptions) {
       list.current?.scrollToIndex({ index: 0, animated: false }),
     mediaForRow: (row: FeedRow): FeedMediaContextValue => ({
       rowId: row.id,
+      now,
       activePostUrl:
         playing && row.id === activeVideo?.rowId
           ? activeVideo.postUrl
@@ -232,7 +239,7 @@ export function useFeedList(options: FeedListOptions) {
       ref: list,
       data: rows,
       initialScrollIndex,
-      extraData: [activeVideo, playing],
+      extraData: [activeVideo, playing, now],
       getItemType: (row: FeedRow) =>
         row.threaded ? "thread" : row.post.media?.length ? "media" : "text",
       keyExtractor: (row: FeedRow) => row.id,

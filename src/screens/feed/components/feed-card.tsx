@@ -18,13 +18,14 @@ interface FeedCardProps {
 
 export const FeedCard: FC<FeedCardProps> = memo((props) => {
   const { row, media } = props;
-  const { activePostUrl, openMedia, activate, setVideoView } = media;
+  const { now, activePostUrl, openMedia, activate, setVideoView } = media;
   const theme = useTheme();
 
   return (
     <FeedMediaContext
       value={{
         rowId: row.id,
+        now,
         activePostUrl,
         openMedia,
         activate,

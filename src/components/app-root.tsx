@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { useAppBootstrap } from "@/bootstrap/use-app-bootstrap";
 import { AppLoadingScreen } from "@/components/app-loading-screen";
-import { PostAgeClock } from "@/components/post-age-clock";
 import { Toast } from "@/components/ui/toast";
 import { usePlatformShortcuts } from "@/platforms/use-platform-shortcuts";
 import { useTheme } from "@/theme/use-theme";
@@ -22,20 +21,18 @@ export const AppRoot: FC = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PostAgeClock>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            orientation: "portrait",
-            statusBarStyle: themeName === "dark" ? "light" : "dark",
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="browser" />
-          <Stack.Screen name="search" />
-        </Stack>
-      </PostAgeClock>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          orientation: "portrait",
+          statusBarStyle: themeName === "dark" ? "light" : "dark",
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="browser" />
+        <Stack.Screen name="search" />
+      </Stack>
       <Toast />
     </GestureHandlerRootView>
   );
