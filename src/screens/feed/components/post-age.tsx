@@ -1,12 +1,12 @@
-import { type FC, useSyncExternalStore } from "react";
-import { AppState } from "react-native";
+import { type FC, useState, useSyncExternalStore } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 
 import { Typography } from "@/components/ui/typography";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 
 // Share one foreground timer across mounted labels, independent of row renders.
-let now = Date.now();
+let now: number | undefined;
 const listeners = new Set<() => void>();
 let stopClock: (() => void) | undefined;
 
@@ -16,17 +16,20 @@ function startClock() {
     now = Date.now();
     listeners.forEach((listener) => listener());
   };
-  const updateAppState = (state: typeof AppState.currentState) => {
+  const updateAppState = (state: AppStateStatus) => {
     clearInterval(timer);
+    timer = undefined;
     if (state !== "active") return;
     timer = setInterval(tick, 1000);
     tick();
   };
+  now = Date.now();
   const appState = AppState.addEventListener("change", updateAppState);
-  updateAppState(AppState.currentState);
+  if (AppState.currentState === "active") timer = setInterval(tick, 1000);
   return () => {
     clearInterval(timer);
     appState.remove();
+    now = undefined;
   };
 }
 
@@ -63,8 +66,9 @@ interface PostAgeProps {
 export const PostAge: FC<PostAgeProps> = (props) => {
   const { publishedAt } = props;
   const theme = useTheme();
+  const [mountedAt] = useState(Date.now);
   const age = useSyncExternalStore(subscribe, () =>
-    formatAge(publishedAt, now),
+    formatAge(publishedAt, now ?? mountedAt),
   );
 
   return (
