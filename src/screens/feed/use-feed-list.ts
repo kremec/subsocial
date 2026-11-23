@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -94,6 +95,7 @@ export function useFeedList(options: FeedListOptions) {
   const [album, setAlbum] = useState<MediaAlbum>();
   const playing = visible && !album;
   const [now, setNow] = useState(Date.now);
+  const ageInputs = useRef({ items, focused });
   const videoViews = useRef(
     new Map<string, ActiveVideo & { view: ViewInstance }>(),
   );
@@ -177,11 +179,16 @@ export function useFeedList(options: FeedListOptions) {
   };
   const updateForRows = useEffectEvent(updateViewport);
   const saveOnBackground = useEffectEvent(savePosition);
+  useLayoutEffect(() => {
+    const previous = ageInputs.current;
+    ageInputs.current = { items, focused };
+    if (focused && (items !== previous.items || !previous.focused)) {
+      setNow(Date.now());
+    }
+  }, [items, focused]);
+
   useEffect(() => {
     updateForRows();
-    // Give the new list snapshot one wall-clock time for all age labels.
-    // oxlint-disable-next-line react/set-state-in-effect
-    setNow(Date.now());
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") setNow(Date.now());
       else saveOnBackground();
