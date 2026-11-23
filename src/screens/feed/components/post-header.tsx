@@ -1,17 +1,18 @@
-import { type FC } from "react";
+import { type FC, useContext } from "react";
 import { View } from "react-native";
 
 import { Icon, IconName } from "@/components/ui/icon";
 import { Typography } from "@/components/ui/typography";
 import { getPlatform } from "@/platforms/platforms";
+import { FeedMediaContext } from "@/screens/feed/use-feed-list";
 import { useTheme } from "@/theme/use-theme";
 import { t } from "@/translation/use-translation";
 import { type FeedPost } from "@/types/feed-post";
 import { type PlatformId } from "@/types/platform-id";
 import { PostVariant } from "@/types/post-variant";
 
-const formatAge = (publishedAt: number) => {
-  const seconds = Math.max(0, Math.floor((Date.now() - publishedAt) / 1000));
+const formatAge = (publishedAt: number, now: number) => {
+  const seconds = Math.max(0, Math.floor((now - publishedAt) / 1000));
   if (seconds < 60) return t("feedAgeSeconds", { count: seconds });
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return t("feedAgeMinutes", { count: minutes });
@@ -32,6 +33,7 @@ interface PostHeaderProps {
 
 export const PostHeader: FC<PostHeaderProps> = (props) => {
   const { platform, post, variant } = props;
+  const { now } = useContext(FeedMediaContext)!;
   const theme = useTheme();
   const definition = getPlatform(platform);
   const author = post.authorHandle || post.authorName || definition.label;
@@ -99,7 +101,7 @@ export const PostHeader: FC<PostHeaderProps> = (props) => {
       </View>
       {!!post.publishedAt && (
         <Typography variant="caption" color={theme.colors.textSecondary}>
-          {formatAge(post.publishedAt)}
+          {formatAge(post.publishedAt, now)}
         </Typography>
       )}
     </View>
